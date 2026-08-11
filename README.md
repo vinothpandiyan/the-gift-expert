@@ -1,58 +1,78 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# The Gift Expert
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Affiliate gift discovery platform. Internally the catalog entity is `Product`; customer-facing UI uses **Gift** terminology.
 
-## About Laravel
+## Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Laravel 13 / PHP 8.5
+- Filament 5 admin
+- Livewire 4
+- Tailwind CSS + Vite
+- MySQL + Redis
+- Laravel Sail
+- PHPUnit + Pint
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requirements
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Docker Desktop running
+- Composer dependencies installed (`composer install`)
+- Node dependencies installed when building assets (`npm install`)
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Setup
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+cp .env.example .env
+./vendor/bin/sail up -d
+./vendor/bin/sail artisan key:generate
+./vendor/bin/sail artisan migrate --seed
+./vendor/bin/sail npm install
+./vendor/bin/sail npm run build
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+App URL defaults to `http://localhost` (Sail port 80).
 
-## Contributing
+## Admin
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Filament admin: `http://localhost/admin`
 
-## Code of Conduct
+Seeded development user:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- Email: `test@example.com`
+- Password: `password`
 
-## Security Vulnerabilities
+Do not treat this credential as production-ready.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Public discovery
 
-## License
+Configured in `config/discovery.php` and generated via `App\Support\DiscoveryUrl`:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Page | Path |
+|------|------|
+| Gift detail | `/gifts/{slug}` |
+| Category ideas | `/gift-ideas/{full_path}` |
+| Finder | `/find-a-gift` |
+| Finder results | `/find-a-gift/results/{uuid}` |
+| Affiliate outbound | `/out/{uuid}` |
+
+There is no public `/products` route.
+
+## Tests
+
+```bash
+./vendor/bin/sail artisan test
+./vendor/bin/sail artisan test --filter=MvpSmokeTest
+./vendor/bin/sail pint --dirty
+```
+
+PHPUnit uses the `testing` database (`phpunit.xml`).
+
+## Architecture notes
+
+- Publication: `App\Actions\Product\PublishProductAction`
+- Recommendations: `App\Actions\Recommendation\GenerateRecommendationsAction`
+- Affiliate clicks: `App\Actions\Affiliate\CreateAffiliateClickAction`
+- Customer terminology: `App\Support\Terminology`
+- Discovery URLs: `App\Support\DiscoveryUrl`
+- Public SEO helpers: `App\Support\PageMeta`
+
+Authoritative project context lives in `.cursor/PROJECT_STATE.mdc` and `.cursor/rules/architecture.mdc`.
