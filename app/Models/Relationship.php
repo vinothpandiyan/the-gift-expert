@@ -30,6 +30,7 @@ class Relationship extends Model
 
     public function products(): BelongsToMany
     {
-        return $this->belongsToMany(Product::class);
+        return $this->belongsToMany(Product::class, 'relationship_product')
+            ->withPivot('created_at');
     }
 }

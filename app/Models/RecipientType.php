@@ -30,6 +30,7 @@ class RecipientType extends Model
 
     public function products(): BelongsToMany
     {
-        return $this->belongsToMany(Product::class);
+        return $this->belongsToMany(Product::class, 'recipient_type_product')
+            ->withPivot('created_at');
     }
 }
