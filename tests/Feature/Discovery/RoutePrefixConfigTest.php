@@ -33,7 +33,16 @@ class RoutePrefixConfigTest extends TestCase
             '/'.ltrim(route('discovery.gift_ideas.category', ['full_path' => 'a/b'], absolute: false), '/'),
         );
 
-        $this->assertFalse(Route::has('discovery.finder.show'));
+        $this->assertTrue(Route::has('discovery.finder.show'));
+        $this->assertTrue(Route::has('discovery.finder.results'));
+        $this->assertSame(
+            DiscoveryUrl::finder(),
+            '/'.ltrim(route('discovery.finder.show', absolute: false), '/'),
+        );
+        $this->assertSame(
+            DiscoveryUrl::finderResults('550e8400-e29b-41d4-a716-446655440000'),
+            '/'.ltrim(route('discovery.finder.results', ['uuid' => '550e8400-e29b-41d4-a716-446655440000'], absolute: false), '/'),
+        );
         $this->assertFalse(Route::has('discovery.affiliate.out'));
     }
 }

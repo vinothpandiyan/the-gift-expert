@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', config('app.name'))</title>
+    <title>@yield('title', $title ?? config('app.name'))</title>
     @fonts
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -21,7 +21,10 @@
             <a href="{{ url('/') }}" class="text-lg font-semibold tracking-tight text-stone-900">
                 {{ config('app.name') }}
             </a>
-            <nav class="text-sm text-stone-600">
+            <nav class="flex items-center gap-4 text-sm text-stone-600">
+                <a href="{{ \App\Support\DiscoveryUrl::finder() }}" class="hover:text-stone-900 hover:underline">
+                    Find a Gift
+                </a>
                 <span>{{ \App\Support\Terminology::giftIdeas() }}</span>
             </nav>
         </div>

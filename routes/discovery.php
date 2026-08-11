@@ -3,11 +3,13 @@
 use App\Http\Controllers\Discovery\CategoryController;
 use App\Http\Controllers\Discovery\GiftController;
 use App\Http\Controllers\Discovery\TaxonomyController;
+use App\Livewire\GiftFinder;
+use App\Livewire\GiftFinderResults;
 use Illuminate\Support\Facades\Route;
 
 /**
  * Public discovery routes. Paths come from config/discovery.php.
- * Finder and affiliate /out routes are intentionally not registered in Phase 6.
+ * Affiliate /out is intentionally not registered yet.
  */
 $uri = static fn (string $name): string => ltrim((string) (config('discovery.routes')[$name] ?? ''), '/');
 
@@ -41,3 +43,9 @@ Route::get($uri('gift_type.show'), [TaxonomyController::class, 'show'])
 Route::get($uri('gift_ideas.category'), [CategoryController::class, 'show'])
     ->where('full_path', '.+')
     ->name('discovery.gift_ideas.category');
+
+Route::livewire($uri('finder.show'), GiftFinder::class)
+    ->name('discovery.finder.show');
+
+Route::livewire($uri('finder.results'), GiftFinderResults::class)
+    ->name('discovery.finder.results');
