@@ -1,6 +1,6 @@
 @extends('layouts.public')
 
-@section('title', $product->meta_title ?: $product->name.' | '.config('app.name'))
+@section('title', $seoTitle)
 
 @section('content')
     @php
@@ -11,6 +11,8 @@
         $primaryCategory = $product->categories->first(fn ($category) => (bool) $category->pivot->is_primary)
             ?? $product->categories->first();
     @endphp
+
+    <x-breadcrumbs :items="$breadcrumbs" />
 
     <article class="grid gap-8 lg:grid-cols-2">
         <div class="space-y-3">

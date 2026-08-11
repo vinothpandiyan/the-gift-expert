@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\CategoryPathRedirect;
 use App\Support\DiscoveryUrl;
+use App\Support\PageMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -49,6 +50,7 @@ class CategoryController extends Controller
         $category = Category::query()
             ->where('full_path', $full_path)
             ->where('is_active', true)
+            ->with('parent')
             ->first();
 
         if ($category === null) {
@@ -75,10 +77,22 @@ class CategoryController extends Controller
             ->orderByDesc('published_at')
             ->paginate(12);
 
+        $pagination = PageMeta::paginatedCanonicals(
+            $products,
+            PageMeta::categoryCanonical($category),
+        );
+
         return view('discovery.categories.show', [
             'category' => $category,
             'children' => $children,
             'products' => $products,
+            'seoTitle' => PageMeta::categoryTitle($category),
+            'seoDescription' => PageMeta::categoryDescription($category),
+            'seoCanonical' => $pagination['canonical'],
+            'seoRobots' => 'index, follow',
+            'seoPrev' => $pagination['prev'],
+            'seoNext' => $pagination['next'],
+            'breadcrumbs' => PageMeta::categoryBreadcrumbs($category),
         ]);
     }
 }

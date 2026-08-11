@@ -9,6 +9,7 @@ use App\Models\Occasion;
 use App\Models\Profession;
 use App\Models\RecipientType;
 use App\Models\Relationship;
+use App\Support\PageMeta;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -70,10 +71,23 @@ class TaxonomyController extends Controller
             ->orderByDesc('published_at')
             ->paginate(12);
 
+        $pagination = PageMeta::paginatedCanonicals(
+            $products,
+            PageMeta::taxonomyCanonical($record, $taxonomy),
+        );
+
         return view('discovery.taxonomies.show', [
             'taxonomy' => $record,
+            'taxonomyKey' => $taxonomy,
             'taxonomyLabel' => self::LABELS[$taxonomy],
             'products' => $products,
+            'seoTitle' => PageMeta::taxonomyTitle($record, $taxonomy),
+            'seoDescription' => PageMeta::taxonomyDescription($record),
+            'seoCanonical' => $pagination['canonical'],
+            'seoRobots' => 'index, follow',
+            'seoPrev' => $pagination['prev'],
+            'seoNext' => $pagination['next'],
+            'breadcrumbs' => PageMeta::taxonomyBreadcrumbs($record, $taxonomy, self::LABELS[$taxonomy]),
         ]);
     }
 }

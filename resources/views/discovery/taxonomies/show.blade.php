@@ -1,8 +1,10 @@
 @extends('layouts.public')
 
-@section('title', ($taxonomy->meta_title ?: $taxonomy->name).' | '.config('app.name'))
+@section('title', $seoTitle)
 
 @section('content')
+    <x-breadcrumbs :items="$breadcrumbs" />
+
     <header class="mb-8 space-y-3">
         <p class="text-sm font-medium uppercase tracking-wide text-stone-500">
             {{ $taxonomyLabel }}

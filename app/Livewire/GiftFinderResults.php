@@ -5,7 +5,7 @@ namespace App\Livewire;
 use App\Models\RecommendationResult;
 use App\Models\RecommendationSession;
 use App\Support\DiscoveryUrl;
-use App\Support\Terminology;
+use App\Support\PageMeta;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -37,7 +37,12 @@ class GiftFinderResults extends Component
             'finderUrl' => DiscoveryUrl::finder(),
         ])
             ->extends('layouts.public')
-            ->title(Terminology::giftRecommendations().' | '.config('app.name'));
+            ->title(PageMeta::finderResultsTitle())
+            ->layoutData([
+                'seoDescription' => PageMeta::finderResultsDescription(),
+                'seoCanonical' => PageMeta::finderCanonical(),
+                'seoRobots' => 'noindex, follow',
+            ]);
     }
 
     /**

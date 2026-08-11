@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductSlugRedirect;
 use App\Support\DiscoveryUrl;
+use App\Support\PageMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -24,7 +25,7 @@ class GiftController extends Controller
                     ->active()
                     ->with('merchant')
                     ->orderByDesc('is_primary'),
-                'categories',
+                'categories.parent',
                 'occasions',
                 'relationships',
                 'recipientTypes',
@@ -37,6 +38,11 @@ class GiftController extends Controller
         if ($product !== null) {
             return view('discovery.gifts.show', [
                 'product' => $product,
+                'seoTitle' => PageMeta::giftTitle($product),
+                'seoDescription' => PageMeta::giftDescription($product),
+                'seoCanonical' => PageMeta::giftCanonical($product),
+                'seoRobots' => 'index, follow',
+                'breadcrumbs' => PageMeta::giftBreadcrumbs($product),
             ]);
         }
 

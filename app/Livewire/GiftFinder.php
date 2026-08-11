@@ -11,6 +11,7 @@ use App\Models\Profession;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use App\Support\DiscoveryUrl;
+use App\Support\PageMeta;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -72,7 +73,12 @@ class GiftFinder extends Component
             'maxInterests' => (int) config('gift_recommendations.max_interests'),
         ])
             ->extends('layouts.public')
-            ->title('Find a Gift | '.config('app.name'));
+            ->title(PageMeta::finderTitle())
+            ->layoutData([
+                'seoDescription' => PageMeta::finderDescription(),
+                'seoCanonical' => PageMeta::finderCanonical(),
+                'seoRobots' => 'index, follow',
+            ]);
     }
 
     /**
