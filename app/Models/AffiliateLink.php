@@ -8,12 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class AffiliateLink extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
+        'uuid',
         'product_id',
         'merchant_id',
         'url',
@@ -30,6 +32,15 @@ class AffiliateLink extends Model
             'status' => AffiliateLinkStatus::class,
             'last_verified_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (AffiliateLink $link): void {
+            if (blank($link->uuid)) {
+                $link->uuid = (string) Str::uuid();
+            }
+        });
     }
 
     public function product(): BelongsTo

@@ -42,10 +42,15 @@
             </p>
         @endif
 
-        @if ($merchantName)
-            <p class="mt-auto text-xs text-stone-500">
-                {{ $merchantName }}
-            </p>
+        @if ($affiliateLink)
+            <a
+                href="{{ \App\Support\DiscoveryUrl::affiliateOut($affiliateLink->uuid) }}"
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                class="mt-auto text-xs font-medium text-amber-700 hover:underline"
+            >
+                View at {{ $merchantName ?? 'merchant' }}
+            </a>
         @endif
     </div>
 </article>

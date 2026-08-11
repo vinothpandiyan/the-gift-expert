@@ -80,7 +80,7 @@
             @if ($affiliateLink)
                 <div>
                     <a
-                        href="{{ $affiliateLink->url }}"
+                        href="{{ \App\Support\DiscoveryUrl::affiliateOut($affiliateLink->uuid) }}"
                         target="_blank"
                         rel="noopener noreferrer sponsored"
                         class="inline-flex items-center justify-center rounded-md bg-amber-600 px-5 py-3 text-sm font-semibold text-white hover:bg-amber-700"
@@ -89,6 +89,7 @@
                     </a>
                 </div>
             @endif
+
 
             <section class="space-y-3 border-t border-stone-200 pt-6 text-sm text-stone-600">
                 @if ($primaryCategory)

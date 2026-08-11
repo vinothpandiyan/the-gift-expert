@@ -43,6 +43,10 @@ class RoutePrefixConfigTest extends TestCase
             DiscoveryUrl::finderResults('550e8400-e29b-41d4-a716-446655440000'),
             '/'.ltrim(route('discovery.finder.results', ['uuid' => '550e8400-e29b-41d4-a716-446655440000'], absolute: false), '/'),
         );
-        $this->assertFalse(Route::has('discovery.affiliate.out'));
+        $this->assertTrue(Route::has('discovery.affiliate.out'));
+        $this->assertSame(
+            DiscoveryUrl::affiliateOut('550e8400-e29b-41d4-a716-446655440000'),
+            '/'.ltrim(route('discovery.affiliate.out', ['uuid' => '550e8400-e29b-41d4-a716-446655440000'], absolute: false), '/'),
+        );
     }
 }

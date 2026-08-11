@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Discovery\AffiliateRedirectController;
 use App\Http\Controllers\Discovery\CategoryController;
 use App\Http\Controllers\Discovery\GiftController;
 use App\Http\Controllers\Discovery\TaxonomyController;
@@ -9,7 +10,6 @@ use Illuminate\Support\Facades\Route;
 
 /**
  * Public discovery routes. Paths come from config/discovery.php.
- * Affiliate /out is intentionally not registered yet.
  */
 $uri = static fn (string $name): string => ltrim((string) (config('discovery.routes')[$name] ?? ''), '/');
 
@@ -49,3 +49,6 @@ Route::livewire($uri('finder.show'), GiftFinder::class)
 
 Route::livewire($uri('finder.results'), GiftFinderResults::class)
     ->name('discovery.finder.results');
+
+Route::get($uri('affiliate.out'), AffiliateRedirectController::class)
+    ->name('discovery.affiliate.out');
