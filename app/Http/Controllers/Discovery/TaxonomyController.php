@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Http\Controllers\Discovery;
+
+use App\Http\Controllers\Controller;
+use App\Models\GiftType;
+use App\Models\Interest;
+use App\Models\Occasion;
+use App\Models\Profession;
+use App\Models\RecipientType;
+use App\Models\Relationship;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\View\View;
+use InvalidArgumentException;
+
+class TaxonomyController extends Controller
+{
+    /**
+     * @var array<string, class-string<Model>>
+     */
+    private const MODELS = [
+        'occasion' => Occasion::class,
+        'relationship' => Relationship::class,
+        'recipient_type' => RecipientType::class,
+        'interest' => Interest::class,
+        'profession' => Profession::class,
+        'gift_type' => GiftType::class,
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const LABELS = [
+        'occasion' => 'Occasion',
+        'relationship' => 'Relationship',
+        'recipient_type' => 'Recipient',
+        'interest' => 'Interest',
+        'profession' => 'Profession',
+        'gift_type' => 'Gift type',
+    ];
+
+    public function show(string $slug, string $taxonomy): View
+    {
+        $modelClass = self::MODELS[$taxonomy] ?? null;
+
+        if ($modelClass === null) {
+            throw new InvalidArgumentException("Unknown discovery taxonomy [{$taxonomy}].");
+        }
+
+        $record = $modelClass::query()
+            ->where('slug', $slug)
+            ->where('is_active', true)
+            ->first();
+
+        if ($record === null) {
+            abort(404);
+        }
+
+        $products = $record->products()
+            ->published()
+            ->with([
+                'images' => fn ($query) => $query
+                    ->orderByDesc('is_primary')
+                    ->orderBy('sort_order'),
+                'affiliateLinks' => fn ($query) => $query
+                    ->active()
+                    ->with('merchant')
+                    ->orderByDesc('is_primary'),
+            ])
+            ->orderByDesc('published_at')
+            ->paginate(12);
+
+        return view('discovery.taxonomies.show', [
+            'taxonomy' => $record,
+            'taxonomyLabel' => self::LABELS[$taxonomy],
+            'products' => $products,
+        ]);
+    }
+}
