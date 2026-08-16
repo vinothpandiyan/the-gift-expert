@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Filament\Resources\Categories\Pages\CreateCategory;
 use App\Filament\Resources\Categories\Pages\EditCategory;
 use App\Models\Category;
+use App\Models\SeoLandingPage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -69,6 +70,61 @@ class CategoryResourceTest extends TestCase
             ])
             ->call('create')
             ->assertHasFormErrors(['slug']);
+    }
+
+    public function test_canonical_landing_page_mapping_can_be_saved_for_a_published_page(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $page = SeoLandingPage::factory()->published()->create([
+            'heading' => 'Birthday Gifts for Husband',
+            'slug' => 'birthday-gifts-for-husband',
+            'is_indexable' => true,
+        ]);
+
+        $category = Category::query()->create([
+            'name' => 'Birthday Gifts for Husband',
+            'slug' => 'birthday-gifts-for-husband',
+            'is_active' => true,
+        ]);
+
+        Livewire::test(EditCategory::class, [
+            'record' => $category->getRouteKey(),
+        ])
+            ->fillForm([
+                'canonical_seo_landing_page_id' => $page->id,
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($page->id, $category->fresh()->canonical_seo_landing_page_id);
+    }
+
+    public function test_canonical_landing_page_mapping_rejects_draft_pages(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $page = SeoLandingPage::factory()->draft()->create([
+            'heading' => 'Draft Landing Page',
+            'slug' => 'draft-landing-page',
+        ]);
+
+        $category = Category::query()->create([
+            'name' => 'Birthday Gifts for Husband',
+            'slug' => 'birthday-gifts-for-husband',
+            'is_active' => true,
+        ]);
+
+        Livewire::test(EditCategory::class, [
+            'record' => $category->getRouteKey(),
+        ])
+            ->fillForm([
+                'canonical_seo_landing_page_id' => $page->id,
+            ])
+            ->call('save')
+            ->assertHasFormErrors(['canonical_seo_landing_page_id']);
+
+        $this->assertNull($category->fresh()->canonical_seo_landing_page_id);
     }
 
     public function test_editing_slug_rebuilds_descendant_paths(): void

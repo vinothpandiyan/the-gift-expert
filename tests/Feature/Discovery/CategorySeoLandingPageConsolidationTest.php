@@ -186,6 +186,52 @@ class CategorySeoLandingPageConsolidationTest extends TestCase
             ->assertDontSee(DiscoveryUrl::giftIdeasCategory($category->full_path), false);
     }
 
+    public function test_unpublishing_the_mapped_landing_page_restores_the_category_url(): void
+    {
+        [$category, $page] = $this->mappedCompositeCategory();
+
+        $page->update(['status' => SeoLandingPageStatus::Draft]);
+
+        $this->get(DiscoveryUrl::giftIdeasCategory($category->full_path))
+            ->assertOk()
+            ->assertSee('Birthday Gifts for Husband', false);
+    }
+
+    public function test_soft_deleting_the_mapped_landing_page_restores_the_category_and_parent_child_link(): void
+    {
+        [$category, $page] = $this->mappedCompositeCategory();
+        $parent = $category->parent;
+        $page->delete();
+
+        $this->get(DiscoveryUrl::giftIdeasCategory($category->fresh()->full_path))
+            ->assertOk()
+            ->assertSee('Birthday Gifts for Husband', false);
+
+        $this->get(DiscoveryUrl::giftIdeasCategory($parent->fresh()->full_path))
+            ->assertOk()
+            ->assertSee(DiscoveryUrl::giftIdeasCategory($category->fresh()->full_path), false);
+    }
+
+    public function test_multiple_categories_can_redirect_to_the_same_published_landing_page(): void
+    {
+        [$category, $page] = $this->mappedCompositeCategory();
+
+        $other = Category::query()->create([
+            'name' => 'Husband Birthday Collection',
+            'slug' => 'husband-birthday-collection',
+            'is_active' => true,
+            'canonical_seo_landing_page_id' => $page->id,
+        ]);
+
+        $this->get(DiscoveryUrl::giftIdeasCategory($category->full_path))
+            ->assertStatus(301)
+            ->assertRedirect(DiscoveryUrl::seoLandingPage($page->slug));
+
+        $this->get(DiscoveryUrl::giftIdeasCategory($other->fresh()->full_path))
+            ->assertStatus(301)
+            ->assertRedirect(DiscoveryUrl::seoLandingPage($page->slug));
+    }
+
     /**
      * @return array{0: Category, 1: SeoLandingPage}
      */

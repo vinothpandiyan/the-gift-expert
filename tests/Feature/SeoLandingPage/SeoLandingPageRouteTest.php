@@ -9,6 +9,7 @@ use App\Models\Relationship;
 use App\Models\SeoLandingPage;
 use App\Models\SeoLandingPageRedirect;
 use App\Support\DiscoveryUrl;
+use App\Support\Terminology;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Discovery\GiftCatalogTestHelpers;
 use Tests\TestCase;
@@ -325,6 +326,81 @@ class SeoLandingPageRouteTest extends TestCase
             ->assertOk()
             ->assertSee('Matching Husband Birthday Gift', false)
             ->assertDontSee('Husband Only Gift', false);
+    }
+
+    public function test_empty_matching_catalog_still_returns_ok(): void
+    {
+        $page = $this->publishedLandingPage(
+            slug: 'empty-birthday-gifts-for-husband',
+            attributes: ['is_indexable' => true],
+        );
+
+        $this->get(DiscoveryUrl::seoLandingPage($page->slug))
+            ->assertOk()
+            ->assertSee('No '.strtolower(Terminology::gifts()).' found yet.', false)
+            ->assertSee('<meta name="robots" content="index, follow">', false);
+    }
+
+    public function test_sitemap_flag_does_not_change_http_robots(): void
+    {
+        $page = $this->publishedLandingPage(
+            slug: 'sitemap-flag-page',
+            attributes: [
+                'is_indexable' => false,
+                'include_in_sitemap' => true,
+            ],
+        );
+
+        $this->get(DiscoveryUrl::seoLandingPage($page->slug))
+            ->assertOk()
+            ->assertSee('<meta name="robots" content="noindex, follow">', false);
+    }
+
+    public function test_pagination_canonicals_include_page_query(): void
+    {
+        $husband = $this->relationship();
+
+        foreach (range(1, 13) as $index) {
+            $gift = GiftCatalogTestHelpers::publishedGift([
+                'name' => "Husband Gift {$index}",
+                'slug' => "husband-gift-{$index}",
+            ]);
+            $gift->relationships()->attach($husband);
+        }
+
+        $page = $this->publishedLandingPage(
+            slug: 'gifts-for-husbands-list',
+            heading: 'Gifts for Husbands',
+            relationship: $husband,
+        );
+
+        $baseCanonical = DiscoveryUrl::seoLandingPage($page->slug, absolute: true);
+
+        $this->get(DiscoveryUrl::seoLandingPage($page->slug))
+            ->assertOk()
+            ->assertSee('<link rel="canonical" href="'.$baseCanonical.'">', false)
+            ->assertSee('<link rel="next"', false);
+
+        $this->get(DiscoveryUrl::seoLandingPage($page->slug).'?page=2')
+            ->assertOk()
+            ->assertSee('<link rel="canonical" href="'.$baseCanonical.'?page=2">', false)
+            ->assertSee('<link rel="prev"', false);
+    }
+
+    public function test_reused_slug_serves_the_new_published_page_instead_of_the_old_redirect(): void
+    {
+        $page = $this->publishedLandingPage(slug: 'old-birthday-gifts-for-husband');
+        $page->update(['slug' => 'birthday-gifts-for-husband']);
+
+        $replacement = $this->publishedLandingPage(
+            slug: 'old-birthday-gifts-for-husband',
+            heading: 'Replacement Landing Page',
+        );
+
+        $this->get(DiscoveryUrl::seoLandingPage('old-birthday-gifts-for-husband'))
+            ->assertOk()
+            ->assertSee('Replacement Landing Page', false)
+            ->assertDontSee('Birthday Gifts for Husband', false);
     }
 
     /**

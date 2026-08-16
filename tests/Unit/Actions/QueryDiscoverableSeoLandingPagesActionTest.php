@@ -78,4 +78,31 @@ class QueryDiscoverableSeoLandingPagesActionTest extends TestCase
 
         $this->assertTrue($pages->isEmpty());
     }
+
+    public function test_it_excludes_pages_after_indexability_is_turned_off(): void
+    {
+        $husband = Relationship::query()->create(['name' => 'Husband', 'slug' => 'husband', 'is_active' => true]);
+
+        $page = SeoLandingPage::factory()->published()->create([
+            'heading' => 'Birthday Gifts for Husband',
+            'relationship_id' => $husband->id,
+            'is_indexable' => true,
+        ]);
+
+        $this->assertSame(
+            [$page->id],
+            app(QueryDiscoverableSeoLandingPagesAction::class)
+                ->execute(['relationship_id' => $husband->id])
+                ->pluck('id')
+                ->all(),
+        );
+
+        $page->update(['is_indexable' => false]);
+
+        $this->assertTrue(
+            app(QueryDiscoverableSeoLandingPagesAction::class)
+                ->execute(['relationship_id' => $husband->id])
+                ->isEmpty(),
+        );
+    }
 }

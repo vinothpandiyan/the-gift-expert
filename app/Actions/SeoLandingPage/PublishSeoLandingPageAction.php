@@ -4,6 +4,7 @@ namespace App\Actions\SeoLandingPage;
 
 use App\Enums\SeoLandingPageStatus;
 use App\Models\SeoLandingPage;
+use App\Support\SeoLandingPageEditorial;
 use Illuminate\Validation\ValidationException;
 
 class PublishSeoLandingPageAction
@@ -18,6 +19,12 @@ class PublishSeoLandingPageAction
 
         if (! $this->hasAnyFilterDimension($page)) {
             $errors[] = 'Add at least one filter dimension before publishing.';
+        }
+
+        $duplicate = SeoLandingPageEditorial::findPublishedDuplicate($page);
+
+        if ($duplicate instanceof SeoLandingPage) {
+            $errors[] = "Another published SEO landing page already uses this filter combination ({$duplicate->heading}).";
         }
 
         if ($errors !== []) {

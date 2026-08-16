@@ -9,6 +9,7 @@ use App\Models\SeoLandingPage;
 use App\Models\SeoLandingPageRedirect;
 use App\Support\DiscoveryUrl;
 use App\Support\PageMeta;
+use App\Support\SeoLandingPageEditorial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -32,16 +33,7 @@ class SeoLandingPageController extends Controller
         }
 
         try {
-            $products = $queryProducts->execute([
-                'occasion_id' => $page->occasion_id,
-                'relationship_id' => $page->relationship_id,
-                'recipient_type_id' => $page->recipient_type_id,
-                'profession_id' => $page->profession_id,
-                'gift_type_id' => $page->gift_type_id,
-                'category_id' => $page->category_id,
-                'budget_range_id' => $page->budget_range_id,
-                'interest_ids' => $page->interests->pluck('id')->all(),
-            ])
+            $products = $queryProducts->execute(SeoLandingPageEditorial::productFilters($page))
                 ->with([
                     'images' => fn ($query) => $query
                         ->orderByDesc('is_primary')

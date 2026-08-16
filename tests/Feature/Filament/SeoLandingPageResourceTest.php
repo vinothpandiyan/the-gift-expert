@@ -154,6 +154,38 @@ class SeoLandingPageResourceTest extends TestCase
         );
     }
 
+    public function test_taxonomy_entity_slugs_are_rejected(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->relationship();
+
+        Livewire::test(CreateSeoLandingPage::class)
+            ->fillForm([
+                'name' => 'Husband',
+                'slug' => 'husband',
+                'heading' => 'Husband',
+                'sort_order' => 0,
+            ])
+            ->call('create')
+            ->assertHasFormErrors(['slug']);
+    }
+
+    public function test_edit_page_shows_matching_published_gift_count(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $page = SeoLandingPage::factory()->create([
+            'relationship_id' => $this->relationship()->id,
+        ]);
+
+        Livewire::test(EditSeoLandingPage::class, [
+            'record' => $page->getRouteKey(),
+        ])
+            ->assertOk()
+            ->assertSee('0 published gifts currently match these filters.');
+    }
+
     public function test_slug_uniqueness_is_enforced(): void
     {
         $this->actingAs(User::factory()->create());

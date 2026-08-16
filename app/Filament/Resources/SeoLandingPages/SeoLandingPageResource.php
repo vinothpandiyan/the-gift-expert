@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\SeoLandingPages;
 
+use App\Actions\Product\QueryPublishedProductsByFiltersAction;
 use App\Enums\SeoLandingPageStatus;
 use App\Filament\Resources\SeoLandingPages\Pages\CreateSeoLandingPage;
 use App\Filament\Resources\SeoLandingPages\Pages\EditSeoLandingPage;
 use App\Filament\Resources\SeoLandingPages\Pages\ListSeoLandingPages;
 use App\Models\Category;
 use App\Models\SeoLandingPage;
+use App\Rules\NotExistingTaxonomySlug;
+use App\Support\SeoLandingPageEditorial;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -19,7 +22,9 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -34,6 +39,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use InvalidArgumentException;
 
 class SeoLandingPageResource extends Resource
 {
@@ -82,6 +88,7 @@ class SeoLandingPageResource extends Resource
                             ->rules([
                                 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
                                 Rule::notIn(config('discovery.reserved_prefixes', [])),
+                                new NotExistingTaxonomySlug,
                             ]),
                         TextInput::make('heading')
                             ->required()
@@ -144,7 +151,14 @@ class SeoLandingPageResource extends Resource
                             ->getOptionLabelFromRecordUsing(fn (Category $record): string => $record->full_path)
                             ->searchable()
                             ->preload()
-                            ->nullable(),
+                            ->nullable()
+                            ->live()
+                            ->helperText('Use a merchandising category to filter products. Do not select a composite category whose public URL already 301s to a landing page — that category’s product pivots are not the landing-page catalog.'),
+                        Callout::make('This category is already mapped to a landing page')
+                            ->description('Product listings on this page would use that category’s pivots, not the taxonomy filters. Leave category empty for composite search-intent pages.')
+                            ->warning()
+                            ->columnSpanFull()
+                            ->visible(fn (Get $get): bool => SeoLandingPageEditorial::categoryIsMappedToLandingPage($get('category_id'))),
                         Select::make('budget_range_id')
                             ->label('Budget range')
                             ->relationship('budgetRange', 'name')
@@ -173,12 +187,55 @@ class SeoLandingPageResource extends Resource
                             ->maxLength(500)
                             ->columnSpanFull(),
                         Toggle::make('is_indexable')
-                            ->default(false),
+                            ->default(false)
+                            ->live()
+                            ->helperText('Keep off until the page has a distinct composite intent and enough published gifts. Publish does not turn this on.'),
+                        Callout::make('This page duplicates a taxonomy URL')
+                            ->description('A single relationship, occasion, recipient type, profession, gift type, category, or interest is already served by a taxonomy page. Leave this landing page noindex unless there is a distinct editorial reason.')
+                            ->warning()
+                            ->columnSpanFull()
+                            ->visible(function (Get $get): bool {
+                                if (! $get('is_indexable')) {
+                                    return false;
+                                }
+
+                                return SeoLandingPageEditorial::duplicatesTaxonomyIntent([
+                                    'occasion_id' => $get('occasion_id'),
+                                    'relationship_id' => $get('relationship_id'),
+                                    'recipient_type_id' => $get('recipient_type_id'),
+                                    'profession_id' => $get('profession_id'),
+                                    'gift_type_id' => $get('gift_type_id'),
+                                    'category_id' => $get('category_id'),
+                                    'budget_range_id' => $get('budget_range_id'),
+                                    'interest_ids' => $get('interests'),
+                                ]);
+                            }),
                         Toggle::make('include_in_sitemap')
                             ->default(false),
                     ])
                     ->columns(2)
                     ->collapsed(),
+                Section::make('Matching published gifts')
+                    ->schema([
+                        Text::make(function (?SeoLandingPage $record): string {
+                            if ($record === null || $record->getKey() === null) {
+                                return 'Save the page to see how many published gifts match these filters.';
+                            }
+
+                            try {
+                                $count = app(QueryPublishedProductsByFiltersAction::class)
+                                    ->execute(SeoLandingPageEditorial::productFilters($record))
+                                    ->count();
+                            } catch (InvalidArgumentException) {
+                                return 'Add at least one filter dimension to count matching gifts.';
+                            }
+
+                            return $count === 1
+                                ? '1 published gift currently matches these filters.'
+                                : "{$count} published gifts currently match these filters.";
+                        }),
+                    ])
+                    ->visibleOn('edit'),
                 Section::make('Content')
                     ->schema([
                         Textarea::make('intro_content')

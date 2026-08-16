@@ -93,6 +93,48 @@ class PublishSeoLandingPageActionTest extends TestCase
         $this->assertSame(SeoLandingPageStatus::Published, $page->fresh()->status);
     }
 
+    public function test_it_fails_when_another_published_page_has_the_same_filters(): void
+    {
+        $relationship = $this->relationship();
+        $occasion = $this->occasion();
+
+        SeoLandingPage::factory()->published()->create([
+            'heading' => 'Birthday Gifts for Husband',
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+        ]);
+
+        $page = SeoLandingPage::factory()->create([
+            'heading' => 'Duplicate Husband Birthday',
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+        ]);
+
+        try {
+            app(PublishSeoLandingPageAction::class)->execute($page);
+            $this->fail('Expected ValidationException was not thrown.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString(
+                'Another published SEO landing page already uses this filter combination',
+                $exception->errors()['status'][0],
+            );
+        }
+
+        $this->assertSame(SeoLandingPageStatus::Draft, $page->fresh()->status);
+    }
+
+    public function test_it_allows_republishing_the_same_page(): void
+    {
+        $page = SeoLandingPage::factory()->published()->create([
+            'relationship_id' => $this->relationship()->id,
+            'occasion_id' => $this->occasion()->id,
+        ]);
+
+        app(PublishSeoLandingPageAction::class)->execute($page);
+
+        $this->assertSame(SeoLandingPageStatus::Published, $page->fresh()->status);
+    }
+
     public function test_it_fails_when_no_filter_dimension_exists(): void
     {
         $page = SeoLandingPage::factory()->create();

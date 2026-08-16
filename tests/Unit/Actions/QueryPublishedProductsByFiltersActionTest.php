@@ -127,6 +127,42 @@ class QueryPublishedProductsByFiltersActionTest extends TestCase
         $this->assertSame([$cardGift->id], $ids);
     }
 
+    public function test_category_relationship_and_occasion_require_all_matches(): void
+    {
+        $electronics = Category::query()->create([
+            'name' => 'Electronics',
+            'slug' => 'electronics',
+        ]);
+        $books = Category::query()->create([
+            'name' => 'Books',
+            'slug' => 'books',
+        ]);
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+
+        $all = $this->publishedGift('all-three');
+        $all->categories()->attach($electronics);
+        $all->relationships()->attach($husband);
+        $all->occasions()->attach($birthday);
+
+        $missingOccasion = $this->publishedGift('missing-occasion');
+        $missingOccasion->categories()->attach($electronics);
+        $missingOccasion->relationships()->attach($husband);
+
+        $wrongCategory = $this->publishedGift('wrong-category');
+        $wrongCategory->categories()->attach($books);
+        $wrongCategory->relationships()->attach($husband);
+        $wrongCategory->occasions()->attach($birthday);
+
+        $ids = $this->filteredIds([
+            'category_id' => $electronics->id,
+            'relationship_id' => $husband->id,
+            'occasion_id' => $birthday->id,
+        ]);
+
+        $this->assertSame([$all->id], $ids);
+    }
+
     public function test_category_filter_returns_only_matching_products(): void
     {
         $electronics = Category::query()->create([

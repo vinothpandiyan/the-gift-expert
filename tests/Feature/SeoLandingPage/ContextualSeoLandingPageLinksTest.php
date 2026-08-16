@@ -3,6 +3,7 @@
 namespace Tests\Feature\SeoLandingPage;
 
 use App\Enums\SeoLandingPageStatus;
+use App\Models\BudgetRange;
 use App\Models\Category;
 use App\Models\Occasion;
 use App\Models\Relationship;
@@ -134,6 +135,30 @@ class ContextualSeoLandingPageLinksTest extends TestCase
             ->assertSee('href="'.DiscoveryUrl::seoLandingPage($page->slug).'"', false)
             ->assertSee('href="'.DiscoveryUrl::giftIdeasCategory($merchandising->fresh()->full_path).'"', false)
             ->assertDontSee('href="'.DiscoveryUrl::giftIdeasCategory($child->fresh()->full_path).'"', false);
+    }
+
+    public function test_budget_only_landing_page_is_not_listed_on_a_relationship_page(): void
+    {
+        $husband = $this->relationship('Husband');
+        $range = BudgetRange::query()->create([
+            'name' => 'Under ₹500',
+            'slug' => 'under-500',
+            'max_amount' => '499.99',
+            'currency' => 'INR',
+        ]);
+
+        $budgetOnly = $this->landingPage([
+            'slug' => 'gifts-under-500',
+            'heading' => 'Gifts Under 500',
+            'relationship_id' => null,
+            'budget_range_id' => $range->id,
+            'is_indexable' => true,
+        ]);
+
+        $this->get(DiscoveryUrl::relationship($husband->slug))
+            ->assertOk()
+            ->assertDontSee('href="'.DiscoveryUrl::seoLandingPage($budgetOnly->slug).'"', false)
+            ->assertDontSee('Gifts Under 500', false);
     }
 
     /**

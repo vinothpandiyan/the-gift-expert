@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\Categories;
 
+use App\Enums\SeoLandingPageStatus;
 use App\Filament\Resources\Categories\Pages\CreateCategory;
 use App\Filament\Resources\Categories\Pages\EditCategory;
 use App\Filament\Resources\Categories\Pages\ListCategories;
 use App\Models\Category;
+use App\Models\SeoLandingPage;
 use BackedEnum;
+use Closure;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -17,6 +20,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -100,6 +104,73 @@ class CategoryResource extends Resource
                             ->required(),
                         Toggle::make('is_active')
                             ->default(true),
+                        Select::make('canonical_seo_landing_page_id')
+                            ->label('Canonical SEO landing page')
+                            ->relationship(
+                                name: 'canonicalSeoLandingPage',
+                                titleAttribute: 'heading',
+                                modifyQueryUsing: function (Builder $query, ?Category $record): Builder {
+                                    return $query
+                                        ->where(function (Builder $inner) use ($record): void {
+                                            $inner->where('status', SeoLandingPageStatus::Published);
+
+                                            if ($record?->canonical_seo_landing_page_id) {
+                                                $inner->orWhere('seo_landing_pages.id', $record->canonical_seo_landing_page_id);
+                                            }
+                                        })
+                                        ->orderBy('heading');
+                                },
+                            )
+                            ->getOptionLabelFromRecordUsing(function (SeoLandingPage $page): string {
+                                $label = $page->heading.' (/'.$page->slug.')';
+
+                                if ($page->status !== SeoLandingPageStatus::Published) {
+                                    return $label.' — unpublished';
+                                }
+
+                                if (! $page->is_indexable) {
+                                    return $label.' — noindex';
+                                }
+
+                                return $label;
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->nullable()
+                            ->live()
+                            ->helperText('When the landing page is published, this category’s public URL 301s to it. The category row and product pivots are kept. Map only to a published page; prefer an indexable page so the category URL is not redirected to a noindex target.')
+                            ->rules([
+                                function (): Closure {
+                                    return function (string $attribute, mixed $value, Closure $fail): void {
+                                        if ($value === null || $value === '') {
+                                            return;
+                                        }
+
+                                        $page = SeoLandingPage::query()->find($value);
+
+                                        if ($page === null || $page->status !== SeoLandingPageStatus::Published) {
+                                            $fail('Map this category only to a published SEO landing page.');
+                                        }
+                                    };
+                                },
+                            ]),
+                        Callout::make('This landing page is not indexable')
+                            ->description('The category URL will still 301 to the published landing page, but that page is noindex. Prefer mapping after the landing page is indexable.')
+                            ->warning()
+                            ->columnSpanFull()
+                            ->visible(function (Get $get): bool {
+                                $id = $get('canonical_seo_landing_page_id');
+
+                                if ($id === null || $id === '') {
+                                    return false;
+                                }
+
+                                $page = SeoLandingPage::query()->find($id);
+
+                                return $page instanceof SeoLandingPage
+                                    && $page->status === SeoLandingPageStatus::Published
+                                    && ! $page->is_indexable;
+                            }),
                         TextInput::make('meta_title')
                             ->maxLength(255),
                         Textarea::make('meta_description')

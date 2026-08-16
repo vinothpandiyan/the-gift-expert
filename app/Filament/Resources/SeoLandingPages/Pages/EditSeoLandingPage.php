@@ -29,7 +29,7 @@ class EditSeoLandingPage extends EditRecord
                 ->color('success')
                 ->requiresConfirmation()
                 ->modalHeading('Publish this SEO landing page?')
-                ->modalDescription('Publication requires at least one filter dimension.')
+                ->modalDescription('Publication requires at least one filter dimension and a unique filter combination.')
                 ->visible(fn (SeoLandingPage $record): bool => $record->status !== SeoLandingPageStatus::Published)
                 ->action(function (SeoLandingPage $record): void {
                     try {
