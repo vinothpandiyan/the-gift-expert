@@ -83,6 +83,11 @@ class SeoLandingPage extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function canonicalForCategories(): HasMany
+    {
+        return $this->hasMany(Category::class, 'canonical_seo_landing_page_id');
+    }
+
     public function budgetRange(): BelongsTo
     {
         return $this->belongsTo(BudgetRange::class);

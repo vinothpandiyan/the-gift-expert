@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             GiftTypeSeeder::class,
             CategorySeeder::class,
             ProductSeeder::class,
+            SeoLandingPageSeeder::class,
             AdminUserSeeder::class,
         ]);
     }

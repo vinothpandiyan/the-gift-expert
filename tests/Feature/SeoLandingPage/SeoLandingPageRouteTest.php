@@ -100,6 +100,21 @@ class SeoLandingPageRouteTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_unpublished_landing_page_returns_not_found(): void
+    {
+        $page = $this->publishedLandingPage(slug: 'unpublished-birthday-gifts-for-husband');
+
+        $this->get(DiscoveryUrl::seoLandingPage($page->slug))
+            ->assertOk();
+
+        $page->update([
+            'status' => SeoLandingPageStatus::Draft,
+        ]);
+
+        $this->get(DiscoveryUrl::seoLandingPage($page->slug))
+            ->assertNotFound();
+    }
+
     public function test_soft_deleted_landing_page_returns_not_found(): void
     {
         $page = $this->publishedLandingPage(slug: 'deleted-birthday-gifts-for-husband');

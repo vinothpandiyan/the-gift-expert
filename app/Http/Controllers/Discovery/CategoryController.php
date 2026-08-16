@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Discovery;
 
+use App\Enums\SeoLandingPageStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\CategoryPathRedirect;
@@ -16,49 +17,33 @@ class CategoryController extends Controller
 
     public function show(string $full_path): RedirectResponse|View
     {
-        $path = $full_path;
-
-        for ($hop = 0; $hop < self::MAX_REDIRECT_HOPS; $hop++) {
-            $redirect = CategoryPathRedirect::query()
-                ->where('from_path', $path)
-                ->first();
-
-            if ($redirect === null) {
-                break;
-            }
-
-            if ($redirect->to_path === $path) {
-                break;
-            }
-
-            $path = $redirect->to_path;
-        }
-
-        if ($path !== $full_path) {
-            $target = Category::query()
-                ->where('full_path', $path)
-                ->where('is_active', true)
-                ->first();
-
-            if ($target === null) {
-                abort(404);
-            }
-
-            return redirect(DiscoveryUrl::giftIdeasCategory($target->full_path), 301);
-        }
+        $path = $this->resolvedCategoryPath($full_path);
 
         $category = Category::query()
-            ->where('full_path', $full_path)
+            ->where('full_path', $path)
             ->where('is_active', true)
-            ->with('parent')
+            ->with(['parent', 'canonicalSeoLandingPage'])
             ->first();
 
         if ($category === null) {
             abort(404);
         }
 
+        $landingPage = $category->publishedCanonicalSeoLandingPage();
+
+        if ($landingPage !== null) {
+            return redirect(DiscoveryUrl::seoLandingPage($landingPage->slug), 301);
+        }
+
+        if ($path !== $full_path) {
+            return redirect(DiscoveryUrl::giftIdeasCategory($category->full_path), 301);
+        }
+
         $children = $category->children()
             ->where('is_active', true)
+            ->whereDoesntHave('canonicalSeoLandingPage', function ($query): void {
+                $query->where('status', SeoLandingPageStatus::Published);
+            })
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -94,5 +79,28 @@ class CategoryController extends Controller
             'seoNext' => $pagination['next'],
             'breadcrumbs' => PageMeta::categoryBreadcrumbs($category),
         ]);
+    }
+
+    private function resolvedCategoryPath(string $fullPath): string
+    {
+        $path = $fullPath;
+
+        for ($hop = 0; $hop < self::MAX_REDIRECT_HOPS; $hop++) {
+            $redirect = CategoryPathRedirect::query()
+                ->where('from_path', $path)
+                ->first();
+
+            if ($redirect === null) {
+                break;
+            }
+
+            if ($redirect->to_path === $path) {
+                break;
+            }
+
+            $path = $redirect->to_path;
+        }
+
+        return $path;
     }
 }

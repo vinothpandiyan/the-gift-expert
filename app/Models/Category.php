@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SeoLandingPageStatus;
 use App\Observers\CategoryObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ class Category extends Model
         'description',
         'sort_order',
         'is_active',
+        'canonical_seo_landing_page_id',
         'meta_title',
         'meta_description',
     ];
@@ -49,6 +51,26 @@ class Category extends Model
     {
         return $this->belongsToMany(Product::class)
             ->withPivot('is_primary', 'created_at');
+    }
+
+    public function canonicalSeoLandingPage(): BelongsTo
+    {
+        return $this->belongsTo(SeoLandingPage::class, 'canonical_seo_landing_page_id');
+    }
+
+    public function publishedCanonicalSeoLandingPage(): ?SeoLandingPage
+    {
+        $page = $this->canonicalSeoLandingPage;
+
+        if (! $page instanceof SeoLandingPage) {
+            return null;
+        }
+
+        if ($page->status !== SeoLandingPageStatus::Published) {
+            return null;
+        }
+
+        return $page;
     }
 
     public function isDescendantOf(self $ancestor): bool
