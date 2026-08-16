@@ -189,7 +189,7 @@ class DiscoverySeoTest extends TestCase
 
         $this->assertCount(0, $productRoutes);
         $this->assertTrue(Route::has('discovery.affiliate.out'));
-        $this->assertCount(13, collect(Route::getRoutes())->filter(
+        $this->assertCount(14, collect(Route::getRoutes())->filter(
             fn ($route) => str_starts_with((string) $route->getName(), 'discovery.'),
         ));
     }

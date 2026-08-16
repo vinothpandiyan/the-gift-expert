@@ -96,4 +96,9 @@ final class DiscoveryUrl
     {
         return self::route('seo_landing.show', ['slug' => $slug], $absolute);
     }
+
+    public static function sitemap(bool $absolute = false): string
+    {
+        return self::route('sitemap.index', absolute: $absolute);
+    }
 }

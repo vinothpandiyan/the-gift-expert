@@ -5,6 +5,7 @@ use App\Http\Controllers\Discovery\CategoryController;
 use App\Http\Controllers\Discovery\GiftController;
 use App\Http\Controllers\Discovery\GiftIdeasController;
 use App\Http\Controllers\Discovery\SeoLandingPageController;
+use App\Http\Controllers\Discovery\SitemapController;
 use App\Http\Controllers\Discovery\TaxonomyController;
 use App\Livewire\GiftFinder;
 use App\Livewire\GiftFinderResults;
@@ -57,6 +58,9 @@ Route::livewire($uri('finder.results'), GiftFinderResults::class)
 
 Route::get($uri('affiliate.out'), AffiliateRedirectController::class)
     ->name('discovery.affiliate.out');
+
+Route::get($uri('sitemap.index'), [SitemapController::class, 'index'])
+    ->name('discovery.sitemap.index');
 
 Route::get($uri('seo_landing.show'), [SeoLandingPageController::class, 'show'])
     ->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*')

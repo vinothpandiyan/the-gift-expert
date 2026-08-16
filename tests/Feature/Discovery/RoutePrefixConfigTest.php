@@ -58,5 +58,10 @@ class RoutePrefixConfigTest extends TestCase
             DiscoveryUrl::seoLandingPage('birthday-gifts-for-husband'),
             '/'.ltrim(route('discovery.seo_landing.show', ['slug' => 'birthday-gifts-for-husband'], absolute: false), '/'),
         );
+        $this->assertTrue(Route::has('discovery.sitemap.index'));
+        $this->assertSame(
+            DiscoveryUrl::sitemap(),
+            '/'.ltrim(route('discovery.sitemap.index', absolute: false), '/'),
+        );
     }
 }

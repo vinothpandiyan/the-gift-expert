@@ -157,7 +157,7 @@ class MvpSmokeTest extends TestCase
         $this->assertTrue(Route::has('discovery.gift.show'));
         $this->assertTrue(Route::has('discovery.finder.show'));
         $this->assertTrue(Route::has('discovery.affiliate.out'));
-        $this->assertCount(13, collect(Route::getRoutes())->filter(
+        $this->assertCount(14, collect(Route::getRoutes())->filter(
             fn ($route) => str_starts_with((string) $route->getName(), 'discovery.'),
         ));
     }

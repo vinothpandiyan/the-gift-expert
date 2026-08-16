@@ -111,4 +111,11 @@ class SeoLandingPage extends Model
             ->where('status', SeoLandingPageStatus::Published)
             ->where('is_indexable', true);
     }
+
+    public function scopeInSitemap(Builder $query): Builder
+    {
+        return $query
+            ->discoverable()
+            ->where('include_in_sitemap', true);
+    }
 }

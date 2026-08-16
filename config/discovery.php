@@ -27,6 +27,7 @@ return [
         'finder.results' => '/find-a-gift/results/{uuid}',
         'affiliate.out' => '/out/{uuid}',
         'seo_landing.show' => '/{slug}',
+        'sitemap.index' => '/sitemap.xml',
     ],
 
     /*
