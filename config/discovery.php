@@ -25,6 +25,35 @@ return [
         'finder.show' => '/find-a-gift',
         'finder.results' => '/find-a-gift/results/{uuid}',
         'affiliate.out' => '/out/{uuid}',
+        'seo_landing.show' => '/{slug}',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reserved First-Segment Slugs
+    |--------------------------------------------------------------------------
+    |
+    | A landing-page slug is rejected only when it equals one of these values
+    | exactly. Compound slugs such as gifts-for-boyfriend remain allowed.
+    |
+    */
+
+    'reserved_prefixes' => [
+        'gifts',
+        'gift-ideas',
+        'gifts-for',
+        'occasions',
+        'recipients',
+        'interests',
+        'professions',
+        'gift-types',
+        'find-a-gift',
+        'out',
+        'admin',
+        'up',
+        'livewire',
+        'build',
+        'storage',
     ],
 
 ];

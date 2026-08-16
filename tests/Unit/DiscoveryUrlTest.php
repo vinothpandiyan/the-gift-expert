@@ -36,6 +36,8 @@ class DiscoveryUrlTest extends TestCase
         $this->assertSame('/find-a-gift', DiscoveryUrl::finder());
         $this->assertSame('/find-a-gift/results/550e8400-e29b-41d4-a716-446655440000', DiscoveryUrl::finderResults('550e8400-e29b-41d4-a716-446655440000'));
         $this->assertSame('/out/550e8400-e29b-41d4-a716-446655440000', DiscoveryUrl::affiliateOut('550e8400-e29b-41d4-a716-446655440000'));
+        $this->assertSame('/birthday-gifts-for-husband', DiscoveryUrl::seoLandingPage('birthday-gifts-for-husband'));
+        $this->assertSame('/gifts-for-boyfriend', DiscoveryUrl::seoLandingPage('gifts-for-boyfriend'));
     }
 
     public function test_absolute_urls_prefix_with_app_url(): void

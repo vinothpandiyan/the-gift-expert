@@ -48,5 +48,10 @@ class RoutePrefixConfigTest extends TestCase
             DiscoveryUrl::affiliateOut('550e8400-e29b-41d4-a716-446655440000'),
             '/'.ltrim(route('discovery.affiliate.out', ['uuid' => '550e8400-e29b-41d4-a716-446655440000'], absolute: false), '/'),
         );
+        $this->assertTrue(Route::has('discovery.seo_landing.show'));
+        $this->assertSame(
+            DiscoveryUrl::seoLandingPage('birthday-gifts-for-husband'),
+            '/'.ltrim(route('discovery.seo_landing.show', ['slug' => 'birthday-gifts-for-husband'], absolute: false), '/'),
+        );
     }
 }

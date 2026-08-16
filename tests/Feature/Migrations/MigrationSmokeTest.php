@@ -38,6 +38,9 @@ class MigrationSmokeTest extends TestCase
             'affiliate_clicks',
             'category_path_redirects',
             'product_slug_redirects',
+            'seo_landing_pages',
+            'seo_landing_page_interests',
+            'seo_landing_page_redirects',
         ];
 
         foreach ($tables as $table) {

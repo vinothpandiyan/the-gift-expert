@@ -86,4 +86,9 @@ final class DiscoveryUrl
     {
         return self::route('affiliate.out', ['uuid' => $uuid], $absolute);
     }
+
+    public static function seoLandingPage(string $slug, bool $absolute = false): string
+    {
+        return self::route('seo_landing.show', ['slug' => $slug], $absolute);
+    }
 }

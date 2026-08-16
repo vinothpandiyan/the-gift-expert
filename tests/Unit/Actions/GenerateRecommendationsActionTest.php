@@ -25,6 +25,43 @@ class GenerateRecommendationsActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_occasion_is_scored_and_is_not_a_hard_eligibility_filter(): void
+    {
+        $occasion = $this->occasion('Birthday');
+
+        $matching = $this->gift([
+            'name' => 'Birthday Gift',
+            'slug' => 'birthday-gift',
+            'price_amount' => '400.00',
+        ]);
+        $matching->occasions()->attach($occasion);
+
+        $unrelated = $this->gift([
+            'name' => 'Untagged Occasion Gift',
+            'slug' => 'untagged-occasion-gift',
+            'price_amount' => '400.00',
+        ]);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'occasion_id' => $occasion->id,
+        ]);
+
+        $this->assertEqualsCanonicalizing(
+            [$matching->id, $unrelated->id],
+            $session->results->pluck('product_id')->all(),
+        );
+
+        $matchingResult = $session->results->firstWhere('product_id', $matching->id);
+        $unrelatedResult = $session->results->firstWhere('product_id', $unrelated->id);
+
+        $this->assertSame(
+            config('gift_recommendations.weights.occasion_match'),
+            $matchingResult->score_breakdown['occasion_match'],
+        );
+        $this->assertArrayNotHasKey('occasion_match', $unrelatedResult->score_breakdown);
+        $this->assertSame(0.0, (float) $unrelatedResult->score);
+    }
+
     public function test_it_only_includes_published_products_with_active_affiliate_links(): void
     {
         $occasion = $this->occasion('Birthday');

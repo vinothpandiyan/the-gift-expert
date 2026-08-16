@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\SeoLandingPage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
@@ -206,6 +207,51 @@ final class PageMeta
     public static function finderResultsDescription(): ?string
     {
         return Terminology::giftRecommendations();
+    }
+
+    public static function seoLandingPageTitle(SeoLandingPage $page): string
+    {
+        if (filled($page->meta_title)) {
+            return (string) $page->meta_title;
+        }
+
+        return $page->heading.' | '.self::appName();
+    }
+
+    public static function seoLandingPageDescription(SeoLandingPage $page): ?string
+    {
+        return self::firstFilledText([
+            $page->meta_description,
+            $page->intro_content,
+            $page->heading,
+            $page->name,
+        ]);
+    }
+
+    public static function seoLandingPageCanonical(SeoLandingPage $page): string
+    {
+        if (filled($page->canonical_url) && filter_var($page->canonical_url, FILTER_VALIDATE_URL)) {
+            return (string) $page->canonical_url;
+        }
+
+        return DiscoveryUrl::seoLandingPage($page->slug, absolute: true);
+    }
+
+    public static function seoLandingPageRobots(SeoLandingPage $page): string
+    {
+        return $page->is_indexable ? 'index, follow' : 'noindex, follow';
+    }
+
+    /**
+     * @return list<array{label: string, url: ?string}>
+     */
+    public static function seoLandingPageBreadcrumbs(SeoLandingPage $page): array
+    {
+        return [
+            ['label' => 'Home', 'url' => url('/')],
+            ['label' => Terminology::giftIdeas(), 'url' => null],
+            ['label' => $page->heading, 'url' => null],
+        ];
     }
 
     /**

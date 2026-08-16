@@ -2,8 +2,7 @@
 
 namespace App\Actions\Recommendation;
 
-use App\Enums\AffiliateLinkStatus;
-use App\Models\BudgetRange;
+use App\Actions\Product\QueryPublishedProductsByFiltersAction;
 use App\Models\GiftType;
 use App\Models\Occasion;
 use App\Models\Product;
@@ -126,52 +125,24 @@ class GenerateRecommendationsAction
      */
     private function eligibleProducts(RecommendationSession $session, array $interestIds): Builder
     {
-        $query = Product::query()
-            ->published()
-            ->whereHas('affiliateLinks', function (Builder $query): void {
-                $query->where('status', AffiliateLinkStatus::Active);
-            });
+        $filters = [
+            'budget_range_id' => $session->budget_range_id,
+        ];
 
-        $budget = $session->budgetRange;
-
-        if ($budget instanceof BudgetRange) {
-            $query->where('price_currency', $budget->currency)
-                ->whereNotNull('price_amount');
-
-            if ($budget->min_amount !== null) {
-                $query->where('price_amount', '>=', $budget->min_amount);
-            }
-
-            if ($budget->max_amount !== null) {
-                $query->where('price_amount', '<=', $budget->max_amount);
-            }
+        if (config('gift_recommendations.optional_dimensions_filter_strict')) {
+            $filters['relationship_id'] = $session->relationship_id;
+            $filters['recipient_type_id'] = $session->recipient_type_id;
+            $filters['profession_id'] = $session->profession_id;
+            $filters['gift_type_id'] = $session->gift_type_id;
+            $filters['interest_ids'] = $interestIds;
         }
 
-        if (! config('gift_recommendations.optional_dimensions_filter_strict')) {
-            return $query;
-        }
-
-        if ($session->relationship_id !== null) {
-            $query->whereHas('relationships', fn (Builder $q) => $q->where('relationships.id', $session->relationship_id));
-        }
-
-        if ($session->recipient_type_id !== null) {
-            $query->whereHas('recipientTypes', fn (Builder $q) => $q->where('recipient_types.id', $session->recipient_type_id));
-        }
-
-        if ($session->profession_id !== null) {
-            $query->whereHas('professions', fn (Builder $q) => $q->where('professions.id', $session->profession_id));
-        }
-
-        if ($session->gift_type_id !== null) {
-            $query->whereHas('giftTypes', fn (Builder $q) => $q->where('gift_types.id', $session->gift_type_id));
-        }
-
-        if ($interestIds !== []) {
-            $query->whereHas('interests', fn (Builder $q) => $q->whereIn('interests.id', $interestIds));
-        }
-
-        return $query;
+        return app(QueryPublishedProductsByFiltersAction::class)->execute(
+            $filters,
+            requireActiveAffiliate: true,
+            allowUnfiltered: true,
+            matchAllInterests: false,
+        );
     }
 
     /**

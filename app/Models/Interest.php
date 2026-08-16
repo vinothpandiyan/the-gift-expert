@@ -32,4 +32,10 @@ class Interest extends Model
     {
         return $this->belongsToMany(Product::class);
     }
+
+    public function seoLandingPages(): BelongsToMany
+    {
+        return $this->belongsToMany(SeoLandingPage::class, 'seo_landing_page_interests')
+            ->withPivot('created_at');
+    }
 }
