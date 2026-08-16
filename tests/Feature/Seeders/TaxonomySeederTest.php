@@ -100,7 +100,7 @@ class TaxonomySeederTest extends TestCase
 
         $this->assertSame(1, Product::query()->where('slug', 'draft-gift-idea')->where('status', ProductStatus::Draft)->count());
         $this->assertSame(1, Product::query()->where('slug', 'personalized-wooden-photo-frame')->where('status', ProductStatus::Published)->count());
-        $this->assertSame(1, Product::query()->published()->count());
+        $this->assertSame(10, Product::query()->published()->count());
     }
 
     public function test_product_seeder_is_idempotent(): void
@@ -120,7 +120,7 @@ class TaxonomySeederTest extends TestCase
         ]);
 
         $this->assertSame($productCount, Product::query()->count());
-        $this->assertSame(1, Product::query()->published()->count());
+        $this->assertSame(10, Product::query()->published()->count());
     }
 
     public function test_database_seeder_creates_composite_landing_page_without_copying_category_products(): void
