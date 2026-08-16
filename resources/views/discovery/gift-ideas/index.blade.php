@@ -10,7 +10,7 @@
             {{ \App\Support\Terminology::giftIdeas() }}
         </h1>
         <p class="max-w-3xl text-base leading-relaxed text-stone-600">
-            Browse gifts by recipient, occasion, interest, or category.
+            Browse gifts by recipient, occasion, interest, profession, gift type, or category.
         </p>
     </header>
 
@@ -66,6 +66,36 @@
                 @foreach ($interests as $item)
                     <li>
                         <a href="{{ \App\Support\DiscoveryUrl::interest($item->slug) }}" class="inline-flex rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 hover:border-stone-400 hover:bg-stone-50">
+                            {{ $item->name }}
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
+    @if ($professions->isNotEmpty())
+        <section class="mb-10">
+            <h2 class="mb-4 text-lg font-semibold text-stone-900">Professions</h2>
+            <ul class="flex flex-wrap gap-2">
+                @foreach ($professions as $item)
+                    <li>
+                        <a href="{{ \App\Support\DiscoveryUrl::profession($item->slug) }}" class="inline-flex rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 hover:border-stone-400 hover:bg-stone-50">
+                            {{ $item->name }}
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
+    @if ($giftTypes->isNotEmpty())
+        <section class="mb-10">
+            <h2 class="mb-4 text-lg font-semibold text-stone-900">Gift Types</h2>
+            <ul class="flex flex-wrap gap-2">
+                @foreach ($giftTypes as $item)
+                    <li>
+                        <a href="{{ \App\Support\DiscoveryUrl::giftType($item->slug) }}" class="inline-flex rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 hover:border-stone-400 hover:bg-stone-50">
                             {{ $item->name }}
                         </a>
                     </li>

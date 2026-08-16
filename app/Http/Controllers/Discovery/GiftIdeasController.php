@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Discovery;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
+use App\Models\Profession;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use App\Support\PageMeta;
@@ -22,6 +24,8 @@ class GiftIdeasController extends Controller
             'relationships' => Relationship::query()->tap($active)->get(),
             'occasions' => Occasion::query()->tap($active)->get(),
             'interests' => Interest::query()->tap($active)->get(),
+            'professions' => Profession::query()->tap($active)->get(),
+            'giftTypes' => GiftType::query()->tap($active)->get(),
             'categories' => Category::query()
                 ->whereNull('parent_id')
                 ->where('is_active', true)

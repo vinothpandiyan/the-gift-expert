@@ -23,38 +23,12 @@
     @endif
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-900 antialiased">
-    <header class="border-b border-stone-200 bg-white">
-        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-            <a href="{{ url('/') }}" class="text-lg font-semibold tracking-tight text-stone-900">
-                {{ config('app.name') }}
-            </a>
-            <nav class="flex items-center gap-4 text-sm text-stone-600">
-                <a href="{{ \App\Support\DiscoveryUrl::finder() }}" class="hover:text-stone-900 hover:underline">
-                    Find a Gift
-                </a>
-                <a href="{{ \App\Support\DiscoveryUrl::giftIdeas() }}" class="hover:text-stone-900 hover:underline">
-                    {{ \App\Support\Terminology::giftIdeas() }}
-                </a>
-            </nav>
-        </div>
-    </header>
+    <x-site-header />
 
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         @yield('content')
     </main>
 
-    <footer class="border-t border-stone-200 bg-white">
-        <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-sm text-stone-500 sm:px-6">
-            <span>{{ config('app.name') }}</span>
-            <nav class="flex items-center gap-4">
-                <a href="{{ \App\Support\DiscoveryUrl::finder() }}" class="hover:text-stone-800 hover:underline">
-                    Find a Gift
-                </a>
-                <a href="{{ \App\Support\DiscoveryUrl::giftIdeas() }}" class="hover:text-stone-800 hover:underline">
-                    {{ \App\Support\Terminology::giftIdeas() }}
-                </a>
-            </nav>
-        </div>
-    </footer>
+    <x-site-footer />
 </body>
 </html>
