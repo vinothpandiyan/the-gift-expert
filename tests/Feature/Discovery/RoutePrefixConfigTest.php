@@ -32,6 +32,11 @@ class RoutePrefixConfigTest extends TestCase
             DiscoveryUrl::giftIdeasCategory('a/b'),
             '/'.ltrim(route('discovery.gift_ideas.category', ['full_path' => 'a/b'], absolute: false), '/'),
         );
+        $this->assertTrue(Route::has('discovery.gift_ideas.index'));
+        $this->assertSame(
+            DiscoveryUrl::giftIdeas(),
+            '/'.ltrim(route('discovery.gift_ideas.index', absolute: false), '/'),
+        );
 
         $this->assertTrue(Route::has('discovery.finder.show'));
         $this->assertTrue(Route::has('discovery.finder.results'));

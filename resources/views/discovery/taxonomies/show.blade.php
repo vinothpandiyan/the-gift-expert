@@ -19,6 +19,11 @@
         @endif
     </header>
 
+    <x-related-seo-landing-pages
+        :pages="$relatedLandingPages ?? collect()"
+        :heading="'Related '.\App\Support\Terminology::giftIdeas()"
+    />
+
     <section>
         <h2 class="mb-4 text-lg font-semibold text-stone-900">
             {{ \App\Support\Terminology::gifts() }}

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Discovery;
 
+use App\Actions\SeoLandingPage\QueryDiscoverableSeoLandingPagesAction;
 use App\Enums\SeoLandingPageStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
@@ -15,7 +16,7 @@ class CategoryController extends Controller
 {
     private const MAX_REDIRECT_HOPS = 3;
 
-    public function show(string $full_path): RedirectResponse|View
+    public function show(string $full_path, QueryDiscoverableSeoLandingPagesAction $queryLandingPages): RedirectResponse|View
     {
         $path = $this->resolvedCategoryPath($full_path);
 
@@ -70,6 +71,7 @@ class CategoryController extends Controller
         return view('discovery.categories.show', [
             'category' => $category,
             'children' => $children,
+            'relatedLandingPages' => $queryLandingPages->forCategory($category),
             'products' => $products,
             'seoTitle' => PageMeta::categoryTitle($category),
             'seoDescription' => PageMeta::categoryDescription($category),

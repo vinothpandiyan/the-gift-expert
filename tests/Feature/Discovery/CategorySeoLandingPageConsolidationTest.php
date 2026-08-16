@@ -182,7 +182,7 @@ class CategorySeoLandingPageConsolidationTest extends TestCase
             ->assertOk()
             ->assertSee('Visible Merchandising Child', false)
             ->assertSee(DiscoveryUrl::giftIdeasCategory($visibleChild->fresh()->full_path), false)
-            ->assertDontSee('Birthday Gifts for Husband', false)
+            ->assertSee(DiscoveryUrl::seoLandingPage('birthday-gifts-for-husband'), false)
             ->assertDontSee(DiscoveryUrl::giftIdeasCategory($category->full_path), false);
     }
 

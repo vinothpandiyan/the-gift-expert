@@ -55,7 +55,7 @@ final class PageMeta
     {
         $crumbs = [
             ['label' => 'Home', 'url' => url('/')],
-            ['label' => Terminology::giftIdeas(), 'url' => null],
+            ['label' => Terminology::giftIdeas(), 'url' => DiscoveryUrl::giftIdeas()],
         ];
 
         $primaryCategory = $product->categories->first(fn (Category $category): bool => (bool) $category->pivot->is_primary)
@@ -105,7 +105,7 @@ final class PageMeta
     {
         $crumbs = [
             ['label' => 'Home', 'url' => url('/')],
-            ['label' => Terminology::giftIdeas(), 'url' => null],
+            ['label' => Terminology::giftIdeas(), 'url' => DiscoveryUrl::giftIdeas()],
         ];
 
         $chain = self::categoryAncestorChain($category);
@@ -172,7 +172,7 @@ final class PageMeta
         if (in_array($taxonomyKey, ['relationship', 'recipient_type'], true)) {
             return [
                 ['label' => 'Home', 'url' => url('/')],
-                ['label' => Terminology::giftIdeas(), 'url' => null],
+                ['label' => Terminology::giftIdeas(), 'url' => DiscoveryUrl::giftIdeas()],
                 ['label' => Terminology::gifts().' for '.$name, 'url' => null],
             ];
         }
@@ -207,6 +207,32 @@ final class PageMeta
     public static function finderResultsDescription(): ?string
     {
         return Terminology::giftRecommendations();
+    }
+
+    public static function giftIdeasTitle(): string
+    {
+        return Terminology::giftIdeas().' | '.self::appName();
+    }
+
+    public static function giftIdeasDescription(): ?string
+    {
+        return Terminology::giftIdeas();
+    }
+
+    public static function giftIdeasCanonical(): string
+    {
+        return DiscoveryUrl::giftIdeas(absolute: true);
+    }
+
+    /**
+     * @return list<array{label: string, url: ?string}>
+     */
+    public static function giftIdeasBreadcrumbs(): array
+    {
+        return [
+            ['label' => 'Home', 'url' => url('/')],
+            ['label' => Terminology::giftIdeas(), 'url' => null],
+        ];
     }
 
     public static function seoLandingPageTitle(SeoLandingPage $page): string
@@ -249,7 +275,7 @@ final class PageMeta
     {
         return [
             ['label' => 'Home', 'url' => url('/')],
-            ['label' => Terminology::giftIdeas(), 'url' => null],
+            ['label' => Terminology::giftIdeas(), 'url' => DiscoveryUrl::giftIdeas()],
             ['label' => $page->heading, 'url' => null],
         ];
     }

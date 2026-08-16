@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\SeoLandingPageStatus;
 use App\Observers\SeoLandingPageObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -102,5 +103,12 @@ class SeoLandingPage extends Model
     public function slugRedirects(): HasMany
     {
         return $this->hasMany(SeoLandingPageRedirect::class);
+    }
+
+    public function scopeDiscoverable(Builder $query): Builder
+    {
+        return $query
+            ->where('status', SeoLandingPageStatus::Published)
+            ->where('is_indexable', true);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Discovery;
 
+use App\Actions\SeoLandingPage\QueryDiscoverableSeoLandingPagesAction;
 use App\Http\Controllers\Controller;
 use App\Models\GiftType;
 use App\Models\Interest;
@@ -40,7 +41,7 @@ class TaxonomyController extends Controller
         'gift_type' => 'Gift type',
     ];
 
-    public function show(string $slug, string $taxonomy): View
+    public function show(string $slug, string $taxonomy, QueryDiscoverableSeoLandingPagesAction $queryLandingPages): View
     {
         $modelClass = self::MODELS[$taxonomy] ?? null;
 
@@ -81,6 +82,7 @@ class TaxonomyController extends Controller
             'taxonomyKey' => $taxonomy,
             'taxonomyLabel' => self::LABELS[$taxonomy],
             'products' => $products,
+            'relatedLandingPages' => $queryLandingPages->execute($this->landingPageFilters($taxonomy, $record->id)),
             'seoTitle' => PageMeta::taxonomyTitle($record, $taxonomy),
             'seoDescription' => PageMeta::taxonomyDescription($record),
             'seoCanonical' => $pagination['canonical'],
@@ -89,5 +91,21 @@ class TaxonomyController extends Controller
             'seoNext' => $pagination['next'],
             'breadcrumbs' => PageMeta::taxonomyBreadcrumbs($record, $taxonomy, self::LABELS[$taxonomy]),
         ]);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function landingPageFilters(string $taxonomy, int $id): array
+    {
+        return match ($taxonomy) {
+            'occasion' => ['occasion_id' => $id],
+            'relationship' => ['relationship_id' => $id],
+            'recipient_type' => ['recipient_type_id' => $id],
+            'profession' => ['profession_id' => $id],
+            'gift_type' => ['gift_type_id' => $id],
+            'interest' => ['interest_id' => $id],
+            default => [],
+        };
     }
 }

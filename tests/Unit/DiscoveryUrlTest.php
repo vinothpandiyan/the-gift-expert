@@ -19,6 +19,7 @@ class DiscoveryUrlTest extends TestCase
             '/gift-ideas/gifts-for-him/gifts-for-husband',
             DiscoveryUrl::giftIdeasCategory('gifts-for-him/gifts-for-husband'),
         );
+        $this->assertSame('/gift-ideas', DiscoveryUrl::giftIdeas());
     }
 
     public function test_taxonomy_urls_use_configured_prefixes(): void

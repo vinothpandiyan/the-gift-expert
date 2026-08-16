@@ -15,6 +15,7 @@ return [
 
     'routes' => [
         'gift.show' => '/gifts/{slug}',
+        'gift_ideas.index' => '/gift-ideas',
         'gift_ideas.category' => '/gift-ideas/{full_path}',
         'occasion.show' => '/occasions/{slug}',
         'relationship.show' => '/gifts-for/{slug}',

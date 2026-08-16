@@ -3,6 +3,7 @@
 use App\Http\Controllers\Discovery\AffiliateRedirectController;
 use App\Http\Controllers\Discovery\CategoryController;
 use App\Http\Controllers\Discovery\GiftController;
+use App\Http\Controllers\Discovery\GiftIdeasController;
 use App\Http\Controllers\Discovery\SeoLandingPageController;
 use App\Http\Controllers\Discovery\TaxonomyController;
 use App\Livewire\GiftFinder;
@@ -40,6 +41,9 @@ Route::get($uri('profession.show'), [TaxonomyController::class, 'show'])
 Route::get($uri('gift_type.show'), [TaxonomyController::class, 'show'])
     ->defaults('taxonomy', 'gift_type')
     ->name('discovery.gift_type.show');
+
+Route::get($uri('gift_ideas.index'), [GiftIdeasController::class, 'index'])
+    ->name('discovery.gift_ideas.index');
 
 Route::get($uri('gift_ideas.category'), [CategoryController::class, 'show'])
     ->where('full_path', '.+')

@@ -37,6 +37,11 @@ final class DiscoveryUrl
         return self::route('gift.show', ['slug' => $slug], $absolute);
     }
 
+    public static function giftIdeas(bool $absolute = false): string
+    {
+        return self::route('gift_ideas.index', absolute: $absolute);
+    }
+
     public static function giftIdeasCategory(string $fullPath, bool $absolute = false): string
     {
         return self::route('gift_ideas.category', ['full_path' => $fullPath], $absolute);

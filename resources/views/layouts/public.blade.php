@@ -32,7 +32,9 @@
                 <a href="{{ \App\Support\DiscoveryUrl::finder() }}" class="hover:text-stone-900 hover:underline">
                     Find a Gift
                 </a>
-                <span>{{ \App\Support\Terminology::giftIdeas() }}</span>
+                <a href="{{ \App\Support\DiscoveryUrl::giftIdeas() }}" class="hover:text-stone-900 hover:underline">
+                    {{ \App\Support\Terminology::giftIdeas() }}
+                </a>
             </nav>
         </div>
     </header>
@@ -42,8 +44,16 @@
     </main>
 
     <footer class="border-t border-stone-200 bg-white">
-        <div class="mx-auto max-w-6xl px-4 py-6 text-sm text-stone-500 sm:px-6">
-            {{ config('app.name') }}
+        <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-sm text-stone-500 sm:px-6">
+            <span>{{ config('app.name') }}</span>
+            <nav class="flex items-center gap-4">
+                <a href="{{ \App\Support\DiscoveryUrl::finder() }}" class="hover:text-stone-800 hover:underline">
+                    Find a Gift
+                </a>
+                <a href="{{ \App\Support\DiscoveryUrl::giftIdeas() }}" class="hover:text-stone-800 hover:underline">
+                    {{ \App\Support\Terminology::giftIdeas() }}
+                </a>
+            </nav>
         </div>
     </footer>
 </body>
