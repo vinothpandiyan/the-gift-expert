@@ -50,7 +50,7 @@ class Category extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class)
-            ->withPivot('is_primary', 'created_at');
+            ->withPivot('is_primary');
     }
 
     public function canonicalSeoLandingPage(): BelongsTo
