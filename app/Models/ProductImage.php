@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Observers\ProductImageObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
+#[ObservedBy(ProductImageObserver::class)]
 class ProductImage extends Model
 {
     protected $fillable = [
@@ -15,6 +18,9 @@ class ProductImage extends Model
         'alt_text',
         'sort_order',
         'is_primary',
+        'source_url',
+        'content_hash',
+        'acquired_at',
     ];
 
     protected function casts(): array
@@ -22,6 +28,7 @@ class ProductImage extends Model
         return [
             'sort_order' => 'integer',
             'is_primary' => 'boolean',
+            'acquired_at' => 'datetime',
         ];
     }
 
@@ -32,6 +39,6 @@ class ProductImage extends Model
 
     public function url(): string
     {
-        return Storage::disk($this->disk ?: 'public')->url($this->path);
+        return Storage::disk($this->disk ?: (string) config('media.product_images.disk', 'public'))->url($this->path);
     }
 }

@@ -1,0 +1,30 @@
+{
+    "products": [
+        {
+            "name": "Updated Leather Wallet",
+            "short_description": "Updated wallet copy.",
+            "description": "Updated wallet description from a later catalog snapshot.",
+            "brand": "Revised Brand",
+            "price_amount": "2099.00",
+            "price_currency": "INR",
+            "affiliate_url": "https://example.test/affiliate/wallet-updated",
+            "external_product_id": "FAKE-WALLET-1",
+            "image_urls": [
+                "https://example.test/images/wallet-updated.jpg"
+            ]
+        },
+        {
+            "name": "Updated Pour-Over Coffee Kit",
+            "short_description": "Updated coffee copy.",
+            "description": "Updated coffee kit description from a later catalog snapshot.",
+            "brand": "Brew House Revised",
+            "price_amount": "1399.00",
+            "price_currency": "INR",
+            "affiliate_url": "https://example.test/affiliate/coffee-kit-updated",
+            "external_product_id": "FAKE-COFFEE-1",
+            "image_urls": [
+                "https://example.test/images/coffee-kit-updated.jpg"
+            ]
+        }
+    ]
+}

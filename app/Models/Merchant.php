@@ -29,4 +29,9 @@ class Merchant extends Model
     {
         return $this->hasMany(AffiliateLink::class);
     }
+
+    public function importRuns(): HasMany
+    {
+        return $this->hasMany(ImportRun::class);
+    }
 }

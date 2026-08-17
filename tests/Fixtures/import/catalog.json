@@ -1,0 +1,63 @@
+{
+    "products": [
+        {
+            "name": "Classic Leather Wallet",
+            "short_description": "A slim leather wallet for everyday carry.",
+            "description": "Imported sample wallet with a deterministic fake catalog identity.",
+            "brand": "Example Brand",
+            "price_amount": "1899.00",
+            "price_currency": "INR",
+            "affiliate_url": "https://example.test/affiliate/wallet",
+            "external_product_id": "FAKE-WALLET-1",
+            "image_urls": [
+                "https://example.test/images/wallet-1.jpg",
+                "https://example.test/images/wallet-2.jpg"
+            ]
+        },
+        {
+            "name": "Pour-Over Coffee Kit",
+            "short_description": "A simple pour-over set for home brewing.",
+            "description": "Imported sample coffee kit with a deterministic fake catalog identity.",
+            "brand": "Brew House",
+            "price_amount": "1299.00",
+            "price_currency": "INR",
+            "affiliate_url": "https://example.test/affiliate/coffee-kit",
+            "external_product_id": "FAKE-COFFEE-1",
+            "image_urls": [
+                "https://example.test/images/coffee-kit.jpg"
+            ]
+        },
+        {
+            "name": "Gift Without Identity",
+            "short_description": "Malformed: missing external product id.",
+            "description": "This row must be skipped.",
+            "brand": "Example Brand",
+            "price_amount": "500.00",
+            "price_currency": "INR",
+            "affiliate_url": "https://example.test/affiliate/missing-id",
+            "image_urls": [
+                "https://example.test/images/missing-id.jpg"
+            ]
+        },
+        {
+            "short_description": "Malformed: missing name.",
+            "description": "This row must be skipped.",
+            "brand": "Example Brand",
+            "price_amount": "500.00",
+            "price_currency": "INR",
+            "affiliate_url": "https://example.test/affiliate/missing-name",
+            "external_product_id": "FAKE-MISSING-NAME",
+            "image_urls": []
+        },
+        {
+            "name": "Gift Without Affiliate URL",
+            "short_description": "Malformed: missing affiliate URL.",
+            "description": "This row must be skipped.",
+            "brand": "Example Brand",
+            "price_amount": "500.00",
+            "price_currency": "INR",
+            "external_product_id": "FAKE-MISSING-URL",
+            "image_urls": []
+        }
+    ]
+}

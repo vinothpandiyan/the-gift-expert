@@ -58,6 +58,11 @@ class AffiliateLink extends Model
         return $this->hasMany(AffiliateClick::class);
     }
 
+    public function importRunItems(): HasMany
+    {
+        return $this->hasMany(ImportRunItem::class);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', AffiliateLinkStatus::Active);

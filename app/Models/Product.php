@@ -49,12 +49,19 @@ class Product extends Model
 
     public function images(): HasMany
     {
-        return $this->hasMany(ProductImage::class);
+        return $this->hasMany(ProductImage::class)
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
 
     public function affiliateLinks(): HasMany
     {
         return $this->hasMany(AffiliateLink::class);
+    }
+
+    public function importRunItems(): HasMany
+    {
+        return $this->hasMany(ImportRunItem::class);
     }
 
     public function categories(): BelongsToMany
