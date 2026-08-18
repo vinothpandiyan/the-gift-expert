@@ -41,6 +41,8 @@ class MigrationSmokeTest extends TestCase
             'seo_landing_pages',
             'seo_landing_page_interests',
             'seo_landing_page_redirects',
+            'catalog_candidates',
+            'catalog_candidate_evidence',
         ];
 
         foreach ($tables as $table) {
