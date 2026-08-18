@@ -8,6 +8,7 @@ readonly class CatalogCandidateIngestionResult
 {
     /**
      * @param  list<CatalogCandidateIngestionItemOutcome>  $outcomes
+     * @param  list<string>  $queries
      */
     public function __construct(
         public int $itemsTotal,
@@ -16,5 +17,6 @@ readonly class CatalogCandidateIngestionResult
         public int $itemsFailed,
         public array $outcomes,
         public ?CatalogCandidateIngestionRun $run = null,
+        public array $queries = [],
     ) {}
 }

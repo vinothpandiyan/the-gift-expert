@@ -5,6 +5,11 @@ namespace Tests\Feature\CatalogCandidate;
 use App\Actions\CatalogCandidate\DiscoverCatalogCandidatesAction;
 use App\CatalogCandidate\Discovery\CatalogCandidateResearchBrief;
 use App\Models\AffiliateLink;
+use App\Models\CatalogCandidate;
+use App\Models\CatalogCandidateDiscoveryRun;
+use App\Models\CatalogCandidateEvidence;
+use App\Models\CatalogCandidateIngestionItem;
+use App\Models\CatalogCandidateIngestionRun;
 use App\Models\ImportRun;
 use App\Models\Product;
 use App\Models\ProductImage;
@@ -34,6 +39,44 @@ class CatalogCandidateDiscoveryIsolationTest extends TestCase
         );
 
         $this->assertSame($before, $this->catalogCounts());
+        $this->assertSame(14, collect(Route::getRoutes())->filter(
+            fn ($route): bool => str_starts_with((string) $route->getName(), 'discovery.'),
+        )->count());
+    }
+
+    public function test_search_only_does_not_write_candidates_or_the_product_catalog(): void
+    {
+        config([
+            'catalog_candidate_discovery.search.providers.tavily.api_key' => 'tvly-test-key',
+            'catalog_candidate_discovery.search.max_queries_per_brief' => 1,
+        ]);
+
+        Http::fake([
+            'https://api.tavily.com/search' => Http::response([
+                'query' => 'thoughtful gifts',
+                'results' => [
+                    [
+                        'title' => 'Roundup',
+                        'url' => 'https://example.com/gifts',
+                        'content' => 'Useful gifts',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $before = $this->catalogCounts();
+
+        $this->artisan('catalog-candidates:discover', [
+            'brief' => 'thoughtful gifts',
+            '--search-only' => true,
+        ])->assertSuccessful();
+
+        $this->assertSame($before, $this->catalogCounts());
+        $this->assertSame(0, CatalogCandidate::query()->count());
+        $this->assertSame(0, CatalogCandidateEvidence::query()->count());
+        $this->assertSame(0, CatalogCandidateDiscoveryRun::query()->count());
+        $this->assertSame(0, CatalogCandidateIngestionRun::query()->count());
+        $this->assertSame(0, CatalogCandidateIngestionItem::query()->count());
         $this->assertSame(14, collect(Route::getRoutes())->filter(
             fn ($route): bool => str_starts_with((string) $route->getName(), 'discovery.'),
         )->count());

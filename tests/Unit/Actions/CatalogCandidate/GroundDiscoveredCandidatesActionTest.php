@@ -56,6 +56,29 @@ class GroundDiscoveredCandidatesActionTest extends TestCase
         $this->assertSame('Evidence URLs must match a retrieved source URL.', $rows[0]->message);
     }
 
+    public function test_www_host_variants_are_still_rejected_without_synthesis_remap(): void
+    {
+        $rows = app(GroundDiscoveredCandidatesAction::class)->execute(new CatalogCandidateDiscoveryResult(
+            candidates: [
+                $this->candidate('Brass diya or kumkum holder', [
+                    $this->evidence('https://amazon.in/example?x=1'),
+                ]),
+            ],
+            corpus: [
+                new RetrievedCatalogCandidateSource(
+                    url: 'https://www.amazon.in/example?x=1',
+                    title: 'Return gifts',
+                    snippet: 'Brass diya',
+                    sourceName: 'amazon.in',
+                    retrievedAt: now(),
+                ),
+            ],
+        ));
+
+        $this->assertInstanceOf(IngestionRowError::class, $rows[0]);
+        $this->assertSame('Evidence URLs must match a retrieved source URL.', $rows[0]->message);
+    }
+
     public function test_duplicate_proposed_title_fingerprints_are_collapsed(): void
     {
         $rows = app(GroundDiscoveredCandidatesAction::class)->execute($this->discoveryResult([

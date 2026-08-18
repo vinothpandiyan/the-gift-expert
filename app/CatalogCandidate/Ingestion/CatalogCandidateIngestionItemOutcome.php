@@ -6,11 +6,15 @@ use App\Enums\CatalogCandidateIngestionItemStatus;
 
 readonly class CatalogCandidateIngestionItemOutcome
 {
+    /**
+     * @param  list<string>  $evidenceUrls
+     */
     public function __construct(
         public int $index,
         public ?string $title,
         public CatalogCandidateIngestionItemStatus $status,
         public ?string $error,
         public ?int $candidateId = null,
+        public array $evidenceUrls = [],
     ) {}
 }

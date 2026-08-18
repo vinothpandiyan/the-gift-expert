@@ -10,11 +10,13 @@ use App\CatalogCandidate\Discovery\CatalogCandidateDiscoveryResult;
 use App\CatalogCandidate\Discovery\CatalogCandidateResearchBrief;
 use App\CatalogCandidate\Discovery\FakeCatalogCandidateDiscoveryProvider;
 use App\CatalogCandidate\Discovery\RetrievedCatalogCandidateSource;
+use App\Enums\CatalogCandidateDiscoveryRunStatus;
 use App\Enums\CatalogCandidateIngestionFormat;
 use App\Enums\CatalogCandidateIngestionItemStatus;
 use App\Enums\CatalogCandidateSourceType;
 use App\Enums\CatalogCandidateStatus;
 use App\Models\CatalogCandidate;
+use App\Models\CatalogCandidateDiscoveryRun;
 use App\Models\CatalogCandidateEvidence;
 use App\Models\CatalogCandidateIngestionItem;
 use App\Models\CatalogCandidateIngestionRun;
@@ -44,6 +46,14 @@ class DiscoverCatalogCandidatesActionTest extends TestCase
         $this->assertSame(0, $result->itemsFailed);
         $this->assertSame(CatalogCandidateIngestionFormat::Discovery, $result->run->format);
         $this->assertSame('discovery:fake', $result->run->source_name);
+
+        $discoveryRun = CatalogCandidateDiscoveryRun::query()->first();
+
+        $this->assertNotNull($discoveryRun);
+        $this->assertSame('fake', $discoveryRun->provider_key);
+        $this->assertSame(CatalogCandidateDiscoveryRunStatus::Completed, $discoveryRun->status);
+        $this->assertSame($result->run->id, $discoveryRun->catalog_candidate_ingestion_run_id);
+        $this->assertSame(3, $discoveryRun->candidates_proposed);
 
         $candidates = CatalogCandidate::query()->orderBy('id')->get();
 
@@ -176,6 +186,7 @@ class DiscoverCatalogCandidatesActionTest extends TestCase
         $this->assertNull($result->run);
         $this->assertSame(0, CatalogCandidate::query()->count());
         $this->assertSame(0, CatalogCandidateEvidence::query()->count());
+        $this->assertSame(0, CatalogCandidateDiscoveryRun::query()->count());
         $this->assertSame(0, CatalogCandidateIngestionRun::query()->count());
         $this->assertSame(0, CatalogCandidateIngestionItem::query()->count());
     }
@@ -197,6 +208,7 @@ class DiscoverCatalogCandidatesActionTest extends TestCase
         }
 
         $this->assertSame(0, CatalogCandidate::query()->count());
+        $this->assertSame(0, CatalogCandidateDiscoveryRun::query()->count());
         $this->assertSame(0, CatalogCandidateIngestionRun::query()->count());
     }
 
@@ -214,6 +226,7 @@ class DiscoverCatalogCandidatesActionTest extends TestCase
         }
 
         $this->assertSame(0, CatalogCandidateIngestionRun::query()->count());
+        $this->assertSame(0, CatalogCandidateDiscoveryRun::query()->count());
         $this->assertSame(0, CatalogCandidate::query()->count());
     }
 

@@ -31,5 +31,10 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="CATALOG_CANDIDATE_DISCOVERY_PROVIDER" value="fake"/>
+        <env name="CATALOG_CANDIDATE_SEARCH_PROVIDER" value="tavily"/>
+        <env name="TAVILY_API_KEY" value=""/>
+        <env name="OPENAI_API_KEY" value=""/>
+        <env name="OPENAI_MODEL" value=""/>
     </php>
 </phpunit>

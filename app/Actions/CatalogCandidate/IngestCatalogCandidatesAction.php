@@ -113,6 +113,7 @@ class IngestCatalogCandidatesAction
                     $row->title,
                     CatalogCandidateIngestionItemStatus::Failed,
                     $evidenceError,
+                    evidenceUrls: $this->evidenceUrls($row),
                 );
 
                 continue;
@@ -126,6 +127,7 @@ class IngestCatalogCandidatesAction
                     $row->title,
                     CatalogCandidateIngestionItemStatus::Skipped,
                     $duplicate,
+                    evidenceUrls: $this->evidenceUrls($row),
                 );
 
                 continue;
@@ -138,6 +140,7 @@ class IngestCatalogCandidatesAction
                 $row->title,
                 CatalogCandidateIngestionItemStatus::Succeeded,
                 null,
+                evidenceUrls: $this->evidenceUrls($row),
             );
         }
 
@@ -164,6 +167,7 @@ class IngestCatalogCandidatesAction
                 $row->title,
                 CatalogCandidateIngestionItemStatus::Failed,
                 $evidenceError,
+                evidenceUrls: $this->evidenceUrls($row),
             );
             $this->recordItem($run, $outcome, $row->sourcePayload);
 
@@ -190,6 +194,7 @@ class IngestCatalogCandidatesAction
                 CatalogCandidateIngestionItemStatus::Succeeded,
                 null,
                 $candidate->id,
+                $this->evidenceUrls($row),
             );
             $this->recordItem($run, $outcome, $row->sourcePayload);
 
@@ -202,6 +207,7 @@ class IngestCatalogCandidatesAction
                     ? CatalogCandidateIngestionItemStatus::Skipped
                     : CatalogCandidateIngestionItemStatus::Failed,
                 collect($exception->errors())->flatten()->first() ?? 'The candidate could not be ingested.',
+                evidenceUrls: $this->evidenceUrls($row),
             );
             $this->recordItem($run, $outcome, $row->sourcePayload);
 
@@ -212,6 +218,7 @@ class IngestCatalogCandidatesAction
                 $row->title,
                 CatalogCandidateIngestionItemStatus::Failed,
                 $exception->getMessage(),
+                evidenceUrls: $this->evidenceUrls($row),
             );
             $this->recordItem($run, $outcome, $row->sourcePayload);
 
@@ -244,7 +251,48 @@ class IngestCatalogCandidatesAction
             $row->title,
             $row->skip ? CatalogCandidateIngestionItemStatus::Skipped : CatalogCandidateIngestionItemStatus::Failed,
             $row->message,
+            evidenceUrls: $this->evidenceUrls($row),
         );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function evidenceUrls(IngestedCatalogCandidate|IngestionRowError $row): array
+    {
+        if ($row instanceof IngestedCatalogCandidate) {
+            $urls = [];
+
+            foreach ($row->evidence as $evidence) {
+                if (is_string($evidence->sourceUrl) && $evidence->sourceUrl !== '') {
+                    $urls[] = $evidence->sourceUrl;
+                }
+            }
+
+            return $urls;
+        }
+
+        $items = $row->sourcePayload['evidence'] ?? [];
+
+        if (! is_array($items) || ! array_is_list($items)) {
+            return [];
+        }
+
+        $urls = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $url = $item['source_url'] ?? null;
+
+            if (is_string($url) && trim($url) !== '') {
+                $urls[] = trim($url);
+            }
+        }
+
+        return $urls;
     }
 
     /**

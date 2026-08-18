@@ -6,6 +6,7 @@ use App\Enums\CatalogCandidateIngestionFormat;
 use App\Enums\CatalogCandidateIngestionRunStatus;
 use App\Models\AffiliateLink;
 use App\Models\CatalogCandidate;
+use App\Models\CatalogCandidateDiscoveryRun;
 use App\Models\CatalogCandidateEvidence;
 use App\Models\CatalogCandidateIngestionItem;
 use App\Models\CatalogCandidateIngestionRun;
@@ -60,6 +61,7 @@ class DiscoverCatalogCandidatesCommandTest extends TestCase
 
         $this->assertSame(0, CatalogCandidate::query()->count());
         $this->assertSame(0, CatalogCandidateEvidence::query()->count());
+        $this->assertSame(0, CatalogCandidateDiscoveryRun::query()->count());
         $this->assertSame(0, CatalogCandidateIngestionRun::query()->count());
         $this->assertSame(0, CatalogCandidateIngestionItem::query()->count());
         $this->assertSame(0, Product::query()->count());
