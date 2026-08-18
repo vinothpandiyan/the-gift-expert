@@ -1,0 +1,82 @@
+{
+  "queries": [
+    "useful birthday gift ideas for husbands in India"
+  ],
+  "corpus": [
+    {
+      "url": "https://example.com/husband-birthday-gifts",
+      "title": "Birthday gift ideas for husbands",
+      "snippet": "Compact photo printers and temperature-control mugs are frequently recommended for travel and daily use.",
+      "source_name": "example.com",
+      "retrieved_at": "2026-08-18T00:00:00+00:00"
+    },
+    {
+      "url": "https://community.example.com/gift-thread",
+      "title": "What did you get your husband this year?",
+      "snippet": "A compact massage gun was the most mentioned recovery gift in the discussion.",
+      "source_name": "community.example.com",
+      "retrieved_at": "2026-08-18T00:00:00+00:00"
+    },
+    {
+      "url": "https://example.com/travel-gifts",
+      "title": "Travel-friendly gifts",
+      "snippet": "Portable photo printers remain popular for trips and memory-oriented gifting.",
+      "source_name": "example.com",
+      "retrieved_at": "2026-08-18T00:00:00+00:00"
+    }
+  ],
+  "candidates": [
+    {
+      "title": "Portable Photo Printer",
+      "summary": "Compact instant photo printers are popular for travel and memory-oriented gifting.",
+      "source_type": "ai_research",
+      "source_name": "Gift Candidate Research",
+      "priority": "normal",
+      "evidence": [
+        {
+          "source_type": "web",
+          "source_name": "example.com",
+          "source_url": "https://example.com/husband-birthday-gifts",
+          "summary": "Roundup lists compact photo printers for husbands.",
+          "observed_at": "2026-08-18T00:00:00+00:00"
+        },
+        {
+          "source_type": "web",
+          "source_name": "example.com",
+          "source_url": "https://example.com/travel-gifts",
+          "summary": "Travel gift guide mentions portable photo printers."
+        }
+      ]
+    },
+    {
+      "title": "Smart Temperature-Control Mug",
+      "summary": "Heated mugs are a practical everyday gift for tea and coffee drinkers.",
+      "source_type": "ai_research",
+      "source_name": "Gift Candidate Research",
+      "priority": "normal",
+      "evidence": [
+        {
+          "source_type": "web",
+          "source_name": "example.com",
+          "source_url": "https://example.com/husband-birthday-gifts",
+          "summary": "Temperature-control mugs appear in husband birthday roundups."
+        }
+      ]
+    },
+    {
+      "title": "Compact Massage Gun",
+      "summary": "Small recovery massagers are frequently suggested as useful personal-care gifts.",
+      "source_type": "ai_research",
+      "source_name": "Gift Candidate Research",
+      "priority": "normal",
+      "evidence": [
+        {
+          "source_type": "community",
+          "source_name": "community.example.com",
+          "source_url": "https://community.example.com/gift-thread",
+          "summary": "Community thread highlights compact massage guns."
+        }
+      ]
+    }
+  ]
+}
