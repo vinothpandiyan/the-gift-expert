@@ -3,10 +3,12 @@
 namespace Tests\Feature\Seo;
 
 use App\Models\Category;
+use App\Models\GiftType;
 use App\Models\Occasion;
 use App\Models\Product;
 use App\Models\RecommendationSession;
 use App\Models\Relationship;
+use App\Models\SeoLandingPage;
 use App\Support\DiscoveryUrl;
 use App\Support\Terminology;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,7 +57,7 @@ class DiscoverySeoTest extends TestCase
             ->assertSee('<link rel="canonical" href="https://cdn.example.test/gifts/override-gift">', false);
     }
 
-    public function test_gift_breadcrumbs_include_primary_category_path(): void
+    public function test_gift_breadcrumbs_use_a_single_nested_category_parent(): void
     {
         $parent = Category::query()->create([
             'name' => 'Gifts for Him',
@@ -64,8 +66,8 @@ class DiscoverySeoTest extends TestCase
         ]);
         $child = Category::query()->create([
             'parent_id' => $parent->id,
-            'name' => 'Husband',
-            'slug' => 'husband',
+            'name' => 'Leather Goods',
+            'slug' => 'leather-goods',
             'is_active' => true,
         ]);
 
@@ -75,13 +77,92 @@ class DiscoverySeoTest extends TestCase
         ]);
         $product->categories()->attach($child->id, ['is_primary' => true]);
 
-        $this->get(DiscoveryUrl::gift($product->slug))
+        $html = $this->get(DiscoveryUrl::gift($product->slug))
             ->assertOk()
             ->assertSee(Terminology::giftIdeas(), false)
-            ->assertSee('Gifts for Him', false)
-            ->assertSee('Husband', false)
-            ->assertSee(DiscoveryUrl::giftIdeasCategory($parent->fresh()->full_path), false)
-            ->assertSee(DiscoveryUrl::giftIdeasCategory($child->fresh()->full_path), false);
+            ->assertSee('Leather Goods', false)
+            ->assertSee(DiscoveryUrl::giftIdeasCategory($child->fresh()->full_path), false)
+            ->assertSee('<link rel="canonical" href="'.DiscoveryUrl::gift($product->slug, absolute: true).'">', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString(
+            'href="'.DiscoveryUrl::giftIdeasCategory($parent->fresh()->full_path).'"',
+            $html,
+        );
+    }
+
+    public function test_gift_breadcrumbs_use_relationship_parent_over_category(): void
+    {
+        $relationship = Relationship::query()->create([
+            'name' => 'Husband',
+            'slug' => 'husband',
+            'is_active' => true,
+        ]);
+        $category = Category::query()->create([
+            'name' => 'Fashion',
+            'slug' => 'fashion',
+            'is_active' => true,
+        ]);
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'name' => 'Personalized Leather Wallet',
+            'slug' => 'personalized-leather-wallet',
+        ]);
+        $product->categories()->attach($category->id, ['is_primary' => true]);
+        $product->relationships()->attach($relationship->id);
+
+        $this->get(DiscoveryUrl::gift($product->slug))
+            ->assertOk()
+            ->assertSee(Terminology::gifts().' for Husband', false)
+            ->assertSee(DiscoveryUrl::relationship('husband'), false)
+            ->assertSee('<link rel="canonical" href="'.DiscoveryUrl::gift($product->slug, absolute: true).'">', false);
+    }
+
+    public function test_gift_breadcrumbs_keep_mapped_category_url_not_landing_page(): void
+    {
+        $page = SeoLandingPage::factory()->published()->create([
+            'name' => 'Birthday Gifts for Husband',
+            'slug' => 'birthday-gifts-for-husband',
+            'heading' => 'Birthday Gifts for Husband',
+            'is_indexable' => true,
+        ]);
+        $category = Category::query()->create([
+            'name' => 'Birthday Gifts for Husband',
+            'slug' => 'birthday-gifts-for-husband',
+            'is_active' => true,
+            'canonical_seo_landing_page_id' => $page->id,
+        ]);
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'name' => 'Mapped Category Gift',
+            'slug' => 'mapped-category-gift',
+        ]);
+        $product->categories()->attach($category->id, ['is_primary' => true]);
+
+        $categoryUrl = DiscoveryUrl::giftIdeasCategory($category->fresh()->full_path);
+
+        $this->get(DiscoveryUrl::gift($product->slug))
+            ->assertOk()
+            ->assertSee($categoryUrl, false)
+            ->assertDontSee('href="'.DiscoveryUrl::seoLandingPage($page->slug).'"', false)
+            ->assertSee('<link rel="canonical" href="'.DiscoveryUrl::gift($product->slug, absolute: true).'">', false);
+    }
+
+    public function test_gift_type_return_gifts_breadcrumb_uses_gift_type_url(): void
+    {
+        $giftType = GiftType::query()->create([
+            'name' => 'Return Gifts',
+            'slug' => 'return-gifts',
+            'is_active' => true,
+        ]);
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'name' => 'Personalized Return Gift Box',
+            'slug' => 'personalized-return-gift-box',
+        ]);
+        $product->giftTypes()->attach($giftType->id);
+
+        $this->get(DiscoveryUrl::gift($product->slug))
+            ->assertOk()
+            ->assertSee('Return Gifts', false)
+            ->assertSee(DiscoveryUrl::giftType('return-gifts'), false);
     }
 
     public function test_unpublished_gift_remains_not_found(): void

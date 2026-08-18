@@ -90,6 +90,7 @@ class TaxonomyController extends Controller
             'seoPrev' => $pagination['prev'],
             'seoNext' => $pagination['next'],
             'breadcrumbs' => PageMeta::taxonomyBreadcrumbs($record, $taxonomy, self::LABELS[$taxonomy]),
+            'giftBrowseContext' => $taxonomy.':'.$record->slug,
         ]);
     }
 

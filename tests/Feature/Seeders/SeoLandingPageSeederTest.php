@@ -3,6 +3,8 @@
 namespace Tests\Feature\Seeders;
 
 use App\Enums\SeoLandingPageStatus;
+use App\Models\BudgetRange;
+use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Relationship;
@@ -57,9 +59,48 @@ class SeoLandingPageSeederTest extends TestCase
             SeoLandingPageStatus::Published,
             SeoLandingPage::query()->where('slug', 'birthday-gifts-for-husband')->first()?->status,
         );
-        $this->assertSame(count($approvedSlugs) + 1, SeoLandingPage::query()->count());
+        $this->assertSame(count($approvedSlugs) + 1 + 5, SeoLandingPage::query()->count());
         $this->assertSame(0, SeoLandingPage::query()->whereNull('deleted_at')->where('slug', 'wedding-gifts-for-newlyweds')->count());
         $this->assertSame(0, SeoLandingPage::query()->where('slug', 'birthday-gifts-for-husband-who-loves-coffee')->count());
+    }
+
+    public function test_return_gift_landing_pages_are_seeded_as_drafts_with_honest_filters(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $returnGifts = GiftType::query()->where('slug', 'return-gifts')->firstOrFail();
+        $birthday = Occasion::query()->where('slug', 'birthday')->firstOrFail();
+        $under500 = BudgetRange::query()->where('slug', 'under-500')->firstOrFail();
+
+        $expected = [
+            'birthday-return-gifts' => ['occasion_id' => $birthday->id, 'budget_range_id' => null],
+            'wedding-return-gifts' => ['occasion_id' => Occasion::query()->where('slug', 'wedding')->value('id'), 'budget_range_id' => null],
+            'baby-shower-return-gifts' => ['occasion_id' => Occasion::query()->where('slug', 'baby-shower')->value('id'), 'budget_range_id' => null],
+            'engagement-return-gifts' => ['occasion_id' => Occasion::query()->where('slug', 'engagement')->value('id'), 'budget_range_id' => null],
+            'return-gifts-under-500' => ['occasion_id' => null, 'budget_range_id' => $under500->id],
+        ];
+
+        foreach ($expected as $slug => $filters) {
+            $page = SeoLandingPage::query()->where('slug', $slug)->first();
+
+            $this->assertNotNull($page, $slug);
+            $this->assertSame(SeoLandingPageStatus::Draft, $page->status);
+            $this->assertFalse($page->is_indexable);
+            $this->assertFalse($page->include_in_sitemap);
+            $this->assertSame($returnGifts->id, $page->gift_type_id);
+            $this->assertSame($filters['occasion_id'], $page->occasion_id);
+            $this->assertSame($filters['budget_range_id'], $page->budget_range_id);
+            $this->assertNull($page->relationship_id);
+            $this->assertNull($page->category_id);
+            $this->assertNotSame('', (string) $page->intro_content);
+        }
+
+        $this->assertSame(0, SeoLandingPage::query()->where('slug', 'corporate-return-gifts')->count());
+        $this->assertSame(0, SeoLandingPage::query()->where('slug', 'bulk-return-gifts')->count());
+        $this->assertSame(0, SeoLandingPage::query()->where('slug', 'office-party-favours')->count());
+        $this->assertSame(0, SeoLandingPage::query()->where('slug', 'return-gifts-under-100')->count());
+        $this->assertSame(0, SeoLandingPage::query()->where('slug', 'return-gifts-under-250')->count());
+        $this->assertSame(1, SeoLandingPage::query()->where('status', SeoLandingPageStatus::Published)->count());
     }
 
     public function test_seeded_filter_ids_match_taxonomy_and_are_unique_composites(): void

@@ -4,7 +4,9 @@ namespace Database\Seeders;
 
 use App\Actions\SeoLandingPage\PublishSeoLandingPageAction;
 use App\Enums\SeoLandingPageStatus;
+use App\Models\BudgetRange;
 use App\Models\Category;
+use App\Models\GiftType;
 use App\Models\Occasion;
 use App\Models\Relationship;
 use App\Models\SeoLandingPage;
@@ -17,6 +19,7 @@ class SeoLandingPageSeeder extends Seeder
     {
         $this->seedPublishedBirthdayGiftsForHusband();
         $this->seedApprovedDrafts();
+        $this->seedReturnGiftLandingPages();
     }
 
     private function seedPublishedBirthdayGiftsForHusband(): void
@@ -76,7 +79,10 @@ class SeoLandingPageSeeder extends Seeder
                 continue;
             }
 
-            if ($candidate['slug'] === 'birthday-gifts-for-husband') {
+            if (in_array($candidate['slug'], [
+                'birthday-gifts-for-husband',
+                ...self::returnGiftLandingPageSlugs(),
+            ], true)) {
                 continue;
             }
 
@@ -139,6 +145,93 @@ class SeoLandingPageSeeder extends Seeder
         }
 
         $page->interests()->sync($filters['interest_ids']);
+    }
+
+    private function seedReturnGiftLandingPages(): void
+    {
+        $returnGifts = GiftType::query()->where('slug', 'return-gifts')->firstOrFail();
+        $sortOrder = 100;
+        $copy = $this->editorialCopy();
+
+        foreach ($this->returnGiftLandingPageDefinitions() as $definition) {
+            $this->seedDraftPage([
+                'slug' => $definition['slug'],
+                'name' => $definition['name'],
+                'heading' => $definition['heading'],
+                'filters' => [
+                    'occasion_id' => $definition['occasion_id'],
+                    'relationship_id' => null,
+                    'recipient_type_id' => null,
+                    'profession_id' => null,
+                    'gift_type_id' => $returnGifts->id,
+                    'category_id' => null,
+                    'budget_range_id' => $definition['budget_range_id'],
+                    'interest_ids' => [],
+                ],
+            ], $copy[$definition['slug']] ?? [], $sortOrder);
+            $sortOrder++;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function returnGiftLandingPageSlugs(): array
+    {
+        return [
+            'birthday-return-gifts',
+            'wedding-return-gifts',
+            'baby-shower-return-gifts',
+            'engagement-return-gifts',
+            'return-gifts-under-500',
+        ];
+    }
+
+    /**
+     * @return list<array{slug: string, name: string, heading: string, occasion_id: int|null, budget_range_id: int|null}>
+     */
+    private function returnGiftLandingPageDefinitions(): array
+    {
+        $occasionId = fn (string $slug): int => Occasion::query()->where('slug', $slug)->firstOrFail()->id;
+        $under500 = BudgetRange::query()->where('slug', 'under-500')->firstOrFail();
+
+        return [
+            [
+                'slug' => 'birthday-return-gifts',
+                'name' => 'Birthday Return Gifts',
+                'heading' => 'Birthday Return Gifts',
+                'occasion_id' => $occasionId('birthday'),
+                'budget_range_id' => null,
+            ],
+            [
+                'slug' => 'wedding-return-gifts',
+                'name' => 'Wedding Return Gifts',
+                'heading' => 'Wedding Return Gifts',
+                'occasion_id' => $occasionId('wedding'),
+                'budget_range_id' => null,
+            ],
+            [
+                'slug' => 'baby-shower-return-gifts',
+                'name' => 'Baby Shower Return Gifts',
+                'heading' => 'Baby Shower Return Gifts',
+                'occasion_id' => $occasionId('baby-shower'),
+                'budget_range_id' => null,
+            ],
+            [
+                'slug' => 'engagement-return-gifts',
+                'name' => 'Engagement Return Gifts',
+                'heading' => 'Engagement Return Gifts',
+                'occasion_id' => $occasionId('engagement'),
+                'budget_range_id' => null,
+            ],
+            [
+                'slug' => 'return-gifts-under-500',
+                'name' => 'Return Gifts under ₹500',
+                'heading' => 'Return Gifts under ₹500',
+                'occasion_id' => null,
+                'budget_range_id' => $under500->id,
+            ],
+        ];
     }
 
     /**
@@ -244,6 +337,41 @@ class SeoLandingPageSeeder extends Seeder
                 'faq_content' => null,
                 'meta_title' => 'Birthday Gifts for Tech Lovers',
                 'meta_description' => 'Birthday gift ideas for tech lovers, centred on audio and charging accessories rather than duplicate gadgets.',
+            ],
+            'birthday-return-gifts' => [
+                'intro_content' => 'Birthday return gifts work when they are easy to hand out in numbers and still feel chosen — a small useful object rather than leftover party décor.',
+                'body_content' => "Match the age of the guests and the size of the gathering. Compact stationery, a small treat, or a practical keepsake travels home more easily than something fragile.\n\nThis page is Return Gifts + Birthday. Broader return-gift browsing stays on the Return Gifts gift-type page, and birthday gifts that are not return gifts stay on the Birthday occasion page.",
+                'faq_content' => null,
+                'meta_title' => 'Birthday Return Gifts',
+                'meta_description' => 'Birthday return gift ideas that are easy to give in numbers without becoming leftover party décor.',
+            ],
+            'wedding-return-gifts' => [
+                'intro_content' => 'Wedding return gifts should be easy to carry and usable after the event, not another item guests leave on the table.',
+                'body_content' => "Think in terms of a small household or personal item guests will actually take home. Keep packaging simple so the gift survives travel.\n\nThis listing is Return Gifts + Wedding. Wedding gifts for the couple remain on the Wedding occasion page.",
+                'faq_content' => null,
+                'meta_title' => 'Wedding Return Gifts',
+                'meta_description' => 'Wedding return gift ideas that guests can take home and use after the celebration.',
+            ],
+            'baby-shower-return-gifts' => [
+                'intro_content' => 'Baby shower return gifts should be light, useful, and easy to give to a mixed group of guests.',
+                'body_content' => "A small practical item or a modest treat usually fits better than a bulky souvenir. Keep the list short so buying in quantity stays manageable.\n\nThis page is Return Gifts + Baby Shower. Baby shower gifts for the parents stay on the Baby Shower occasion page.",
+                'faq_content' => null,
+                'meta_title' => 'Baby Shower Return Gifts',
+                'meta_description' => 'Baby shower return gift ideas that are light, useful, and easy to give in quantity.',
+            ],
+            'engagement-return-gifts' => [
+                'intro_content' => 'Engagement return gifts can stay smaller than wedding favours. Guests usually prefer something compact they can use the same week.',
+                'body_content' => "A modest edible or a small household item is easier to get right than a decorative piece tied to the couple’s theme.\n\nThis listing is Return Gifts + Engagement. Engagement gifts for the couple remain on the Engagement occasion page.",
+                'faq_content' => null,
+                'meta_title' => 'Engagement Return Gifts',
+                'meta_description' => 'Engagement return gift ideas that stay compact and useful for guests.',
+            ],
+            'return-gifts-under-500' => [
+                'intro_content' => 'Return gifts under ₹500 are for hosts who need a useful token without stretching the event budget.',
+                'body_content' => "Favour items that still feel complete at this price: a small edible, stationery, or a compact practical object. Avoid sets that look unfinished once packed.\n\nThis page is Return Gifts filtered to the under-₹500 budget range. Broader return-gift browsing stays on the Return Gifts gift-type page.",
+                'faq_content' => null,
+                'meta_title' => 'Return Gifts under ₹500',
+                'meta_description' => 'Return gift ideas under ₹500 for hosts who need a useful token without stretching the event budget.',
             ],
         ];
     }

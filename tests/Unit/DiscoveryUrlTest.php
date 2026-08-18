@@ -8,9 +8,18 @@ use Tests\TestCase;
 
 class DiscoveryUrlTest extends TestCase
 {
-    public function test_gift_url_uses_configured_prefix(): void
+    public function test_gift_url_appends_encoded_browse_context(): void
     {
-        $this->assertSame('/gifts/personalized-wooden-photo-frame', DiscoveryUrl::gift('personalized-wooden-photo-frame'));
+        $this->assertSame(
+            '/gifts/wallet?context=relationship%3Abrother',
+            DiscoveryUrl::gift('wallet', context: 'relationship:brother'),
+        );
+        $this->assertSame(
+            '/gifts/wallet?context=category%3Agifts-for-him%2Fgifts-for-husband',
+            DiscoveryUrl::gift('wallet', context: 'category:gifts-for-him/gifts-for-husband'),
+        );
+        $this->assertSame('/gifts/wallet', DiscoveryUrl::gift('wallet', context: null));
+        $this->assertSame('/gifts/wallet', DiscoveryUrl::gift('wallet', context: ''));
     }
 
     public function test_gift_ideas_category_url_supports_hierarchical_paths(): void

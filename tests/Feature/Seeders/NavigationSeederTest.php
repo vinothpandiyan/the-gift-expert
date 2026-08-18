@@ -3,6 +3,7 @@
 namespace Tests\Feature\Seeders;
 
 use App\Actions\Navigation\BuildPrimaryNavigationTreeAction;
+use App\Actions\SeoLandingPage\PublishSeoLandingPageAction;
 use App\Enums\NavigationItemType;
 use App\Enums\NavigationLinkType;
 use App\Models\GiftType;
@@ -15,6 +16,7 @@ use App\Models\RecipientType;
 use App\Models\Relationship;
 use App\Models\SeoLandingPage;
 use App\Support\DiscoveryUrl;
+use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\GiftTypeSeeder;
 use Database\Seeders\InterestSeeder;
 use Database\Seeders\NavigationSeeder;
@@ -109,7 +111,7 @@ class NavigationSeederTest extends TestCase
             ->where('route_key', 'gift_ideas.index')
             ->get();
 
-        $this->assertGreaterThanOrEqual(6, $browse->count());
+        $this->assertGreaterThanOrEqual(5, $browse->count());
         $this->assertTrue($browse->every(fn (NavigationLink $link): bool => $link->url === null && $link->linkable_id === null));
         $this->assertNotNull($this->linkOnMenu('by-recipient', 'View all recipients'));
     }
@@ -134,12 +136,84 @@ class NavigationSeederTest extends TestCase
         ]);
 
         $returnGifts = GiftType::query()->where('slug', 'return-gifts')->firstOrFail();
-        $returnLink = $this->linkOnMenu('return-gifts', 'Return Gifts');
+        $returnLink = $this->linkOnMenu('return-gifts', 'View all return gifts');
         $this->assertSame(NavigationLinkType::GiftType, $returnLink->link_type);
         $this->assertSame($returnGifts->id, $returnLink->linkable_id);
     }
 
-    public function test_it_does_not_store_urls_or_seed_seo_landing_pages(): void
+    public function test_return_gifts_menu_has_intended_editorial_sections(): void
+    {
+        $this->seedPrerequisitesAndNavigation();
+
+        $menu = NavigationMenu::query()->where('slug', 'return-gifts')->firstOrFail();
+        $headings = $menu->sections()->where('is_active', true)->orderBy('sort_order')->pluck('heading')->all();
+
+        $this->assertSame(['BY EVENT', 'CORPORATE', 'BY BUDGET', 'BROWSE ALL'], $headings);
+        $this->assertSame(0, $this->sectionLinkCount($menu, 'CORPORATE'));
+        $this->assertSame(0, $this->sectionLinkCount($menu, 'BY EVENT'));
+        $this->assertSame(0, $this->sectionLinkCount($menu, 'BY BUDGET'));
+    }
+
+    public function test_return_gift_seo_landing_links_are_editorial_until_discoverable(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $menu = NavigationMenu::query()->where('slug', 'return-gifts')->firstOrFail();
+        $this->assertSame(
+            ['BY EVENT', 'CORPORATE', 'BY BUDGET', 'BROWSE ALL'],
+            $menu->sections()->where('is_active', true)->orderBy('sort_order')->pluck('heading')->all(),
+        );
+        $this->assertSame(0, $this->sectionLinkCount($menu, 'CORPORATE'));
+        $this->assertSame(4, $this->sectionLinkCount($menu, 'BY EVENT'));
+        $this->assertSame(1, $this->sectionLinkCount($menu, 'BY BUDGET'));
+
+        $lpLinks = NavigationLink::query()
+            ->whereIn('navigation_section_id', $menu->sections()->pluck('id'))
+            ->where('link_type', NavigationLinkType::SeoLandingPage)
+            ->get();
+
+        $this->assertTrue($lpLinks->every(fn (NavigationLink $link): bool => $link->url === null && $link->route_key === null));
+        $this->assertEqualsCanonicalizing(
+            [
+                'birthday-return-gifts',
+                'wedding-return-gifts',
+                'baby-shower-return-gifts',
+                'engagement-return-gifts',
+                'return-gifts-under-500',
+            ],
+            SeoLandingPage::query()->whereIn('id', $lpLinks->pluck('linkable_id'))->pluck('slug')->all(),
+        );
+
+        $tree = app(BuildPrimaryNavigationTreeAction::class)->execute();
+        $returnMenu = collect($tree)->firstWhere('slug', 'return-gifts');
+
+        $this->assertIsArray($returnMenu);
+        $this->assertSame(['BROWSE ALL'], collect($returnMenu['sections'])->pluck('heading')->all());
+        $this->assertSame(DiscoveryUrl::giftType('return-gifts'), $this->treeHref($returnMenu, 'View all return gifts'));
+        $this->assertStringNotContainsString('/birthday-return-gifts', json_encode($returnMenu));
+    }
+
+    public function test_published_return_gift_landing_page_resolves_through_navigation(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $page = SeoLandingPage::query()->where('slug', 'birthday-return-gifts')->firstOrFail();
+        $page->is_indexable = true;
+        $page->save();
+        app(PublishSeoLandingPageAction::class)->execute($page->fresh());
+
+        $tree = app(BuildPrimaryNavigationTreeAction::class)->execute();
+        $returnMenu = collect($tree)->firstWhere('slug', 'return-gifts');
+
+        $this->assertIsArray($returnMenu);
+        $this->assertContains('BY EVENT', collect($returnMenu['sections'])->pluck('heading')->all());
+        $this->assertSame(
+            DiscoveryUrl::seoLandingPage('birthday-return-gifts'),
+            $this->treeHref($returnMenu, 'Birthday return gifts'),
+        );
+    }
+
+    public function test_it_does_not_store_urls_or_create_seo_landing_pages(): void
     {
         $this->seed($this->prerequisiteSeeders);
         SeoLandingPage::factory()->published()->create([
@@ -151,11 +225,11 @@ class NavigationSeederTest extends TestCase
         $this->seed(NavigationSeeder::class);
 
         $this->assertSame(0, NavigationLink::query()->whereNotNull('url')->count());
-        $this->assertSame(0, NavigationLink::query()->where('link_type', NavigationLinkType::SeoLandingPage)->count());
         $this->assertSame(0, NavigationLink::query()->where('url', 'like', '/%')->count());
         $this->assertSame($relationshipCount, Relationship::query()->count());
         $this->assertSame(1, SeoLandingPage::query()->count());
         $this->assertSame(0, NavigationMenu::query()->where('slug', 'blog')->count());
+        $this->assertSame(0, NavigationLink::query()->where('link_type', NavigationLinkType::SeoLandingPage)->count());
     }
 
     public function test_it_does_not_delete_manually_created_navigation_records(): void
@@ -192,8 +266,24 @@ class NavigationSeederTest extends TestCase
         $this->assertSame(DiscoveryUrl::interest('coffee'), $this->treeHref($bySlug['by-interest'], 'Gifts for Coffee Lovers'));
         $this->assertSame(DiscoveryUrl::profession('doctor'), $this->treeHref($bySlug['by-profession'], 'Gifts for Doctor'));
         $this->assertSame(DiscoveryUrl::giftType('gift-cards'), $this->treeHref($bySlug['digital-gifts'], 'Gift Cards'));
-        $this->assertSame(DiscoveryUrl::giftType('return-gifts'), $this->treeHref($bySlug['return-gifts'], 'Return Gifts'));
+        $this->assertSame(DiscoveryUrl::giftType('return-gifts'), $this->treeHref($bySlug['return-gifts'], 'View all return gifts'));
         $this->assertFalse(collect($tree)->pluck('slug')->contains('blog'));
+        $this->assertSame(['BROWSE ALL'], collect($bySlug['return-gifts']['sections'])->pluck('heading')->all());
+        $this->assertTrue(collect($tree)->every(function (array $menu): bool {
+            if (($menu['item_type'] ?? '') === 'link') {
+                return filled($menu['href'] ?? null);
+            }
+
+            foreach ($menu['sections'] ?? [] as $section) {
+                foreach ($section['links'] as $link) {
+                    if (! filled($link['href'] ?? null)) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }));
     }
 
     public function test_omitted_entities_are_not_invented_as_links(): void
@@ -220,6 +310,13 @@ class NavigationSeederTest extends TestCase
             ->withCount('sections')
             ->get()
             ->sum('sections_count');
+    }
+
+    private function sectionLinkCount(NavigationMenu $menu, string $heading): int
+    {
+        $section = $menu->sections()->where('heading', $heading)->where('is_active', true)->firstOrFail();
+
+        return $section->links()->where('is_active', true)->count();
     }
 
     private function linkOnMenu(string $menuSlug, string $label): NavigationLink

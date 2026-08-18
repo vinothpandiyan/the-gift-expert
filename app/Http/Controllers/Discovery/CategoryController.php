@@ -80,6 +80,7 @@ class CategoryController extends Controller
             'seoPrev' => $pagination['prev'],
             'seoNext' => $pagination['next'],
             'breadcrumbs' => PageMeta::categoryBreadcrumbs($category),
+            'giftBrowseContext' => 'category:'.$category->full_path,
         ]);
     }
 

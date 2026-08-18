@@ -32,9 +32,15 @@ final class DiscoveryUrl
         return $path;
     }
 
-    public static function gift(string $slug, bool $absolute = false): string
+    public static function gift(string $slug, bool $absolute = false, ?string $context = null): string
     {
-        return self::route('gift.show', ['slug' => $slug], $absolute);
+        $url = self::route('gift.show', ['slug' => $slug], $absolute);
+
+        if (! is_string($context) || $context === '') {
+            return $url;
+        }
+
+        return $url.'?'.http_build_query(['context' => $context], '', '&', PHP_QUERY_RFC3986);
     }
 
     public static function giftIdeas(bool $absolute = false): string

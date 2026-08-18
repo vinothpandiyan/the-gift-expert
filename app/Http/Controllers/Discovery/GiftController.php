@@ -25,7 +25,7 @@ class GiftController extends Controller
                     ->active()
                     ->with('merchant')
                     ->orderByDesc('is_primary'),
-                'categories.parent',
+                'categories',
                 'occasions',
                 'relationships',
                 'recipientTypes',
@@ -36,13 +36,18 @@ class GiftController extends Controller
             ->first();
 
         if ($product !== null) {
+            $context = request()->query('context');
+
             return view('discovery.gifts.show', [
                 'product' => $product,
                 'seoTitle' => PageMeta::giftTitle($product),
                 'seoDescription' => PageMeta::giftDescription($product),
                 'seoCanonical' => PageMeta::giftCanonical($product),
                 'seoRobots' => 'index, follow',
-                'breadcrumbs' => PageMeta::giftBreadcrumbs($product),
+                'breadcrumbs' => PageMeta::giftBreadcrumbs(
+                    $product,
+                    is_string($context) ? $context : null,
+                ),
             ]);
         }
 
@@ -63,6 +68,11 @@ class GiftController extends Controller
             abort(404);
         }
 
-        return redirect(DiscoveryUrl::gift($target->slug), 301);
+        $context = request()->query('context');
+
+        return redirect(DiscoveryUrl::gift(
+            $target->slug,
+            context: is_string($context) && $context !== '' ? $context : null,
+        ), 301);
     }
 }

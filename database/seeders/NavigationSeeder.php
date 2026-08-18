@@ -15,6 +15,7 @@ use App\Models\Occasion;
 use App\Models\Profession;
 use App\Models\RecipientType;
 use App\Models\Relationship;
+use App\Models\SeoLandingPage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Cache;
@@ -182,11 +183,137 @@ class NavigationSeeder extends Seeder
     {
         $menu = $this->upsertMenu('return-gifts', 'Return Gifts', 6);
 
-        $this->upsertSectionWithLinks($menu, 'RETURN GIFTS', 1, [
-            ['Return Gifts', NavigationLinkType::GiftType, GiftType::class, 'return-gifts'],
+        $this->deactivateObsoleteReturnGiftSections($menu);
+
+        $this->upsertSeoLandingPageSection($menu, 'BY EVENT', 1, [
+            ['Birthday return gifts', 'birthday-return-gifts'],
+            ['Wedding return gifts', 'wedding-return-gifts'],
+            ['Baby shower return gifts', 'baby-shower-return-gifts'],
+            ['Engagement return gifts', 'engagement-return-gifts'],
         ]);
 
-        $this->upsertBrowseAll($menu, 'View all gift ideas');
+        $this->upsertEmptySection($menu, 'CORPORATE', 2);
+
+        $this->upsertSeoLandingPageSection($menu, 'BY BUDGET', 3, [
+            ['Return gifts under ₹500', 'return-gifts-under-500'],
+        ]);
+
+        $this->upsertReturnGiftsHub($menu);
+    }
+
+    private function deactivateObsoleteReturnGiftSections(NavigationMenu $menu): void
+    {
+        $keep = ['BY EVENT', 'CORPORATE', 'BY BUDGET', 'BROWSE ALL'];
+
+        $obsolete = $menu->sections()->whereNotIn('heading', $keep)->get();
+
+        foreach ($obsolete as $section) {
+            $section->links()->update(['is_active' => false]);
+            $section->update(['is_active' => false]);
+        }
+    }
+
+    /**
+     * @param  list<array{0: string, 1: string}>  $definitions
+     */
+    private function upsertSeoLandingPageSection(
+        NavigationMenu $menu,
+        string $heading,
+        int $sortOrder,
+        array $definitions,
+    ): void {
+        $section = NavigationSection::query()->updateOrCreate(
+            [
+                'navigation_menu_id' => $menu->id,
+                'heading' => $heading,
+            ],
+            [
+                'appearance' => NavigationSectionAppearance::Default,
+                'sort_order' => $sortOrder,
+                'is_active' => true,
+            ],
+        );
+
+        foreach ($definitions as $sort => [$label, $slug]) {
+            $id = SeoLandingPage::query()->where('slug', $slug)->value('id');
+
+            if ($id === null) {
+                continue;
+            }
+
+            NavigationLink::query()->updateOrCreate(
+                [
+                    'navigation_section_id' => $section->id,
+                    'link_type' => NavigationLinkType::SeoLandingPage,
+                    'linkable_id' => (int) $id,
+                ],
+                [
+                    'label' => $label,
+                    'sort_order' => $sort + 1,
+                    'is_active' => true,
+                    'opens_in_new_tab' => false,
+                    'route_key' => null,
+                    'url' => null,
+                ],
+            );
+        }
+    }
+
+    private function upsertEmptySection(NavigationMenu $menu, string $heading, int $sortOrder): void
+    {
+        NavigationSection::query()->updateOrCreate(
+            [
+                'navigation_menu_id' => $menu->id,
+                'heading' => $heading,
+            ],
+            [
+                'appearance' => NavigationSectionAppearance::Default,
+                'sort_order' => $sortOrder,
+                'is_active' => true,
+            ],
+        );
+    }
+
+    private function upsertReturnGiftsHub(NavigationMenu $menu): void
+    {
+        $giftTypeId = $this->activeId(GiftType::class, 'return-gifts');
+
+        if ($giftTypeId === null) {
+            return;
+        }
+
+        $section = NavigationSection::query()->updateOrCreate(
+            [
+                'navigation_menu_id' => $menu->id,
+                'heading' => 'BROWSE ALL',
+            ],
+            [
+                'appearance' => NavigationSectionAppearance::Cta,
+                'sort_order' => 99,
+                'is_active' => true,
+            ],
+        );
+
+        NavigationLink::query()
+            ->where('navigation_section_id', $section->id)
+            ->where('link_type', NavigationLinkType::DiscoveryRoute)
+            ->update(['is_active' => false]);
+
+        NavigationLink::query()->updateOrCreate(
+            [
+                'navigation_section_id' => $section->id,
+                'link_type' => NavigationLinkType::GiftType,
+                'linkable_id' => $giftTypeId,
+            ],
+            [
+                'label' => 'View all return gifts',
+                'sort_order' => 1,
+                'is_active' => true,
+                'opens_in_new_tab' => false,
+                'route_key' => null,
+                'url' => null,
+            ],
+        );
     }
 
     private function upsertMenu(string $slug, string $label, int $sortOrder): NavigationMenu

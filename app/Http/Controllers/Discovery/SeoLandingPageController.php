@@ -25,7 +25,15 @@ class SeoLandingPageController extends Controller
         $page = SeoLandingPage::query()
             ->where('slug', $slug)
             ->where('status', SeoLandingPageStatus::Published)
-            ->with('interests')
+            ->with([
+                'interests',
+                'relationship',
+                'recipientType',
+                'giftType',
+                'occasion',
+                'profession',
+                'category',
+            ])
             ->first();
 
         if ($page === null) {
@@ -64,6 +72,7 @@ class SeoLandingPageController extends Controller
             'seoPrev' => $pagination['prev'],
             'seoNext' => $pagination['next'],
             'breadcrumbs' => PageMeta::seoLandingPageBreadcrumbs($page),
+            'giftBrowseContext' => PageMeta::seoLandingPageProductLinkContext($page),
         ]);
     }
 

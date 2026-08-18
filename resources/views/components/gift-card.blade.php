@@ -1,15 +1,20 @@
 @props([
     'product',
+    'context' => null,
 ])
 
 @php
     $primaryImage = $product->images->firstWhere('is_primary', true) ?? $product->images->first();
     $affiliateLink = $product->affiliateLinks->firstWhere('is_primary', true) ?? $product->affiliateLinks->first();
     $merchantName = $affiliateLink?->merchant?->name;
+    $giftUrl = \App\Support\DiscoveryUrl::gift(
+        $product->slug,
+        context: is_string($context) ? $context : null,
+    );
 @endphp
 
 <article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white']) }}>
-    <a href="{{ \App\Support\DiscoveryUrl::gift($product->slug) }}" class="block aspect-[4/3] bg-stone-100">
+    <a href="{{ $giftUrl }}" class="block aspect-[4/3] bg-stone-100">
         @if ($primaryImage)
             <img
                 src="{{ $primaryImage->url() }}"
@@ -26,7 +31,7 @@
 
     <div class="flex flex-1 flex-col gap-2 p-4">
         <h3 class="text-base font-semibold leading-snug text-stone-900">
-            <a href="{{ \App\Support\DiscoveryUrl::gift($product->slug) }}" class="hover:underline">
+            <a href="{{ $giftUrl }}" class="hover:underline">
                 {{ $product->name }}
             </a>
         </h3>
