@@ -1,0 +1,3 @@
+title,source_type,summary,priority,source_name,source_url,external_reference,estimated_price_amount,estimated_price_currency,allow_similar_title
+Portable Photo Printer,web,A compact printer,high,Example Roundup,https://example.com/roundup,REF-1,49.99,USD,false
+Leather Wallet,manual,,,,,WALLET-1,25,INR,

@@ -1,0 +1,26 @@
+{
+  "candidates": [
+    {
+      "title": "Portable Photo Printer",
+      "source_type": "web",
+      "summary": "A compact printer",
+      "priority": "high",
+      "source_name": "Example Roundup",
+      "source_url": "https://example.com/roundup",
+      "estimated_price_amount": 49.99,
+      "estimated_price_currency": "USD",
+      "allow_similar_title": false,
+      "evidence": [
+        {
+          "source_type": "community",
+          "source_name": "Forum",
+          "source_url": "https://example.com/thread",
+          "summary": "Mentioned in a gift thread.",
+          "metadata": {
+            "thread_id": "t-1"
+          }
+        }
+      ]
+    }
+  ]
+}
