@@ -231,6 +231,35 @@ class SourceCatalogCandidatesActionTest extends TestCase
         $this->assertSame([], $offers['offers']);
     }
 
+    public function test_candidate_ids_limit_sourcing_to_explicit_candidates(): void
+    {
+        $this->fakeTavilyHits([
+            [
+                'title' => 'BrandX French Press',
+                'url' => 'https://partner-a.example/dp/B0ABCDEFGH',
+                'content' => 'BrandX French Press ₹1,299',
+            ],
+        ]);
+
+        $approved = CatalogCandidate::factory()->create([
+            'title' => 'Approved idea',
+            'status' => CatalogCandidateStatus::Approved,
+        ]);
+        $other = CatalogCandidate::factory()->create([
+            'title' => 'Other approved idea',
+            'status' => CatalogCandidateStatus::Approved,
+        ]);
+
+        $result = app(SourceCatalogCandidatesAction::class)->execute(
+            market: 'IN',
+            candidateIds: [$approved->id],
+        );
+
+        $this->assertSame(1, $result->itemsTotal);
+        $this->assertSame($approved->id, $result->outcomes[0]->candidateId);
+        $this->assertSame(0, CatalogCandidateSourcingItem::query()->where('catalog_candidate_id', $other->id)->count());
+    }
+
     /**
      * @param  list<array<string, string>>  $hits
      */

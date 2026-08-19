@@ -41,6 +41,7 @@ class SourceCatalogCandidatesAction
         ?int $enrichItemId = null,
         bool $promote = false,
         ?int $promoteItemId = null,
+        ?array $candidateIds = null,
     ): CatalogCandidateSourcingResult {
         $market = strtoupper(trim($market));
 
@@ -59,7 +60,7 @@ class SourceCatalogCandidatesAction
         $enrich = $enrich || $promote;
 
         $limit = min(100, max(1, $limit));
-        $candidates = $this->eligibleCandidates($candidateId, $limit, $includeDiscovered);
+        $candidates = $this->eligibleCandidates($candidateId, $limit, $includeDiscovered, $candidateIds);
         $outcomes = [];
         $succeeded = 0;
         $skipped = 0;
@@ -266,8 +267,37 @@ class SourceCatalogCandidatesAction
     /**
      * @return Collection<int, CatalogCandidate>
      */
-    private function eligibleCandidates(?int $candidateId, int $limit, bool $includeDiscovered): Collection
-    {
+    /**
+     * @param  list<int>|null  $candidateIds
+     * @return Collection<int, CatalogCandidate>
+     */
+    private function eligibleCandidates(
+        ?int $candidateId,
+        int $limit,
+        bool $includeDiscovered,
+        ?array $candidateIds = null,
+    ): Collection {
+        if ($candidateId !== null && $candidateIds !== null) {
+            throw new InvalidArgumentException('Cannot combine --candidate with an explicit candidate ID list.');
+        }
+
+        if ($candidateIds !== null) {
+            if ($candidateIds === []) {
+                return collect();
+            }
+
+            $normalizedIds = array_values(array_unique(array_map('intval', $candidateIds)));
+            $candidates = CatalogCandidate::query()
+                ->whereIn('id', $normalizedIds)
+                ->get()
+                ->keyBy('id');
+
+            return collect($normalizedIds)
+                ->map(fn (int $id): ?CatalogCandidate => $candidates->get($id))
+                ->filter()
+                ->values();
+        }
+
         $query = CatalogCandidate::query()->orderBy('id');
 
         if ($candidateId !== null) {
