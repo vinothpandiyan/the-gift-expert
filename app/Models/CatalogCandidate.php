@@ -65,4 +65,9 @@ class CatalogCandidate extends Model
     {
         return $this->belongsTo(User::class, 'reviewed_by_user_id');
     }
+
+    public function sourcingItems(): HasMany
+    {
+        return $this->hasMany(CatalogCandidateSourcingItem::class);
+    }
 }

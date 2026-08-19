@@ -72,6 +72,7 @@ class TavilyCatalogCandidateSearchProviderTest extends TestCase
                 && $request['include_raw_content'] === false
                 && $request['include_images'] === false
                 && $request['auto_parameters'] === false
+                && ! array_key_exists('include_domains', $request->data())
                 && $request['start_date'] === '2026-07-20'
                 && $request['country'] === 'india'
                 && is_string($request['query'])
