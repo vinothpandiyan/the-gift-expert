@@ -18,6 +18,8 @@ class SourceCatalogCandidatesCommand extends Command
         {--include-discovered : Also source discovered candidates}
         {--enrich : Enrich selected offers with copy, taxonomy, affiliate URL, and budget mapping}
         {--enrich-item= : Re-enrich an existing sourcing item ID without searching}
+        {--promote : Promote enriched sourcing results to draft gifts via Phase 17}
+        {--promote-item= : Promote an existing enriched sourcing item ID without searching}
         {--dry-run : Search and rank without writing sourcing runs}';
 
     protected $description = 'Source commercial offers for catalog candidates without creating gifts.';
@@ -33,6 +35,8 @@ class SourceCatalogCandidatesCommand extends Command
                 dryRun: (bool) $this->option('dry-run'),
                 enrich: (bool) $this->option('enrich') || $this->option('enrich-item') !== null && $this->option('enrich-item') !== '',
                 enrichItemId: $this->enrichItemId(),
+                promote: (bool) $this->option('promote') || $this->option('promote-item') !== null && $this->option('promote-item') !== '',
+                promoteItemId: $this->promoteItemId(),
             );
         } catch (InvalidArgumentException $exception) {
             $this->error($exception->getMessage());
@@ -79,6 +83,21 @@ class SourceCatalogCandidatesCommand extends Command
         return (int) $value;
     }
 
+    private function promoteItemId(): ?int
+    {
+        $value = $this->option('promote-item');
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_numeric($value) || (int) $value < 1) {
+            throw new InvalidArgumentException('The --promote-item option must be a positive sourcing item ID.');
+        }
+
+        return (int) $value;
+    }
+
     private function printResult(CatalogCandidateSourcingResult $result): void
     {
         if ($result->dryRun) {
@@ -114,6 +133,14 @@ class SourceCatalogCandidatesCommand extends Command
                 $this->line('  affiliate_ready: '.($outcome->payload->affiliateReady ? 'yes' : 'no'));
                 $this->line('  primary_category_id: '.($outcome->payload->primaryCategoryId ?? '(none)'));
                 $this->line('  budget_range_id: '.($outcome->payload->budgetRangeId ?? '(none)'));
+            }
+
+            if ($outcome->productId !== null) {
+                $this->line('  product_id: '.$outcome->productId);
+            }
+
+            if ($outcome->affiliateLinkId !== null) {
+                $this->line('  affiliate_link_id: '.$outcome->affiliateLinkId);
             }
 
             if ($outcome->exceptionCodes !== []) {

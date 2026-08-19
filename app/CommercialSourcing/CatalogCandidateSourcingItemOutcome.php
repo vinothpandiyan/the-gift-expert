@@ -20,5 +20,7 @@ readonly class CatalogCandidateSourcingItemOutcome
         public array $rankBreakdown,
         public ?string $error,
         public ?ProductPromotionPayload $payload = null,
+        public ?int $productId = null,
+        public ?int $affiliateLinkId = null,
     ) {}
 }

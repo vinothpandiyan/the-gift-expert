@@ -7,6 +7,7 @@ use App\CommercialSourcing\CatalogCandidateSourcingResult;
 use App\CommercialSourcing\CommercialEnrichmentException;
 use App\CommercialSourcing\CommercialOfferSearchException;
 use App\CommercialSourcing\ExtractCommercialExternalProductId;
+use App\CommercialSourcing\ProductPromotionPayload;
 use App\CommercialSourcing\SourcedMerchantOffer;
 use App\Enums\CatalogCandidateSourcingItemStatus;
 use App\Enums\CatalogCandidateSourcingRunStatus;
@@ -26,6 +27,7 @@ class SourceCatalogCandidatesAction
         private SelectCommercialOfferAction $selectCommercialOffer,
         private ExtractCommercialExternalProductId $extractExternalProductId,
         private EnrichAndClassifyCommercialOfferAction $enrichAndClassify,
+        private PromoteCatalogCandidateSourcingItemAction $promoteSourcingItem,
     ) {}
 
     public function execute(
@@ -37,6 +39,8 @@ class SourceCatalogCandidatesAction
         ?int $createdByUserId = null,
         bool $enrich = false,
         ?int $enrichItemId = null,
+        bool $promote = false,
+        ?int $promoteItemId = null,
     ): CatalogCandidateSourcingResult {
         $market = strtoupper(trim($market));
 
@@ -44,9 +48,15 @@ class SourceCatalogCandidatesAction
             throw new InvalidArgumentException('A two-letter market code is required.');
         }
 
+        if ($promoteItemId !== null) {
+            return $this->promoteExistingItem($promoteItemId, $dryRun, $market);
+        }
+
         if ($enrichItemId !== null) {
             return $this->enrichExistingItem($enrichItemId, $dryRun, $market);
         }
+
+        $enrich = $enrich || $promote;
 
         $limit = min(100, max(1, $limit));
         $candidates = $this->eligibleCandidates($candidateId, $limit, $includeDiscovered);
@@ -86,12 +96,7 @@ class SourceCatalogCandidatesAction
             }
 
             $outcomes[] = $outcome;
-
-            match ($outcome->status) {
-                CatalogCandidateSourcingItemStatus::Succeeded => $succeeded++,
-                CatalogCandidateSourcingItemStatus::Skipped => $skipped++,
-                CatalogCandidateSourcingItemStatus::Failed => $failed++,
-            };
+            $outcomeIndex = array_key_last($outcomes);
 
             if ($run !== null) {
                 $payload = $outcome->payload;
@@ -112,7 +117,7 @@ class SourceCatalogCandidatesAction
                 if ($payload !== null) {
                     $stamped = $payload->withSourcingItemId($item->id);
                     $item->update(['enrichment' => $stamped->toAuditArray()]);
-                    $outcomes[array_key_last($outcomes)] = new CatalogCandidateSourcingItemOutcome(
+                    $outcomes[$outcomeIndex] = new CatalogCandidateSourcingItemOutcome(
                         index: $outcome->index,
                         candidateId: $outcome->candidateId,
                         candidateTitle: $outcome->candidateTitle,
@@ -123,8 +128,33 @@ class SourceCatalogCandidatesAction
                         error: $outcome->error,
                         payload: $stamped,
                     );
+                    $outcome = $outcomes[$outcomeIndex];
                 }
+
+                if ($promote && $outcome->status === CatalogCandidateSourcingItemStatus::Succeeded) {
+                    $outcomes[$outcomeIndex] = $this->attachPromotion($item, $outcome);
+                    $outcome = $outcomes[$outcomeIndex];
+                    $item->status = $outcome->status;
+                    $item->exception_codes = $outcome->exceptionCodes === [] ? null : $outcome->exceptionCodes;
+                    $item->error = $outcome->error;
+                    $item->save();
+                }
+            } elseif ($promote && $outcome->status === CatalogCandidateSourcingItemStatus::Succeeded) {
+                $outcomes[$outcomeIndex] = $this->attachPromotion(
+                    $this->simulatedSourcingItem($candidate, $outcome),
+                    $outcome,
+                    dryRun: true,
+                );
+                $outcome = $outcomes[$outcomeIndex];
             }
+
+            $outcomes[$outcomeIndex] = $outcome;
+
+            match ($outcome->status) {
+                CatalogCandidateSourcingItemStatus::Succeeded => $succeeded++,
+                CatalogCandidateSourcingItemStatus::Skipped => $skipped++,
+                CatalogCandidateSourcingItemStatus::Failed => $failed++,
+            };
         }
 
         $total = $candidates->count();
@@ -302,6 +332,120 @@ class SourceCatalogCandidatesAction
             rankBreakdown: $outcome->rankBreakdown,
             error: $codes === [] ? null : implode(', ', $codes),
             payload: $payload,
+        );
+    }
+
+    private function attachPromotion(
+        CatalogCandidateSourcingItem $item,
+        CatalogCandidateSourcingItemOutcome $outcome,
+        bool $dryRun = false,
+    ): CatalogCandidateSourcingItemOutcome {
+        $promotion = $this->promoteSourcingItem->execute($item, $dryRun);
+
+        if (! $promotion->promoted) {
+            $codes = array_values(array_unique(array_merge($outcome->exceptionCodes, $promotion->exceptionCodes)));
+
+            return new CatalogCandidateSourcingItemOutcome(
+                index: $outcome->index,
+                candidateId: $outcome->candidateId,
+                candidateTitle: $outcome->candidateTitle,
+                status: CatalogCandidateSourcingItemStatus::Failed,
+                selected: $outcome->selected,
+                exceptionCodes: $codes,
+                rankBreakdown: $outcome->rankBreakdown,
+                error: $promotion->error,
+                payload: $outcome->payload,
+            );
+        }
+
+        return new CatalogCandidateSourcingItemOutcome(
+            index: $outcome->index,
+            candidateId: $outcome->candidateId,
+            candidateTitle: $outcome->candidateTitle,
+            status: $outcome->status,
+            selected: $outcome->selected,
+            exceptionCodes: $outcome->exceptionCodes,
+            rankBreakdown: $outcome->rankBreakdown,
+            error: $outcome->error,
+            payload: $outcome->payload,
+            productId: $promotion->productId,
+            affiliateLinkId: $promotion->affiliateLinkId,
+        );
+    }
+
+    private function simulatedSourcingItem(
+        CatalogCandidate $candidate,
+        CatalogCandidateSourcingItemOutcome $outcome,
+    ): CatalogCandidateSourcingItem {
+        return new CatalogCandidateSourcingItem([
+            'catalog_candidate_id' => $candidate->id,
+            'merchant_id' => $outcome->selected?->merchantId,
+            'selected_offer' => $outcome->selected?->toAuditArray($outcome->rankBreakdown),
+            'enrichment' => $outcome->payload?->toAuditArray(),
+        ]);
+    }
+
+    private function promoteExistingItem(int $promoteItemId, bool $dryRun, string $market): CatalogCandidateSourcingResult
+    {
+        $item = CatalogCandidateSourcingItem::query()->with('run')->find($promoteItemId);
+
+        if ($item === null) {
+            throw new InvalidArgumentException("Sourcing item [{$promoteItemId}] was not found.");
+        }
+
+        $candidate = CatalogCandidate::query()->find($item->catalog_candidate_id);
+
+        if (! $candidate instanceof CatalogCandidate) {
+            throw new InvalidArgumentException("Sourcing item [{$promoteItemId}] has no catalog candidate.");
+        }
+
+        $offer = is_array($item->selected_offer)
+            ? SourcedMerchantOffer::fromAuditArray($item->selected_offer)
+            : null;
+        $payload = null;
+
+        if (is_array($item->enrichment)) {
+            try {
+                $payload = ProductPromotionPayload::fromAuditArray($item->enrichment);
+            } catch (InvalidArgumentException) {
+                $payload = null;
+            }
+        }
+
+        $base = new CatalogCandidateSourcingItemOutcome(
+            index: 0,
+            candidateId: $candidate->id,
+            candidateTitle: $candidate->title,
+            status: CatalogCandidateSourcingItemStatus::Succeeded,
+            selected: $offer,
+            exceptionCodes: is_array($item->exception_codes) ? $item->exception_codes : [],
+            rankBreakdown: is_array($item->selected_offer['rank_breakdown'] ?? null)
+                ? $item->selected_offer['rank_breakdown']
+                : [],
+            error: null,
+            payload: $payload,
+        );
+        $outcome = $this->attachPromotion($item, $base, $dryRun);
+
+        if (! $dryRun) {
+            $item->status = $outcome->status;
+            $item->exception_codes = $outcome->exceptionCodes === [] ? null : $outcome->exceptionCodes;
+            $item->error = $outcome->error;
+            $item->save();
+        }
+
+        $succeeded = $outcome->status === CatalogCandidateSourcingItemStatus::Succeeded ? 1 : 0;
+        $failed = $outcome->status === CatalogCandidateSourcingItemStatus::Failed ? 1 : 0;
+
+        return new CatalogCandidateSourcingResult(
+            run: $dryRun ? null : $item->run,
+            market: $market,
+            itemsTotal: 1,
+            itemsSucceeded: $succeeded,
+            itemsSkipped: 0,
+            itemsFailed: $failed,
+            outcomes: [$outcome],
+            dryRun: $dryRun,
         );
     }
 
