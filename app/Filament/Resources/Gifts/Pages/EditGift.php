@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Gifts\Pages;
 
+use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
 use App\Actions\Product\PublishProductAction;
 use App\Enums\ProductStatus;
 use App\Filament\Resources\Gifts\GiftResource;
@@ -23,6 +24,31 @@ class EditGift extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('reevaluateReadiness')
+                ->label('Re-evaluate readiness')
+                ->icon(Heroicon::OutlinedArrowPath)
+                ->visible(fn (Product $record): bool => $record->latestPromotedSourcingItem !== null)
+                ->action(function (Product $record): void {
+                    $item = $record->latestPromotedSourcingItem;
+
+                    if ($item === null) {
+                        return;
+                    }
+
+                    $item = app(EvaluateAndPersistProductAutomationReadinessAction::class)->execute($item);
+
+                    Notification::make()
+                        ->title('Readiness updated')
+                        ->body(sprintf(
+                            'Readiness is now %s with %d exception code(s).',
+                            $item->readiness?->value ?? 'not set',
+                            is_array($item->exception_codes) ? count($item->exception_codes) : 0,
+                        ))
+                        ->success()
+                        ->send();
+
+                    $this->record = $record->fresh(['latestPromotedSourcingItem.candidate']);
+                }),
             Action::make('publish')
                 ->label('Publish')
                 ->icon(Heroicon::OutlinedArrowUpTray)

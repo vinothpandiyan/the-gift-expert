@@ -7,6 +7,18 @@ return [
 
     'default_market' => 'IN',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Automation (deferred)
+    |--------------------------------------------------------------------------
+    |
+    | Phase 19D.4 does not auto-publish. This flag remains unused until an
+    | explicit future phase approves human-triggered or scheduled publication.
+    |
+    */
+
+    'auto_publish' => false,
+
     'taxonomy_caps' => [
         'interests' => 3,
         'relationships' => 4,

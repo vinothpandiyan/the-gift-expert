@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CatalogCandidateSourcingItemStatus;
+use App\Enums\ProductAutomationReadiness;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,7 @@ class CatalogCandidateSourcingItem extends Model
     {
         return [
             'status' => CatalogCandidateSourcingItemStatus::class,
+            'readiness' => ProductAutomationReadiness::class,
             'selected_offer' => 'array',
             'enrichment' => 'array',
             'exception_codes' => 'array',

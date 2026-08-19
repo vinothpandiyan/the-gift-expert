@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[ObservedBy(ProductObserver::class)]
@@ -109,6 +110,16 @@ class Product extends Model
     public function recommendationResults(): HasMany
     {
         return $this->hasMany(RecommendationResult::class);
+    }
+
+    public function sourcingItems(): HasMany
+    {
+        return $this->hasMany(CatalogCandidateSourcingItem::class);
+    }
+
+    public function latestPromotedSourcingItem(): HasOne
+    {
+        return $this->hasOne(CatalogCandidateSourcingItem::class)->latestOfMany();
     }
 
     public function scopePublished(Builder $query): Builder

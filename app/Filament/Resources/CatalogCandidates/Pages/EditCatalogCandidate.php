@@ -7,6 +7,7 @@ use App\Actions\CatalogCandidate\RejectCatalogCandidateAction;
 use App\Actions\CatalogCandidate\ReopenCatalogCandidateAction;
 use App\Actions\CatalogCandidate\StartReviewCatalogCandidateAction;
 use App\Actions\CatalogCandidate\UpdateCatalogCandidateAction;
+use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
 use App\Enums\CatalogCandidateStatus;
 use App\Filament\Resources\CatalogCandidates\CatalogCandidateResource;
 use App\Models\CatalogCandidate;
@@ -50,6 +51,31 @@ class EditCatalogCandidate extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('reevaluateReadiness')
+                ->label('Re-evaluate readiness')
+                ->icon(Heroicon::OutlinedArrowPath)
+                ->visible(fn (CatalogCandidate $record): bool => $record->latestSourcingItem !== null)
+                ->action(function (CatalogCandidate $record): void {
+                    $item = $record->latestSourcingItem;
+
+                    if ($item === null) {
+                        return;
+                    }
+
+                    $item = app(EvaluateAndPersistProductAutomationReadinessAction::class)->execute($item);
+
+                    Notification::make()
+                        ->title('Readiness updated')
+                        ->body(sprintf(
+                            'Readiness is now %s with %d exception code(s).',
+                            $item->readiness?->value ?? 'not set',
+                            is_array($item->exception_codes) ? count($item->exception_codes) : 0,
+                        ))
+                        ->success()
+                        ->send();
+
+                    $this->record = $record->fresh(['latestSourcingItem.merchant', 'latestSourcingItem.product']);
+                }),
             Action::make('startReview')
                 ->label('Start review')
                 ->icon(Heroicon::OutlinedEye)

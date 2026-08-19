@@ -5,6 +5,7 @@ namespace App\Actions\CatalogCandidate;
 use App\Actions\Import\StoreImportedProductImagesAction;
 use App\Actions\Import\UpsertImportedProductAction;
 use App\Actions\Product\ApplyProductTaxonomyClassificationAction;
+use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
 use App\CommercialSourcing\CatalogCandidatePromotionResult;
 use App\CommercialSourcing\CommercialSourcingMerchants;
 use App\CommercialSourcing\ProductPromotionPayload;
@@ -23,6 +24,7 @@ class PromoteCatalogCandidateSourcingItemAction
         private StoreImportedProductImagesAction $storeImportedProductImages,
         private ApplyProductTaxonomyClassificationAction $applyTaxonomy,
         private CommercialSourcingMerchants $merchants,
+        private EvaluateAndPersistProductAutomationReadinessAction $evaluateReadiness,
     ) {}
 
     public function execute(CatalogCandidateSourcingItem $item, bool $dryRun = false): CatalogCandidatePromotionResult
@@ -82,6 +84,8 @@ class PromoteCatalogCandidateSourcingItemAction
         $item->product_id = $link->product_id;
         $item->affiliate_link_id = $link->id;
         $item->save();
+
+        $this->evaluateReadiness->execute($item->fresh());
 
         return new CatalogCandidatePromotionResult(
             promoted: true,

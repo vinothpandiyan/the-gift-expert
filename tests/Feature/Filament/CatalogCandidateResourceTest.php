@@ -312,20 +312,18 @@ class CatalogCandidateResourceTest extends TestCase
         );
     }
 
-    public function test_list_filters_status_priority_source_type_and_trashed(): void
+    public function test_list_filters_status_source_type_readiness_and_trashed(): void
     {
         $this->actingAs(User::factory()->create());
 
         $discovered = CatalogCandidate::factory()->create([
             'title' => 'Discovered Idea',
             'status' => CatalogCandidateStatus::Discovered,
-            'priority' => CatalogCandidatePriority::High,
             'source_type' => CatalogCandidateSourceType::Web,
         ]);
         $approved = CatalogCandidate::factory()->create([
             'title' => 'Approved Idea',
             'status' => CatalogCandidateStatus::Approved,
-            'priority' => CatalogCandidatePriority::Low,
             'source_type' => CatalogCandidateSourceType::Manual,
         ]);
         $trashed = CatalogCandidate::factory()->create([
@@ -337,11 +335,6 @@ class CatalogCandidateResourceTest extends TestCase
             ->filterTable('status', CatalogCandidateStatus::Approved->value)
             ->assertCanSeeTableRecords([$approved])
             ->assertCanNotSeeTableRecords([$discovered]);
-
-        Livewire::test(ListCatalogCandidates::class)
-            ->filterTable('priority', CatalogCandidatePriority::High->value)
-            ->assertCanSeeTableRecords([$discovered])
-            ->assertCanNotSeeTableRecords([$approved]);
 
         Livewire::test(ListCatalogCandidates::class)
             ->filterTable('source_type', CatalogCandidateSourceType::Web->value)

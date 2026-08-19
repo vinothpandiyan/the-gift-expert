@@ -2,11 +2,18 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
 use App\Enums\AffiliateLinkStatus;
+use App\Enums\CatalogCandidateSourcingItemStatus;
 use App\Enums\ProductStatus;
 use App\Filament\Resources\Gifts\Pages\CreateGift;
 use App\Filament\Resources\Gifts\Pages\EditGift;
+use App\Filament\Resources\Gifts\Pages\ListGifts;
 use App\Models\AffiliateLink;
+use App\Models\CatalogCandidate;
+use App\Models\CatalogCandidateSourcingItem;
+use App\Models\CatalogCandidateSourcingRun;
+use App\Models\Category;
 use App\Models\Merchant;
 use App\Models\Product;
 use App\Models\ProductImage;
@@ -112,6 +119,87 @@ class GiftResourceTest extends TestCase
             ->assertHasNoActionErrors();
 
         $this->assertSame(ProductStatus::Archived, $product->fresh()->status);
+    }
+
+    public function test_bulk_publish_publishes_only_ready_draft_gifts(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $merchant = Merchant::query()->create([
+            'name' => 'Example Merchant',
+            'slug' => 'example-merchant',
+            'affiliate_network' => 'fake',
+        ]);
+
+        $category = Category::query()->create([
+            'name' => 'Home',
+            'slug' => 'home',
+            'is_active' => true,
+        ]);
+
+        $ready = $this->readyPromotedDraft($merchant, $category, 'ready-gift');
+        $blocked = $this->readyPromotedDraft($merchant, $category, 'blocked-gift', withImage: false);
+
+        Livewire::test(ListGifts::class)
+            ->callTableBulkAction('publishReady', [$ready, $blocked]);
+
+        $this->assertSame(ProductStatus::Published, $ready->fresh()->status);
+        $this->assertSame(ProductStatus::Draft, $blocked->fresh()->status);
+    }
+
+    private function readyPromotedDraft(
+        Merchant $merchant,
+        Category $category,
+        string $slug,
+        bool $withImage = true,
+    ): Product {
+        $product = Product::factory()->create([
+            'name' => str_replace('-', ' ', $slug),
+            'slug' => $slug,
+            'brand' => 'Brand',
+            'short_description' => 'Short copy',
+            'price_amount' => '500.00',
+            'status' => ProductStatus::Draft,
+        ]);
+
+        $product->categories()->attach($category->id, ['is_primary' => true]);
+
+        if ($withImage) {
+            ProductImage::query()->create([
+                'product_id' => $product->id,
+                'path' => 'images/'.$slug.'.jpg',
+                'is_primary' => true,
+            ]);
+        }
+
+        AffiliateLink::query()->create([
+            'product_id' => $product->id,
+            'merchant_id' => $merchant->id,
+            'url' => 'https://example.com/'.$slug,
+            'external_product_id' => strtoupper($slug),
+            'status' => AffiliateLinkStatus::Active,
+            'is_primary' => true,
+        ]);
+
+        $candidate = CatalogCandidate::factory()->create([
+            'title' => $product->name,
+        ]);
+
+        $item = CatalogCandidateSourcingItem::query()->create([
+            'catalog_candidate_sourcing_run_id' => CatalogCandidateSourcingRun::factory()->create()->id,
+            'catalog_candidate_id' => $candidate->id,
+            'merchant_id' => $merchant->id,
+            'product_id' => $product->id,
+            'status' => CatalogCandidateSourcingItemStatus::Succeeded,
+            'enrichment' => [
+                'image_urls' => $withImage ? ['https://example.test/image.jpg'] : [],
+                'metadata' => [],
+            ],
+        ]);
+
+        app(EvaluateAndPersistProductAutomationReadinessAction::class)->execute($item);
+
+        return $product->fresh();
     }
 
     private function publishableProduct(): Product

@@ -91,6 +91,7 @@ class SourceCatalogCandidatesPromotionTest extends TestCase
         $this->assertSame($link->id, $item->affiliate_link_id);
         $this->assertNotNull($item->selected_offer);
         $this->assertNotNull($item->enrichment);
+        $this->assertNotNull($item->readiness);
         $this->assertSame(ProductStatus::Draft, $product->status);
         $this->assertNull($product->published_at);
         $this->assertSame('BrandX French Press', $product->name);

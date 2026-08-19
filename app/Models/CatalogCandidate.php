@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CatalogCandidate extends Model
@@ -69,5 +70,10 @@ class CatalogCandidate extends Model
     public function sourcingItems(): HasMany
     {
         return $this->hasMany(CatalogCandidateSourcingItem::class);
+    }
+
+    public function latestSourcingItem(): HasOne
+    {
+        return $this->hasOne(CatalogCandidateSourcingItem::class)->latestOfMany();
     }
 }

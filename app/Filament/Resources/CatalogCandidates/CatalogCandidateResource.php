@@ -6,10 +6,12 @@ use App\Actions\CatalogCandidate\FindCatalogCandidateProductOverlapAction;
 use App\Enums\CatalogCandidatePriority;
 use App\Enums\CatalogCandidateSourceType;
 use App\Enums\CatalogCandidateStatus;
+use App\Enums\ProductAutomationReadiness;
 use App\Filament\Resources\CatalogCandidates\Pages\CreateCatalogCandidate;
 use App\Filament\Resources\CatalogCandidates\Pages\EditCatalogCandidate;
 use App\Filament\Resources\CatalogCandidates\Pages\ListCatalogCandidates;
 use App\Filament\Resources\CatalogCandidates\RelationManagers\EvidenceRelationManager;
+use App\Filament\Resources\Gifts\GiftResource;
 use App\Models\CatalogCandidate;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -29,7 +31,9 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -127,6 +131,10 @@ class CatalogCandidateResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
+                'latestSourcingItem.merchant',
+                'latestSourcingItem.product',
+            ]))
             ->recordTitleAttribute('title')
             ->columns([
                 TextColumn::make('title')
@@ -135,28 +143,132 @@ class CatalogCandidateResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
-                TextColumn::make('priority')
+                TextColumn::make('latestSourcingItem.merchant.name')
+                    ->label('Merchant')
+                    ->toggleable(),
+                TextColumn::make('latestSourcingItem.status')
+                    ->label('Sourcing')
                     ->badge()
-                    ->sortable(),
+                    ->toggleable(),
+                TextColumn::make('latestSourcingItem.product.name')
+                    ->label('Gift')
+                    ->url(fn (CatalogCandidate $record): ?string => $record->latestSourcingItem?->product_id !== null
+                        ? GiftResource::getUrl('edit', ['record' => $record->latestSourcingItem->product_id])
+                        : null)
+                    ->toggleable(),
+                TextColumn::make('latestSourcingItem.readiness')
+                    ->label('Readiness')
+                    ->badge()
+                    ->color(fn (?ProductAutomationReadiness $state): string => self::readinessColor($state))
+                    ->formatStateUsing(fn (?ProductAutomationReadiness $state): string => $state === null
+                        ? '—'
+                        : str_replace('_', ' ', $state->name))
+                    ->toggleable(),
+                TextColumn::make('latestSourcingItem.exception_codes')
+                    ->label('Exceptions')
+                    ->formatStateUsing(fn ($state): int => is_array($state) ? count($state) : 0)
+                    ->toggleable(),
                 TextColumn::make('source_type')
                     ->badge()
-                    ->sortable(),
-                TextColumn::make('source_name')
-                    ->searchable()
-                    ->toggleable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('discovered_at')
                     ->dateTime()
                     ->sortable(),
+                TextColumn::make('priority')
+                    ->badge()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reviewed_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('readiness')
+                    ->label('Automation readiness')
+                    ->options([
+                        ProductAutomationReadiness::Ready->value => 'Ready',
+                        ProductAutomationReadiness::NeedsReview->value => 'Needs review',
+                        ProductAutomationReadiness::Blocked->value => 'Blocked',
+                        'unsourced' => 'Unsourced',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if ($value === null || $value === '') {
+                            return $query;
+                        }
+
+                        if ($value === 'unsourced') {
+                            return $query->whereDoesntHave('sourcingItems');
+                        }
+
+                        return $query->whereHas(
+                            'latestSourcingItem',
+                            fn (Builder $itemQuery): Builder => $itemQuery->where('readiness', $value),
+                        );
+                    }),
+                TernaryFilter::make('has_product')
+                    ->label('Has gift')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->whereHas(
+                            'latestSourcingItem',
+                            fn (Builder $itemQuery): Builder => $itemQuery->whereNotNull('product_id'),
+                        ),
+                        false: fn (Builder $query): Builder => $query->where(function (Builder $nested): void {
+                            $nested->whereDoesntHave('sourcingItems')
+                                ->orWhereHas(
+                                    'latestSourcingItem',
+                                    fn (Builder $itemQuery): Builder => $itemQuery->whereNull('product_id'),
+                                );
+                        }),
+                        blank: fn (Builder $query): Builder => $query,
+                    ),
+                Filter::make('no_offer')
+                    ->label('No offer')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'latestSourcingItem',
+                        fn (Builder $itemQuery): Builder => $itemQuery->whereJsonContains('exception_codes', 'no_offer'),
+                    )),
+                Filter::make('affiliate_issue')
+                    ->label('Affiliate issue')
+                    ->query(fn (Builder $query): Builder => $query->whereHas('latestSourcingItem', function (Builder $itemQuery): void {
+                        $itemQuery->where(function (Builder $nested): void {
+                            foreach (['affiliate_manual', 'affiliate_not_ready', 'invalid_affiliate_url', 'no_active_affiliate_link'] as $code) {
+                                $nested->orWhereJsonContains('exception_codes', $code);
+                            }
+                        });
+                    })),
+                Filter::make('image_issue')
+                    ->label('Image issue')
+                    ->query(fn (Builder $query): Builder => $query->whereHas('latestSourcingItem', function (Builder $itemQuery): void {
+                        $itemQuery->where(function (Builder $nested): void {
+                            foreach (['no_image', 'image_policy', 'image_acquisition_failed'] as $code) {
+                                $nested->orWhereJsonContains('exception_codes', $code);
+                            }
+                        });
+                    })),
+                Filter::make('taxonomy_issue')
+                    ->label('Taxonomy issue')
+                    ->query(fn (Builder $query): Builder => $query->whereHas('latestSourcingItem', function (Builder $itemQuery): void {
+                        $itemQuery->where(function (Builder $nested): void {
+                            foreach (['missing_primary_category', 'taxonomy_ids_rejected', 'taxonomy_too_broad'] as $code) {
+                                $nested->orWhereJsonContains('exception_codes', $code);
+                            }
+                        });
+                    })),
+                Filter::make('price_issue')
+                    ->label('Price issue')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'latestSourcingItem',
+                        fn (Builder $itemQuery): Builder => $itemQuery->whereJsonContains('exception_codes', 'missing_or_ambiguous_price'),
+                    )),
+                Filter::make('unsourced')
+                    ->label('Unsourced')
+                    ->query(fn (Builder $query): Builder => $query->whereDoesntHave('sourcingItems')),
                 SelectFilter::make('status')
                     ->options(self::enumOptions(CatalogCandidateStatus::class)),
-                SelectFilter::make('priority')
-                    ->options(self::enumOptions(CatalogCandidatePriority::class)),
                 SelectFilter::make('source_type')
                     ->options(self::enumOptions(CatalogCandidateSourceType::class)),
                 TrashedFilter::make(),
@@ -190,6 +302,12 @@ class CatalogCandidateResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['latestSourcingItem.merchant', 'latestSourcingItem.product']);
+    }
+
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
@@ -209,6 +327,16 @@ class CatalogCandidateResource extends Resource
                 $case->value => str_replace('_', ' ', $case->name),
             ],
         )->all();
+    }
+
+    private static function readinessColor(?ProductAutomationReadiness $readiness): string
+    {
+        return match ($readiness) {
+            ProductAutomationReadiness::Ready => 'success',
+            ProductAutomationReadiness::NeedsReview => 'warning',
+            ProductAutomationReadiness::Blocked => 'danger',
+            default => 'gray',
+        };
     }
 
     private static function titleOverlapsProduct(mixed $title): bool
