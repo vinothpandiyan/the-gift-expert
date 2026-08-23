@@ -140,10 +140,10 @@ return [
             'enabled' => true,
             'priority' => 90,
             'markets' => ['IN'],
-            'search_enabled' => true,
-            'affiliate_enabled' => true,
+            'search_enabled' => false,
+            'affiliate_enabled' => false,
             'domains' => ['flipkart.com'],
-            'image_policy_key' => 'fake',
+            'image_policy_key' => 'manual',
             'external_id_strategy' => 'extractor',
             'external_id' => [
                 'rules' => [
@@ -165,14 +165,39 @@ return [
             ],
         ],
 
+        'fnp' => [
+            'enabled' => true,
+            'priority' => 80,
+            'markets' => ['IN'],
+            'search_enabled' => false,
+            'affiliate_enabled' => false,
+            'domains' => ['fnp.com'],
+            'image_policy_key' => 'manual',
+            'external_id_strategy' => 'url_fingerprint',
+            'external_id' => [
+                'rules' => [],
+            ],
+            'url_fingerprint' => [
+                'enabled' => true,
+                'strip_query_params' => ['utm_source', 'utm_medium', 'utm_campaign'],
+            ],
+            'affiliate_strategy' => 'manual',
+            'affiliate' => [
+                'strategy' => 'manual',
+            ],
+            'deny_path_patterns' => [
+                '#^/search#',
+            ],
+        ],
+
         'myntra' => [
-            'enabled' => false,
+            'enabled' => true,
             'priority' => 70,
             'markets' => ['IN'],
-            'search_enabled' => true,
+            'search_enabled' => false,
             'affiliate_enabled' => false,
             'domains' => ['myntra.com'],
-            'image_policy_key' => 'fake',
+            'image_policy_key' => 'manual',
             'external_id_strategy' => 'url_fingerprint',
             'external_id' => [
                 'rules' => [],

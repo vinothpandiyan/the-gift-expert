@@ -1,0 +1,112 @@
+[90m= [39m[
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m1[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m1[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m2[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m2[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m3[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m3[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m4[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m4[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m5[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m5[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m6[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m6[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m7[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m7[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m8[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m8[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m9[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m9[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+    [
+      [34m"[39m[34mid[39m[34m"[39m => [35m10[39m,
+      [34m"[39m[34mcatalog_candidate_id[39m[34m"[39m => [35m10[39m,
+      [34m"[39m[34mmerchant_id[39m[34m"[39m => [36mnull[39m,
+      [34m"[39m[34mstatus[39m[34m"[39m => [32m"[39m[32mskipped[39m[32m"[39m,
+      [34m"[39m[34mexception_codes[39m[34m"[39m => [
+        [32m"[39m[32mno_offer[39m[32m"[39m,
+      ],
+      [34m"[39m[34merror[39m[34m"[39m => [32m"[39m[32mNo commercial offer was found on approved merchant domains.[39m[32m"[39m,
+      [34m"[39m[34mselected_offer[39m[34m"[39m => [36mnull[39m,
+    ],
+  ]

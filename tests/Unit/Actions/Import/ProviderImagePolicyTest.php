@@ -26,6 +26,15 @@ class ProviderImagePolicyTest extends TestCase
         $this->assertFalse($policy->allowsLocalAcquisition());
     }
 
+    public function test_manual_provider_does_not_allow_local_acquisition(): void
+    {
+        $policy = ProviderImagePolicy::forKey('manual');
+
+        $this->assertFalse($policy->storeImages);
+        $this->assertFalse($policy->transformImages);
+        $this->assertFalse($policy->allowsLocalAcquisition());
+    }
+
     public function test_unknown_provider_is_not_allowed(): void
     {
         $policy = ProviderImagePolicy::forKey('not_configured');

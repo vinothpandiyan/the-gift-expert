@@ -37,6 +37,15 @@ return [
             ],
         ],
 
+        'manual' => [
+            'class' => null,
+            'policy' => [
+                'store_images' => false,
+                'transform_images' => false,
+                'max_images' => 5,
+            ],
+        ],
+
     ],
 
     'http' => [
