@@ -27,10 +27,21 @@ class CuratedProductEnrichmentPromptTest extends TestCase
         $this->assertStringContainsString('already curated this SKU as gift-worthy', $system);
         $this->assertStringContainsString('short_description', $system);
         $this->assertStringContainsString('why it works as a gift', $system);
-        $this->assertStringContainsString('target 2–4', $system);
+        $this->assertStringContainsString('Product identity', $system);
+        $this->assertStringContainsString('Gift eligibility', $system);
+        $this->assertStringContainsString('Intrinsic or specialized relevance', $system);
+        $this->assertStringContainsString('every active relationship', $system);
+        $this->assertStringContainsString('Generic or unisex products', $system);
+        $this->assertStringContainsString('Gender-specific products', $system);
+        $this->assertStringContainsString('Relationship-specific products', $system);
+        $this->assertStringContainsString('general occasions', $system);
+        $this->assertStringContainsString('specific or emotional occasions', $system);
+        $this->assertStringContainsString('avoid occasion saturation', $system);
+        $this->assertStringNotContainsString('target 2–4', $system);
         $this->assertStringContainsString('Never default Adult', $system);
         $this->assertStringContainsString('unisex item from a men\'s wishlist', $system);
         $this->assertStringContainsString('Fashion & Accessories only when no better fit exists', $system);
+        $this->assertStringContainsString('General work or laptop use does not make a product profession-specific', $system);
     }
 
     public function test_user_payload_includes_curation_group_note(): void
@@ -70,6 +81,7 @@ class CuratedProductEnrichmentPromptTest extends TestCase
 
         $this->assertSame('men', $decoded['curated_product']['curation_group']);
         $this->assertArrayHasKey('curation_group_note', $decoded['curated_product']);
-        $this->assertStringContainsString('Soft merchandising hint', $decoded['curated_product']['curation_group_note']);
+        $this->assertStringContainsString('Soft operator context', $decoded['curated_product']['curation_group_note']);
+        $this->assertStringContainsString('not a recipient restriction', $decoded['curated_product']['curation_group_note']);
     }
 }

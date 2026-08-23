@@ -29,6 +29,20 @@ return [
         'categories' => 3,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Curated intake taxonomy caps
+    |--------------------------------------------------------------------------
+    |
+    | Human-curated generic products may honestly be eligible for the twelve
+    | core gendered and neutral Relationship rows in the current taxonomy.
+    | Autonomous sourcing retains the stricter shared cap above.
+    |
+    */
+    'curated_taxonomy_caps' => [
+        'relationships' => 12,
+    ],
+
     'enrichment' => [
 
         'api_key' => env('OPENAI_API_KEY'),

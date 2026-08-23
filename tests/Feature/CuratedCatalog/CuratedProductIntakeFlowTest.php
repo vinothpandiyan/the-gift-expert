@@ -20,6 +20,7 @@ use App\Models\Merchant;
 use App\Models\Occasion;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\Relationship;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -51,6 +52,28 @@ class CuratedProductIntakeFlowTest extends TestCase
             'slug' => 'birthday',
             'is_active' => true,
         ]);
+
+        foreach ([
+            'Husband',
+            'Boyfriend',
+            'Father',
+            'Brother',
+            'Son',
+            'Wife',
+            'Girlfriend',
+            'Mother',
+            'Sister',
+            'Daughter',
+            'Friends',
+            'Colleagues',
+        ] as $sortOrder => $name) {
+            Relationship::query()->create([
+                'name' => $name,
+                'slug' => str($name)->slug()->toString(),
+                'sort_order' => $sortOrder + 1,
+                'is_active' => true,
+            ]);
+        }
     }
 
     public function test_preview_performs_zero_writes_and_zero_ai(): void
@@ -146,6 +169,41 @@ class CuratedProductIntakeFlowTest extends TestCase
         $this->assertTrue($product->categories()->where('categories.id', $home->id)->exists());
         $this->assertSame(0, ProductImage::query()->count());
         Http::assertSentCount(1);
+    }
+
+    public function test_create_persists_broad_curated_relationship_eligibility_without_shared_cap_truncation(): void
+    {
+        $home = Category::query()->where('slug', 'home-and-living')->firstOrFail();
+        $relationshipIds = Relationship::query()->orderBy('sort_order')->pluck('id')->all();
+
+        Http::fake([
+            'https://api.openai.com/v1/chat/completions' => Http::response(
+                $this->commercialEnrichmentCompletion([
+                    'name' => 'Digital Portable Alarm Clock for Desk',
+                    'taxonomy' => [
+                        'primary_category_id' => $home->id,
+                        'category_ids' => [$home->id],
+                        'relationship_ids' => $relationshipIds,
+                    ],
+                ]),
+            ),
+        ]);
+
+        $payload = $this->curatedPayload([
+            'items' => [[
+                'external_product_id' => 'B0ALARM001',
+                'source_url' => 'https://www.amazon.in/dp/B0ALARM001',
+                'title' => 'Digital Portable Alarm Clock for Desk',
+            ]],
+        ]);
+        $input = app(PreviewCuratedProductIntakeAction::class)->execute($payload)->items[0]->input;
+        $result = app(CreateCuratedMerchantProductAction::class)->execute($this->merchant, $input);
+
+        $this->assertTrue($result->success);
+        $this->assertSame(12, Product::query()->firstOrFail()->relationships()->count());
+        $this->assertTrue(Product::query()->firstOrFail()->relationships()->where('slug', 'wife')->exists());
+        $this->assertTrue(Product::query()->firstOrFail()->relationships()->where('slug', 'mother')->exists());
+        $this->assertNotContains('taxonomy_ids_rejected', $result->warnings);
     }
 
     public function test_create_fails_before_product_write_when_primary_category_missing(): void

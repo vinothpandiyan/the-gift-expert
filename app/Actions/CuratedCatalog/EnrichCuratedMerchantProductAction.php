@@ -33,7 +33,11 @@ class EnrichCuratedMerchantProductAction
 
         $decoded = $this->client->complete($messages['system'], $messages['user'], $messages['schema']);
         $taxonomy = is_array($decoded['taxonomy'] ?? null) ? $decoded['taxonomy'] : [];
-        $validated = $this->validateTaxonomy->execute($taxonomy);
+        $configuredCaps = config('commercial_sourcing.curated_taxonomy_caps', []);
+        $validated = $this->validateTaxonomy->execute(
+            $taxonomy,
+            is_array($configuredCaps) ? $configuredCaps : [],
+        );
 
         $warnings = [];
 

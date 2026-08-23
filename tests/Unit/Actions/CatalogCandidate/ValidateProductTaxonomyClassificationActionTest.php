@@ -105,6 +105,36 @@ class ValidateProductTaxonomyClassificationActionTest extends TestCase
         $this->assertContains('taxonomy_ids_rejected', $result->exceptionCodes);
     }
 
+    public function test_relationship_cap_can_be_overridden_for_a_bounded_caller(): void
+    {
+        $home = $this->category('Home & Living', 'home-and-living');
+        $relationshipIds = [];
+
+        foreach (range(1, 12) as $i) {
+            $relationshipIds[] = Relationship::query()->create([
+                'name' => 'Rel '.$i,
+                'slug' => 'rel-'.$i,
+                'is_active' => true,
+                'sort_order' => $i,
+            ])->id;
+        }
+
+        $result = app(ValidateProductTaxonomyClassificationAction::class)->execute([
+            'primary_category_id' => $home->id,
+            'category_ids' => [$home->id],
+            'occasion_ids' => [],
+            'relationship_ids' => $relationshipIds,
+            'recipient_type_ids' => [],
+            'interest_ids' => [],
+            'profession_ids' => [],
+            'gift_type_ids' => [],
+        ], ['relationships' => 12]);
+
+        $this->assertSame($relationshipIds, $result->relationshipIds);
+        $this->assertNotContains('taxonomy_ids_rejected', $result->exceptionCodes);
+        $this->assertSame([], $result->rejectedIds);
+    }
+
     public function test_it_rejects_mapped_and_intent_shaped_primary_categories(): void
     {
         $home = $this->category('Home & Living', 'home-and-living');

@@ -16,8 +16,9 @@ class ValidateProductTaxonomyClassificationAction
 {
     /**
      * @param  array<string, mixed>  $taxonomy
+     * @param  array<string, int>  $capOverrides
      */
-    public function execute(array $taxonomy): ValidatedProductTaxonomyClassification
+    public function execute(array $taxonomy, array $capOverrides = []): ValidatedProductTaxonomyClassification
     {
         $rejected = [];
         $codes = [];
@@ -25,43 +26,43 @@ class ValidateProductTaxonomyClassificationAction
         $categoryIds = $this->acceptedIds(
             $taxonomy['category_ids'] ?? [],
             Category::class,
-            $this->cap('categories'),
+            $this->cap('categories', $capOverrides),
             $rejected,
         );
         $occasionIds = $this->acceptedIds(
             $taxonomy['occasion_ids'] ?? [],
             Occasion::class,
-            $this->cap('occasions'),
+            $this->cap('occasions', $capOverrides),
             $rejected,
         );
         $relationshipIds = $this->acceptedIds(
             $taxonomy['relationship_ids'] ?? [],
             Relationship::class,
-            $this->cap('relationships'),
+            $this->cap('relationships', $capOverrides),
             $rejected,
         );
         $recipientTypeIds = $this->acceptedIds(
             $taxonomy['recipient_type_ids'] ?? [],
             RecipientType::class,
-            $this->cap('recipient_types'),
+            $this->cap('recipient_types', $capOverrides),
             $rejected,
         );
         $interestIds = $this->acceptedIds(
             $taxonomy['interest_ids'] ?? [],
             Interest::class,
-            $this->cap('interests'),
+            $this->cap('interests', $capOverrides),
             $rejected,
         );
         $professionIds = $this->acceptedIds(
             $taxonomy['profession_ids'] ?? [],
             Profession::class,
-            $this->cap('professions'),
+            $this->cap('professions', $capOverrides),
             $rejected,
         );
         $giftTypeIds = $this->acceptedIds(
             $taxonomy['gift_type_ids'] ?? [],
             GiftType::class,
-            $this->cap('gift_types'),
+            $this->cap('gift_types', $capOverrides),
             $rejected,
         );
 
@@ -72,7 +73,7 @@ class ValidateProductTaxonomyClassificationAction
             $codes[] = 'missing_primary_category';
         } elseif (! in_array($primaryCategoryId, $categoryIds, true)) {
             array_unshift($categoryIds, $primaryCategoryId);
-            $categoryIds = array_slice($categoryIds, 0, $this->cap('categories'));
+            $categoryIds = array_slice($categoryIds, 0, $this->cap('categories', $capOverrides));
         }
 
         if ($rejected !== []) {
@@ -80,9 +81,9 @@ class ValidateProductTaxonomyClassificationAction
         }
 
         if (
-            count($occasionIds) >= $this->cap('occasions')
-            && count($relationshipIds) >= $this->cap('relationships')
-            && count($interestIds) >= $this->cap('interests')
+            count($occasionIds) >= $this->cap('occasions', $capOverrides)
+            && count($relationshipIds) >= $this->cap('relationships', $capOverrides)
+            && count($interestIds) >= $this->cap('interests', $capOverrides)
         ) {
             $codes[] = 'taxonomy_too_broad';
         }
@@ -246,8 +247,15 @@ class ValidateProductTaxonomyClassificationAction
         return null;
     }
 
-    private function cap(string $key): int
+    /**
+     * @param  array<string, int>  $overrides
+     */
+    private function cap(string $key, array $overrides): int
     {
+        if (array_key_exists($key, $overrides)) {
+            return max(1, (int) $overrides[$key]);
+        }
+
         return max(1, (int) config('commercial_sourcing.taxonomy_caps.'.$key, 1));
     }
 }
