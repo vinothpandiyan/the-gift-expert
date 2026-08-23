@@ -5,6 +5,7 @@ namespace App\Actions\CuratedCatalog;
 use App\Actions\Import\UpsertImportedProductAction;
 use App\Actions\Product\ApplyProductTaxonomyClassificationAction;
 use App\CuratedCatalog\Affiliate\BuildCuratedAffiliateUrlAction;
+use App\CuratedCatalog\CuratedImageAcquisitionOutcome;
 use App\CuratedCatalog\CuratedMerchantProductInput;
 use App\CuratedCatalog\CuratedProductIntakeItemResult;
 use App\Import\ImportedCatalogItem;
@@ -20,6 +21,7 @@ class CreateCuratedMerchantProductAction
         private EnrichCuratedMerchantProductAction $enrich,
         private UpsertImportedProductAction $upsertImportedProduct,
         private ApplyProductTaxonomyClassificationAction $applyTaxonomy,
+        private AcquireCuratedProductImageAction $acquireImage,
     ) {}
 
     /**
@@ -70,7 +72,7 @@ class CreateCuratedMerchantProductAction
         $warnings = array_values(array_unique(array_merge($previewWarnings, $enrichment->warnings)));
 
         try {
-            return DB::transaction(function () use ($merchant, $input, $affiliate, $enrichment, $warnings): CuratedProductIntakeItemResult {
+            $result = DB::transaction(function () use ($merchant, $input, $affiliate, $enrichment): array {
                 $imported = new ImportedCatalogItem(
                     name: $enrichment->name,
                     description: $enrichment->description,
@@ -91,14 +93,11 @@ class CreateCuratedMerchantProductAction
                 $product = $link->product()->firstOrFail();
                 $this->applyTaxonomy->execute($product->fresh(), $enrichment->toTaxonomyClassification());
 
-                return new CuratedProductIntakeItemResult(
-                    success: true,
-                    outcome: 'created',
-                    productId: $product->id,
-                    affiliateLinkId: $link->id,
-                    warnings: $warnings,
-                    error: null,
-                );
+                return [
+                    'product_id' => $product->id,
+                    'affiliate_link_id' => $link->id,
+                    'product' => $product->fresh(),
+                ];
             });
         } catch (Throwable $exception) {
             return new CuratedProductIntakeItemResult(
@@ -110,6 +109,28 @@ class CreateCuratedMerchantProductAction
                 error: $exception->getMessage(),
             );
         }
+
+        $imageOutcome = $this->acquireImage->execute($merchant, $result['product'], $input->sourceImageUrl);
+        $warnings = $this->mergeImageOutcome($warnings, $imageOutcome);
+
+        return new CuratedProductIntakeItemResult(
+            success: true,
+            outcome: 'created',
+            productId: $result['product_id'],
+            affiliateLinkId: $result['affiliate_link_id'],
+            warnings: $warnings,
+            error: null,
+            imageStatus: $imageOutcome->status,
+        );
+    }
+
+    /**
+     * @param  list<string>  $warnings
+     * @return list<string>
+     */
+    private function mergeImageOutcome(array $warnings, CuratedImageAcquisitionOutcome $outcome): array
+    {
+        return array_values(array_unique(array_merge($warnings, $outcome->auditCodes())));
     }
 
     private function hasTrashedIdentity(Merchant $merchant, string $externalProductId): bool

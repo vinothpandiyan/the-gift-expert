@@ -2,23 +2,29 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Actions\CuratedCatalog\ProcessCuratedProductIntakeAction;
 use App\Filament\Pages\CuratedProductIntake;
 use App\Filament\Resources\Gifts\GiftResource;
+use App\Jobs\ProcessCuratedProductIntakeRunJob;
 use App\Models\Category;
 use App\Models\CuratedProductIntakeRun;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\Support\ConfiguresCuratedCatalog;
 use Tests\Support\FakesCommercialEnrichment;
+use Tests\Support\MakesRasterImages;
 use Tests\TestCase;
 
 class CuratedProductIntakePageTest extends TestCase
 {
     use ConfiguresCuratedCatalog;
     use FakesCommercialEnrichment;
+    use MakesRasterImages;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -65,7 +71,7 @@ class CuratedProductIntakePageTest extends TestCase
             ->set('data.payload', $this->curatedPayload())
             ->call('previewImport')
             ->assertSet('previewSummary.items_total', 1)
-            ->assertSet('previewSummary.items_actionable_this_commit', 1)
+            ->assertSet('previewSummary.items_actionable', 1)
             ->assertSet('previewRows.0.source_image_url', 'https://m.media-amazon.com/images/I/example.jpg')
             ->assertSet('previewRows.0.affiliate_ready', true)
             ->assertSet('previewRows.0.price_display', '₹1,299')
@@ -74,12 +80,11 @@ class CuratedProductIntakePageTest extends TestCase
             ->assertSet('previewRows.0.action_label', 'Create')
             ->assertSee('Preview summary')
             ->assertSee('Total')
-            ->assertSee('Ready')
+            ->assertSee('Ready to Sync')
             ->assertSee('₹1,299')
             ->assertSee('In stock')
             ->assertSee('NEW')
-            ->assertSee('Create')
-            ->assertSee('Ready');
+            ->assertSee('Create');
 
         $html = $component->html();
 
@@ -87,8 +92,8 @@ class CuratedProductIntakePageTest extends TestCase
         $this->assertSame(1, substr_count($html, 'Stainless Steel French Press'));
         $this->assertSame(1, substr_count($html, 'data-preview-summary'));
         $this->assertStringContainsString('data-summary-card="total"', $html);
-        $this->assertStringContainsString('data-summary-card="ready"', $html);
-        $this->assertStringContainsString('Amazon source images are preview-only.', $html);
+        $this->assertStringContainsString('data-summary-card="ready-to-sync"', $html);
+        $this->assertStringNotContainsString('Amazon source images are preview-only.', $html);
     }
 
     public function test_preview_decodes_html_entities_in_title(): void
@@ -140,9 +145,11 @@ class CuratedProductIntakePageTest extends TestCase
             ->assertSee('Missing image');
     }
 
-    public function test_confirm_import_creates_audit_summary_with_gift_edit_link_data(): void
+    public function test_confirm_sync_dispatches_job_and_renders_result_after_processing(): void
     {
         $home = Category::query()->where('slug', 'home-and-living')->firstOrFail();
+        $payload = $this->curatedPayload();
+        $imageBody = (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg'));
 
         Http::fake([
             'https://api.openai.com/v1/chat/completions' => Http::response(
@@ -155,15 +162,31 @@ class CuratedProductIntakePageTest extends TestCase
                     ],
                 ]),
             ),
+            'https://m.media-amazon.com/images/I/example.jpg' => Http::response(
+                $imageBody,
+                200,
+                ['Content-Type' => 'image/jpeg'],
+            ),
         ]);
+        Storage::fake('public');
 
+        Queue::fake();
         $this->actingAs(User::factory()->create());
 
         $component = Livewire::test(CuratedProductIntake::class)
             ->set('data.merchant_slug', 'amazon-in')
-            ->set('data.payload', $this->curatedPayload())
-            ->call('confirmImport')
-            ->assertSet('commitResult.items_created', 1);
+            ->set('data.payload', $payload)
+            ->call('confirmSync')
+            ->assertSet('activeRunId', fn ($id): bool => is_int($id) && $id > 0);
+
+        Queue::assertPushed(ProcessCuratedProductIntakeRunJob::class, 1);
+
+        $runId = $component->get('activeRunId');
+        app(ProcessCuratedProductIntakeAction::class)->processRun($runId, $payload, 'amazon-in', 'men');
+
+        $component->call('refreshSyncRun')
+            ->assertSet('commitResult.items_created', 1)
+            ->assertSet('activeRunId', null);
 
         $product = Product::query()->firstOrFail();
         $processed = $component->get('commitResult')['processed_items'][0];
@@ -184,16 +207,8 @@ class CuratedProductIntakePageTest extends TestCase
 
         $this->assertStringContainsString('data-result-summary', $html);
         $this->assertStringContainsString('data-result-card="created"', $html);
-        $this->assertStringContainsString('data-result-card="updated"', $html);
-        $this->assertStringContainsString('data-result-card="skipped"', $html);
-        $this->assertStringContainsString('data-result-card="failed"', $html);
-        $this->assertStringContainsString('data-outcome-group="created"', $html);
-        $this->assertStringNotContainsString('data-outcome-group="updated"', $html);
-        $this->assertStringNotContainsString('data-outcome-group="skipped"', $html);
-        $this->assertStringNotContainsString('data-outcome-group="failed"', $html);
+        $this->assertStringContainsString('Sync result', $html);
         $this->assertSame(1, substr_count($html, 'data-edit-gift-link'));
-        $this->assertStringContainsString('No relationships', $html);
-        $this->assertStringContainsString('No occasions', $html);
 
         $this->assertSame(1, Product::query()->count());
         $this->assertSame(1, CuratedProductIntakeRun::query()->count());

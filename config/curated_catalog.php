@@ -6,7 +6,19 @@ return [
 
     'max_items' => 200,
 
-    'max_items_per_commit' => 25,
+    'image_acquisition' => [
+
+        'merchants' => [
+
+            'amazon-in' => [
+                'allowed_hosts' => [
+                    'm.media-amazon.com',
+                ],
+            ],
+
+        ],
+
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -53,6 +65,20 @@ return [
 
     'enrichment' => [
         'max_prompt_chars' => 24000,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Background sync observability
+    |--------------------------------------------------------------------------
+    |
+    | Seconds after dispatch with zero processed items before the UI suggests
+    | a queue worker may not be running.
+    |
+    */
+
+    'sync' => [
+        'worker_wait_seconds' => 10,
     ],
 
 ];

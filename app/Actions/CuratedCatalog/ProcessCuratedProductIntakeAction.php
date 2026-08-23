@@ -2,17 +2,21 @@
 
 namespace App\Actions\CuratedCatalog;
 
+use App\CuratedCatalog\CuratedImageAcquisitionOutcome;
 use App\CuratedCatalog\CuratedProductIntakeCommitResult;
 use App\CuratedCatalog\CuratedProductIntakeItemResult;
 use App\CuratedCatalog\CuratedProductIntakePreviewItem;
+use App\CuratedCatalog\CuratedProductIntakeStartedResult;
 use App\Enums\CuratedProductIntakeItemOutcome;
 use App\Enums\CuratedProductIntakeRunStatus;
 use App\Enums\CuratedProductIntakeSourceType;
+use App\Jobs\ProcessCuratedProductIntakeRunJob;
 use App\Models\CuratedProductIntakeItem;
 use App\Models\CuratedProductIntakeRun;
 use App\Models\Merchant;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class ProcessCuratedProductIntakeAction
 {
@@ -22,22 +26,17 @@ class ProcessCuratedProductIntakeAction
         private RefreshCuratedMerchantProductAction $refresh,
     ) {}
 
-    public function execute(
+    public function start(
         string $json,
         ?string $formMerchantSlug = null,
         ?string $formCurationGroup = null,
         ?int $createdByUserId = null,
-    ): CuratedProductIntakeCommitResult {
+    ): CuratedProductIntakeStartedResult {
         $preview = $this->preview->execute($json, $formMerchantSlug, $formCurationGroup);
         $merchant = Merchant::query()
             ->where('slug', $preview->merchantSlug)
             ->where('is_active', true)
             ->firstOrFail();
-
-        $maxPerCommit = max(1, (int) config('curated_catalog.max_items_per_commit', 25));
-        $actionable = $preview->actionableItems();
-        $selected = array_slice($actionable, 0, $maxPerCommit);
-        $remaining = max(0, count($actionable) - count($selected));
 
         $run = CuratedProductIntakeRun::query()->create([
             'merchant_id' => $merchant->id,
@@ -48,78 +47,157 @@ class ProcessCuratedProductIntakeAction
             'created_by_user_id' => $createdByUserId,
         ]);
 
-        $created = 0;
-        $updated = 0;
-        $skipped = 0;
-        $failed = 0;
-        $processed = [];
-        $selectedIndexes = array_flip(array_map(
-            fn (CuratedProductIntakePreviewItem $item): int => $item->itemIndex,
-            $selected,
-        ));
+        ProcessCuratedProductIntakeRunJob::dispatch(
+            $run->id,
+            $json,
+            $formMerchantSlug,
+            $formCurationGroup,
+        );
 
-        foreach ($preview->items as $previewItem) {
-            if (isset($selectedIndexes[$previewItem->itemIndex])) {
-                $result = $this->processPreviewItem($merchant, $previewItem);
-            } elseif (in_array($previewItem->proposedAction, ['CREATE', 'UPDATE'], true)) {
-                $result = new CuratedProductIntakeItemResult(
-                    success: false,
-                    outcome: 'skipped',
-                    productId: $previewItem->productId,
-                    affiliateLinkId: $previewItem->affiliateLinkId,
-                    warnings: array_values(array_unique(array_merge(
-                        $previewItem->warnings,
-                        ['not_processed_this_commit'],
-                    ))),
-                    error: 'not_processed_this_commit',
-                );
-            } else {
-                $result = $this->resultFromPreviewOnly($previewItem);
+        return new CuratedProductIntakeStartedResult(
+            runId: $run->id,
+            itemsTotal: count($preview->items),
+            itemsActionable: $preview->itemsActionable,
+        );
+    }
+
+    public function processRun(
+        int $runId,
+        string $json,
+        ?string $formMerchantSlug = null,
+        ?string $formCurationGroup = null,
+    ): void {
+        $run = CuratedProductIntakeRun::query()->findOrFail($runId);
+
+        if (in_array($run->status, [
+            CuratedProductIntakeRunStatus::Completed,
+            CuratedProductIntakeRunStatus::CompletedWithErrors,
+        ], true)) {
+            return;
+        }
+
+        if ($run->status === CuratedProductIntakeRunStatus::Failed) {
+            $run->update([
+                'status' => CuratedProductIntakeRunStatus::Processing,
+                'error' => null,
+            ]);
+        }
+
+        try {
+            $preview = $this->preview->execute($json, $formMerchantSlug, $formCurationGroup);
+            $merchant = Merchant::query()
+                ->where('slug', $preview->merchantSlug)
+                ->where('is_active', true)
+                ->firstOrFail();
+
+            foreach ($preview->items as $previewItem) {
+                if ($this->intakeItemAlreadyRecorded($run, $previewItem->itemIndex)) {
+                    continue;
+                }
+
+                if (in_array($previewItem->proposedAction, ['CREATE', 'UPDATE'], true)) {
+                    $result = $this->processPreviewItem($merchant, $previewItem);
+                } else {
+                    $result = $this->resultFromPreviewOnly($previewItem);
+                }
+
+                $this->persistIntakeItem($run, $previewItem, $result);
             }
 
-            $this->persistIntakeItem($run, $previewItem, $result);
+            $created = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Created)->count();
+            $updated = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Updated)->count();
+            $skipped = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Skipped)->count();
+            $failed = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Failed)->count();
 
-            match ($result->outcome) {
-                'created' => $created++,
-                'updated' => $updated++,
-                'skipped' => $skipped++,
-                default => $failed++,
-            };
+            $run->update([
+                'status' => $failed > 0
+                    ? CuratedProductIntakeRunStatus::CompletedWithErrors
+                    : CuratedProductIntakeRunStatus::Completed,
+                'finished_at' => now(),
+                'items_total' => count($preview->items),
+                'items_created' => $created,
+                'items_updated' => $updated,
+                'items_skipped' => $skipped,
+                'items_failed' => $failed,
+            ]);
+        } catch (Throwable $exception) {
+            $run->update([
+                'status' => CuratedProductIntakeRunStatus::Failed,
+                'finished_at' => now(),
+                'error' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
+    }
+
+    public function resultFromRun(CuratedProductIntakeRun $run): CuratedProductIntakeCommitResult
+    {
+        $run->load(['items' => fn ($query) => $query->orderBy('item_index')]);
+
+        $processed = [];
+
+        foreach ($run->items as $item) {
+            $warnings = is_array($item->warnings) ? $item->warnings : [];
+            [$imageStatus] = $this->resolveImagePresentation($warnings);
 
             $processed[] = [
-                'item_index' => $previewItem->itemIndex,
-                'external_product_id' => $previewItem->externalProductId(),
-                'title' => $previewItem->title(),
-                'outcome' => $result->outcome,
-                'product_id' => $result->productId,
-                'product_name' => $this->productName($result->productId),
-                'affiliate_ready' => $result->affiliateLinkId !== null,
-                'warnings' => $result->warnings,
-                'error' => $result->error,
+                'item_index' => $item->item_index,
+                'external_product_id' => $item->external_product_id,
+                'title' => $this->titleFromPayload($item->source_payload),
+                'outcome' => $item->outcome->value,
+                'product_id' => $item->product_id,
+                'product_name' => $this->productName($item->product_id),
+                'affiliate_ready' => $item->affiliate_link_id !== null,
+                'image_status' => $imageStatus,
+                'warnings' => $warnings,
+                'error' => $item->error,
             ];
         }
 
-        $run->update([
-            'status' => $failed > 0
-                ? CuratedProductIntakeRunStatus::CompletedWithErrors
-                : CuratedProductIntakeRunStatus::Completed,
-            'finished_at' => now(),
-            'items_created' => $created,
-            'items_updated' => $updated,
-            'items_skipped' => $skipped,
-            'items_failed' => $failed,
-        ]);
+        $actionableProcessed = collect($processed)
+            ->filter(fn (array $row): bool => in_array($row['outcome'], ['created', 'updated'], true))
+            ->count();
+
+        [$itemsCreated, $itemsUpdated, $itemsSkipped, $itemsFailed] = $this->summaryCountsFromRun($run);
 
         return new CuratedProductIntakeCommitResult(
             runId: $run->id,
-            itemsProcessed: count($selected),
-            itemsCreated: $created,
-            itemsUpdated: $updated,
-            itemsSkipped: $skipped,
-            itemsFailed: $failed,
-            itemsRemaining: $remaining,
+            itemsProcessed: $actionableProcessed,
+            itemsCreated: $itemsCreated,
+            itemsUpdated: $itemsUpdated,
+            itemsSkipped: $itemsSkipped,
+            itemsFailed: $itemsFailed,
             processedItems: $processed,
+            status: $run->status->value,
+            isComplete: in_array($run->status, [
+                CuratedProductIntakeRunStatus::Completed,
+                CuratedProductIntakeRunStatus::CompletedWithErrors,
+                CuratedProductIntakeRunStatus::Failed,
+            ], true),
         );
+    }
+
+    /**
+     * @return array{0: int, 1: int, 2: int, 3: int}
+     */
+    private function summaryCountsFromRun(CuratedProductIntakeRun $run): array
+    {
+        if ($run->status === CuratedProductIntakeRunStatus::Failed) {
+            return [
+                $run->items->where('outcome', CuratedProductIntakeItemOutcome::Created)->count(),
+                $run->items->where('outcome', CuratedProductIntakeItemOutcome::Updated)->count(),
+                $run->items->where('outcome', CuratedProductIntakeItemOutcome::Skipped)->count(),
+                $run->items->where('outcome', CuratedProductIntakeItemOutcome::Failed)->count(),
+            ];
+        }
+
+        return [
+            (int) $run->items_created,
+            (int) $run->items_updated,
+            (int) $run->items_skipped,
+            (int) $run->items_failed,
+        ];
     }
 
     private function processPreviewItem(Merchant $merchant, CuratedProductIntakePreviewItem $previewItem): CuratedProductIntakeItemResult
@@ -132,6 +210,7 @@ class ProcessCuratedProductIntakeAction
                 affiliateLinkId: null,
                 warnings: $previewItem->warnings,
                 error: $previewItem->error?->code ?? 'invalid_item',
+                imageStatus: null,
             );
         }
 
@@ -161,6 +240,7 @@ class ProcessCuratedProductIntakeAction
             warnings: $previewItem->warnings,
             error: $previewItem->error?->code
                 ?? ($previewItem->warnings[0] ?? ($outcome === 'failed' ? 'failed' : 'skipped')),
+            imageStatus: null,
         );
     }
 
@@ -182,6 +262,74 @@ class ProcessCuratedProductIntakeAction
                 'error' => $result->error,
             ]);
         });
+    }
+
+    private function intakeItemAlreadyRecorded(CuratedProductIntakeRun $run, int $itemIndex): bool
+    {
+        return CuratedProductIntakeItem::query()
+            ->where('curated_product_intake_run_id', $run->id)
+            ->where('item_index', $itemIndex)
+            ->exists();
+    }
+
+    private function runIsTerminal(CuratedProductIntakeRun $run): bool
+    {
+        return in_array($run->status, [
+            CuratedProductIntakeRunStatus::Completed,
+            CuratedProductIntakeRunStatus::CompletedWithErrors,
+        ], true);
+    }
+
+    /**
+     * @param  list<string>  $warnings
+     * @return array{0: ?string, 1: list<string>, 2: list<string>}
+     */
+    public function resolveImagePresentation(array $warnings): array
+    {
+        $imageCodes = [
+            CuratedImageAcquisitionOutcome::STATUS_ACQUIRED,
+            CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT,
+            CuratedImageAcquisitionOutcome::STATUS_MISSING_SOURCE,
+            CuratedImageAcquisitionOutcome::STATUS_FAILED,
+        ];
+
+        $imageStatus = null;
+
+        foreach ($imageCodes as $code) {
+            if (in_array($code, $warnings, true)) {
+                $imageStatus = $code;
+
+                break;
+            }
+        }
+
+        $warningCodes = array_values(array_filter(
+            $warnings,
+            fn (string $code): bool => ! in_array($code, [
+                CuratedImageAcquisitionOutcome::STATUS_ACQUIRED,
+                CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT,
+            ], true),
+        ));
+
+        $infoCodes = array_values(array_filter(
+            $warnings,
+            fn (string $code): bool => in_array($code, [
+                CuratedImageAcquisitionOutcome::STATUS_ACQUIRED,
+                CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT,
+            ], true),
+        ));
+
+        return [$imageStatus, $warningCodes, $infoCodes];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $payload
+     */
+    private function titleFromPayload(?array $payload): ?string
+    {
+        $title = $payload['title'] ?? null;
+
+        return is_string($title) && $title !== '' ? $title : null;
     }
 
     private function productName(?int $productId): ?string

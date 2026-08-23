@@ -4,9 +4,13 @@ namespace App\Filament\Pages;
 
 use App\Actions\CuratedCatalog\PreviewCuratedProductIntakeAction;
 use App\Actions\CuratedCatalog\ProcessCuratedProductIntakeAction;
+use App\Actions\CuratedCatalog\ResolveCuratedProductIntakeProgressAction;
+use App\CuratedCatalog\CuratedImageAcquisitionOutcome;
 use App\CuratedCatalog\CuratedProductIntakeParseException;
 use App\CuratedCatalog\CuratedProductIntakePreview;
 use App\CuratedCatalog\CuratedProductIntakePreviewItem;
+use App\Enums\CuratedProductIntakeRunStatus;
+use App\Models\CuratedProductIntakeRun;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -55,6 +59,15 @@ class CuratedProductIntake extends Page
      */
     public ?array $commitResult = null;
 
+    public ?int $activeRunId = null;
+
+    public ?int $syncItemsTotal = null;
+
+    /**
+     * @var array<string, mixed>|null
+     */
+    public ?array $syncProgress = null;
+
     public function mount(): void
     {
         $this->data = [
@@ -68,7 +81,7 @@ class CuratedProductIntake extends Page
     {
         return $schema
             ->components([
-                Section::make('Import payload')
+                Section::make('Sync payload')
                     ->schema([
                         Select::make('merchant_slug')
                             ->label('Merchant')
@@ -107,12 +120,12 @@ class CuratedProductIntake extends Page
                                 ->label('Preview')
                                 ->action('previewImport'),
                             Action::make('confirm')
-                                ->label('Confirm import')
+                                ->label('Sync Products')
                                 ->color('success')
                                 ->requiresConfirmation()
-                                ->modalHeading('Confirm curated import')
-                                ->modalDescription('This will process up to '.config('curated_catalog.max_items_per_commit', 25).' actionable items in this request. AI runs only for new products.')
-                                ->action('confirmImport'),
+                                ->modalHeading('Sync curated products')
+                                ->modalDescription('This will sync all valid items in this payload. AI runs only for new gifts. Processing continues in the background.')
+                                ->action('confirmSync'),
                         ]),
                     ]),
                 View::make('filament.pages.partials.curated-product-intake-results')
@@ -120,6 +133,9 @@ class CuratedProductIntake extends Page
                         'previewSummary' => $this->previewSummary,
                         'previewRows' => $this->previewRows,
                         'commitResult' => $this->commitResult,
+                        'activeRunId' => $this->activeRunId,
+                        'syncItemsTotal' => $this->syncItemsTotal,
+                        'syncProgress' => $this->syncProgress,
                     ]),
             ]);
     }
@@ -127,6 +143,9 @@ class CuratedProductIntake extends Page
     public function previewImport(PreviewCuratedProductIntakeAction $previewAction): void
     {
         $this->commitResult = null;
+        $this->activeRunId = null;
+        $this->syncItemsTotal = null;
+        $this->syncProgress = null;
 
         try {
             $preview = $previewAction->execute(
@@ -152,21 +171,20 @@ class CuratedProductIntake extends Page
         Notification::make()
             ->title('Preview ready')
             ->body(sprintf(
-                '%d valid, %d new, %d existing, %d actionable this commit (max %d).',
+                '%d valid, %d new, %d existing, %d ready to sync.',
                 $preview->itemsValid,
                 $preview->itemsNew,
                 $preview->itemsExisting,
-                min($preview->itemsActionable, (int) config('curated_catalog.max_items_per_commit', 25)),
-                (int) config('curated_catalog.max_items_per_commit', 25),
+                $preview->itemsActionable,
             ))
             ->success()
             ->send();
     }
 
-    public function confirmImport(ProcessCuratedProductIntakeAction $processAction): void
+    public function confirmSync(ProcessCuratedProductIntakeAction $processAction): void
     {
         try {
-            $result = $processAction->execute(
+            $started = $processAction->start(
                 json: (string) ($this->data['payload'] ?? ''),
                 formMerchantSlug: $this->nullableString($this->data['merchant_slug'] ?? null),
                 formCurationGroup: $this->nullableString($this->data['curation_group'] ?? null),
@@ -174,7 +192,7 @@ class CuratedProductIntake extends Page
             );
         } catch (CuratedProductIntakeParseException $exception) {
             Notification::make()
-                ->title('Import failed')
+                ->title('Sync failed')
                 ->body($exception->getMessage())
                 ->danger()
                 ->send();
@@ -182,47 +200,138 @@ class CuratedProductIntake extends Page
             return;
         }
 
+        $this->activeRunId = $started->runId;
+        $this->syncItemsTotal = $started->itemsActionable;
+        $this->commitResult = null;
+        $this->previewSummary = null;
+        $this->previewRows = null;
+        $this->syncProgress = [
+            'run_id' => $started->runId,
+            'status' => CuratedProductIntakeRunStatus::Processing->value,
+            'display_phase' => 'starting',
+            'total' => $started->itemsTotal,
+            'processed' => 0,
+            'remaining' => $started->itemsTotal,
+            'created' => 0,
+            'updated' => 0,
+            'skipped' => 0,
+            'failed' => 0,
+            'percentage' => 0,
+            'is_terminal' => false,
+            'show_worker_hint' => false,
+            'error' => null,
+        ];
+
+        Notification::make()
+            ->title('Sync started')
+            ->body(sprintf('Syncing %d product(s) in the background.', $started->itemsActionable))
+            ->success()
+            ->send();
+    }
+
+    public function refreshSyncRun(
+        ProcessCuratedProductIntakeAction $processAction,
+        ResolveCuratedProductIntakeProgressAction $progressAction,
+    ): void {
+        if ($this->activeRunId === null) {
+            return;
+        }
+
+        $run = CuratedProductIntakeRun::query()->find($this->activeRunId);
+
+        if (! $run instanceof CuratedProductIntakeRun) {
+            $this->activeRunId = null;
+            $this->syncItemsTotal = null;
+            $this->syncProgress = null;
+
+            return;
+        }
+
+        $progress = $progressAction->execute($run);
+        $this->syncProgress = $progress->toArray();
+
+        if ($run->status === CuratedProductIntakeRunStatus::Processing) {
+            return;
+        }
+
+        $result = $processAction->resultFromRun($run);
+
         $this->commitResult = [
             'run_id' => $result->runId,
+            'status' => $result->status,
+            'items_total' => $progress->total,
             'items_processed' => $result->itemsProcessed,
             'items_created' => $result->itemsCreated,
             'items_updated' => $result->itemsUpdated,
             'items_skipped' => $result->itemsSkipped,
             'items_failed' => $result->itemsFailed,
-            'items_remaining' => $result->itemsRemaining,
             'processed_items' => $result->processedItems,
+            'is_complete' => $result->isComplete,
+            'error' => $run->error,
         ];
 
-        $this->previewSummary = null;
-        $this->previewRows = null;
+        $this->activeRunId = null;
+        $this->syncItemsTotal = null;
+        $this->syncProgress = null;
 
-        $message = sprintf(
-            'Created %d, updated %d, skipped %d, failed %d.',
-            $result->itemsCreated,
-            $result->itemsUpdated,
-            $result->itemsSkipped,
-            $result->itemsFailed,
-        );
+        if ($run->status === CuratedProductIntakeRunStatus::Failed) {
+            $title = 'Sync failed';
+            $body = sprintf(
+                '%d of %d products processed. Created %d, failed %d.',
+                $progress->processed,
+                $progress->total,
+                $progress->created,
+                $progress->failed,
+            );
 
-        if ($result->itemsRemaining > 0) {
-            $message .= ' '.$result->itemsRemaining.' actionable item(s) remain — run import again.';
+            if (is_string($run->error) && $run->error !== '') {
+                $body .= ' '.$run->error;
+            }
+
+            Notification::make()
+                ->title($title)
+                ->body($body)
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if ($run->status === CuratedProductIntakeRunStatus::CompletedWithErrors) {
+            Notification::make()
+                ->title('Sync completed with issues')
+                ->body(sprintf(
+                    'Created %d, updated %d, skipped %d, failed %d.',
+                    $result->itemsCreated,
+                    $result->itemsUpdated,
+                    $result->itemsSkipped,
+                    $result->itemsFailed,
+                ))
+                ->warning()
+                ->send();
+
+            return;
         }
 
         Notification::make()
-            ->title('Import finished')
-            ->body($message)
+            ->title('Sync finished')
+            ->body(sprintf(
+                'Created %d, updated %d, skipped %d, failed %d.',
+                $result->itemsCreated,
+                $result->itemsUpdated,
+                $result->itemsSkipped,
+                $result->itemsFailed,
+            ))
             ->success()
             ->send();
     }
 
     private function hydratePreviewState(CuratedProductIntakePreview $preview): void
     {
-        $maxPerCommit = (int) config('curated_catalog.max_items_per_commit', 25);
-
         $warningCount = 0;
 
         foreach ($preview->items as $item) {
-            if ($item->warnings !== []) {
+            if ($this->previewItemCountsAsWarning($item->warnings)) {
                 $warningCount++;
             }
         }
@@ -242,9 +351,6 @@ class CuratedProductIntake extends Page
             'items_affiliate_not_ready' => $preview->itemsAffiliateNotReady,
             'items_with_warnings' => $warningCount,
             'items_actionable' => $preview->itemsActionable,
-            'items_actionable_this_commit' => min($preview->itemsActionable, $maxPerCommit),
-            'items_remaining_after_commit' => max(0, $preview->itemsActionable - $maxPerCommit),
-            'max_items_per_commit' => $maxPerCommit,
         ];
 
         $this->previewRows = array_map(
@@ -266,6 +372,25 @@ class CuratedProductIntake extends Page
             ],
             $preview->items,
         );
+    }
+
+    /**
+     * @param  list<string>  $warnings
+     */
+    private function previewItemCountsAsWarning(array $warnings): bool
+    {
+        $nonWarningCodes = [
+            CuratedImageAcquisitionOutcome::STATUS_ACQUIRED,
+            CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT,
+        ];
+
+        foreach ($warnings as $warning) {
+            if (! in_array($warning, $nonWarningCodes, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function decodePreviewText(?string $value): ?string

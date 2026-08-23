@@ -2,22 +2,25 @@
 
 namespace App\Http\Controllers\Discovery;
 
-use App\Actions\Product\QueryPublishedProductsByFiltersAction;
+use App\Actions\Discovery\BuildDiscoveryRankingContextAction;
+use App\Actions\Discovery\QueryRankedDiscoveryProductsAction;
 use App\Enums\SeoLandingPageStatus;
 use App\Http\Controllers\Controller;
 use App\Models\SeoLandingPage;
 use App\Models\SeoLandingPageRedirect;
 use App\Support\DiscoveryUrl;
 use App\Support\PageMeta;
-use App\Support\SeoLandingPageEditorial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use InvalidArgumentException;
 
 class SeoLandingPageController extends Controller
 {
-    public function show(string $slug, QueryPublishedProductsByFiltersAction $queryProducts): RedirectResponse|View
-    {
+    public function show(
+        string $slug,
+        BuildDiscoveryRankingContextAction $buildRankingContext,
+        QueryRankedDiscoveryProductsAction $queryRankedProducts,
+    ): RedirectResponse|View {
         if (in_array($slug, config('discovery.reserved_prefixes', []), true)) {
             abort(404);
         }
@@ -41,18 +44,10 @@ class SeoLandingPageController extends Controller
         }
 
         try {
-            $products = $queryProducts->execute(SeoLandingPageEditorial::productFilters($page))
-                ->with([
-                    'images' => fn ($query) => $query
-                        ->orderByDesc('is_primary')
-                        ->orderBy('sort_order'),
-                    'affiliateLinks' => fn ($query) => $query
-                        ->active()
-                        ->with('merchant')
-                        ->orderByDesc('is_primary'),
-                ])
-                ->orderByDesc('published_at')
-                ->paginate(12);
+            $products = $queryRankedProducts->execute(
+                $buildRankingContext->fromSeoLandingPage($page),
+                request()->integer('page', 1),
+            );
         } catch (InvalidArgumentException) {
             abort(404);
         }

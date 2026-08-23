@@ -14,5 +14,6 @@ readonly class CuratedProductIntakeItemResult
         public ?int $affiliateLinkId,
         public array $warnings,
         public ?string $error,
+        public ?string $imageStatus = null,
     ) {}
 }

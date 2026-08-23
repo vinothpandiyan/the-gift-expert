@@ -14,7 +14,8 @@ readonly class CuratedProductIntakeCommitResult
         public int $itemsUpdated,
         public int $itemsSkipped,
         public int $itemsFailed,
-        public int $itemsRemaining,
         public array $processedItems,
+        public string $status = 'processing',
+        public bool $isComplete = true,
     ) {}
 }

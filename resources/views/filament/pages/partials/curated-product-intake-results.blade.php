@@ -1,4 +1,6 @@
 @php
+    use App\CuratedCatalog\CuratedImageAcquisitionOutcome;
+
     $warningCodes = [
         'missing_relationships',
         'missing_occasions',
@@ -13,12 +15,15 @@
         'trashed_identity',
         'archived_product',
         'merchant_not_active',
-        'not_processed_this_commit',
+        CuratedImageAcquisitionOutcome::STATUS_MISSING_SOURCE,
+        CuratedImageAcquisitionOutcome::STATUS_FAILED,
     ];
 
     $informationalCodes = [
         'missing_interests',
         'missing_recipient_types',
+        CuratedImageAcquisitionOutcome::STATUS_ACQUIRED,
+        CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT,
     ];
 
     $warningLabels = [
@@ -37,7 +42,17 @@
         'trashed_identity' => 'Trashed identity',
         'archived_product' => 'Archived gift',
         'merchant_not_active' => 'Merchant not active',
-        'not_processed_this_commit' => 'Not processed this commit',
+        CuratedImageAcquisitionOutcome::STATUS_MISSING_SOURCE => 'Missing image source',
+        CuratedImageAcquisitionOutcome::STATUS_FAILED => 'Image acquisition failed',
+        CuratedImageAcquisitionOutcome::STATUS_ACQUIRED => 'Image acquired',
+        CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT => 'Image already present',
+    ];
+
+    $imageStatusLabels = [
+        CuratedImageAcquisitionOutcome::STATUS_ACQUIRED => 'Image acquired',
+        CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT => 'Image present',
+        CuratedImageAcquisitionOutcome::STATUS_MISSING_SOURCE => 'Image missing',
+        CuratedImageAcquisitionOutcome::STATUS_FAILED => 'Image failed',
     ];
 
     $splitWarnings = static function (array $codes) use ($warningCodes, $informationalCodes): array {
@@ -67,15 +82,107 @@
         };
     };
 
+    $imageBadgeTone = static function (?string $status): string {
+        return match ($status) {
+            CuratedImageAcquisitionOutcome::STATUS_ACQUIRED => 'success',
+            CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT => 'info',
+            CuratedImageAcquisitionOutcome::STATUS_MISSING_SOURCE,
+            CuratedImageAcquisitionOutcome::STATUS_FAILED => 'warning',
+            default => 'default',
+        };
+    };
+
     $summaryCards = $previewSummary ? [
         ['label' => 'Total', 'value' => $previewSummary['items_total'] ?? 0, 'accent' => '#6b7280'],
         ['label' => 'New', 'value' => $previewSummary['items_new'] ?? 0, 'accent' => '#0284c7'],
         ['label' => 'Existing', 'value' => $previewSummary['items_existing'] ?? 0, 'accent' => '#6b7280'],
         ['label' => 'Invalid', 'value' => $previewSummary['items_invalid'] ?? 0, 'accent' => '#dc2626'],
         ['label' => 'Warnings', 'value' => $previewSummary['items_with_warnings'] ?? 0, 'accent' => '#d97706'],
-        ['label' => 'Ready', 'value' => ($previewSummary['items_actionable_this_commit'] ?? 0).' / '.($previewSummary['max_items_per_commit'] ?? 0), 'accent' => '#16a34a'],
+        ['label' => 'Ready to Sync', 'value' => $previewSummary['items_actionable'] ?? 0, 'accent' => '#16a34a'],
     ] : [];
 @endphp
+
+@if ($activeRunId && $syncProgress)
+    @php
+        $phase = $syncProgress['display_phase'] ?? 'processing';
+        $heading = match ($phase) {
+            'starting' => 'Starting sync...',
+            'waiting_for_worker' => 'Waiting for queue worker',
+            default => 'Sync in progress',
+        };
+        $percentage = min(max((int) ($syncProgress['percentage'] ?? 0), 0), 100);
+    @endphp
+
+    <div class="mt-6" wire:poll.5s="refreshSyncRun" data-sync-processing>
+        <x-filament::section :heading="$heading">
+            <div class="space-y-4" data-sync-progress-panel>
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    Run #{{ $syncProgress['run_id'] ?? $activeRunId }}
+                </p>
+
+                <div>
+                    <p class="text-sm font-medium text-gray-950 dark:text-white">
+                        {{ $syncProgress['processed'] ?? 0 }} of {{ $syncProgress['total'] ?? $syncItemsTotal ?? 0 }} products processed
+                    </p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {{ $percentage }}%
+                    </p>
+                </div>
+
+                <div
+                    class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+                    role="progressbar"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow="{{ $percentage }}"
+                    data-sync-progress-bar
+                >
+                    <div
+                        class="h-full rounded-full bg-primary-600 transition-all duration-300 dark:bg-primary-500"
+                        style="width: {{ $percentage }}%"
+                    ></div>
+                </div>
+
+                <div
+                    class="grid grid-cols-2 gap-3 sm:grid-cols-5"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: 0.75rem;"
+                    data-sync-progress-counts
+                >
+                    @foreach ([
+                        ['label' => 'Created', 'value' => $syncProgress['created'] ?? 0],
+                        ['label' => 'Updated', 'value' => $syncProgress['updated'] ?? 0],
+                        ['label' => 'Skipped', 'value' => $syncProgress['skipped'] ?? 0],
+                        ['label' => 'Failed', 'value' => $syncProgress['failed'] ?? 0],
+                        ['label' => 'Remaining', 'value' => $syncProgress['remaining'] ?? 0],
+                    ] as $count)
+                        <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+                            <p class="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                {{ $count['label'] }}
+                            </p>
+                            <p class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">
+                                {{ $count['value'] }}
+                            </p>
+                        </div>
+                    @endforeach
+                </div>
+
+                @if (($syncProgress['show_worker_hint'] ?? false) === true)
+                    <div
+                        class="rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-200"
+                        data-worker-hint
+                    >
+                        <p class="font-medium">Start a queue worker if one is not already running:</p>
+                        <p class="mt-1 font-mono text-xs">./vendor/bin/sail artisan queue:work --timeout=3600 --tries=3</p>
+                    </div>
+                @elseif ($phase === 'processing')
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Processing continues in the background.
+                    </p>
+                @endif
+            </div>
+        </x-filament::section>
+    </div>
+@endif
 
 @if ($previewSummary)
     <div class="mt-6 space-y-5">
@@ -110,16 +217,10 @@
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0ZM9 9a1 1 0 000 2v3a1 1 0 102 0v-3a1 1 0 00-1-1H9Zm1-3a1 1 0 100 2 1 1 0 000-2Z" clip-rule="evenodd" />
                 </svg>
                 <p>
-                    <span class="font-medium text-gray-700">Amazon source images are preview-only.</span>
-                    Local catalog images must be uploaded before publishing.
+                    <span class="font-medium text-gray-700">Sync processes every actionable item in one run.</span>
+                    New gifts receive AI enrichment and automatic image acquisition when a valid source image URL is present.
                 </p>
             </div>
-
-            @if (($previewSummary['items_remaining_after_commit'] ?? 0) > 0)
-                <p class="mt-3 text-sm text-amber-700 dark:text-amber-300">
-                    {{ $previewSummary['items_remaining_after_commit'] }} actionable item(s) will remain after this commit. Import again to continue.
-                </p>
-            @endif
         </x-filament::section>
 
         @if ($previewRows)
@@ -225,10 +326,50 @@
         $updatedItems = array_values(array_filter($processedItems, fn (array $item): bool => ($item['outcome'] ?? '') === 'updated'));
         $skippedItems = array_values(array_filter($processedItems, fn (array $item): bool => ($item['outcome'] ?? '') === 'skipped'));
         $failedItems = array_values(array_filter($processedItems, fn (array $item): bool => ($item['outcome'] ?? '') === 'failed'));
+        $resultStatus = $commitResult['status'] ?? 'completed';
+        $resultHeading = match ($resultStatus) {
+            'failed' => 'Sync failed',
+            'completed_with_errors' => 'Sync completed with issues',
+            default => 'Sync result',
+        };
+        $resultTone = match ($resultStatus) {
+            'failed' => 'danger',
+            'completed_with_errors' => 'warning',
+            default => 'default',
+        };
+        $totalProcessed = count($processedItems);
+        $totalItems = (int) ($commitResult['items_total'] ?? $totalProcessed);
     @endphp
 
-    <div class="mt-6 space-y-4">
-        <x-filament::section heading="Import result">
+    <div class="mt-6 space-y-4" data-sync-result data-result-status="{{ $resultStatus }}">
+        <x-filament::section :heading="$resultHeading">
+            @if ($resultStatus === 'failed')
+                <div
+                    class="mb-4 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800 dark:border-danger-500/30 dark:bg-danger-500/10 dark:text-danger-200"
+                    data-sync-failed-summary
+                >
+                    <p class="font-medium">
+                        {{ $totalProcessed }} of {{ $totalItems }} products processed
+                    </p>
+                    <p class="mt-2 text-xs">
+                        Created {{ $commitResult['items_created'] ?? 0 }},
+                        failed {{ $commitResult['items_failed'] ?? 0 }},
+                        remaining {{ max($totalItems - $totalProcessed, 0) }}
+                    </p>
+                    @if (! empty($commitResult['error']))
+                        <p class="mt-2">{{ $commitResult['error'] }}</p>
+                    @endif
+                </div>
+            @elseif ($resultStatus === 'completed_with_errors')
+                <div
+                    class="mb-4 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-200"
+                    data-sync-warning-summary
+                >
+                    <p class="font-medium">
+                        {{ $totalProcessed }} / {{ $totalProcessed }} processed
+                    </p>
+                </div>
+            @endif
             <div
                 class="grid grid-cols-2 gap-3 md:grid-cols-4"
                 style="display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.75rem;"
@@ -255,12 +396,6 @@
                 @endforeach
             </div>
 
-            @if (($commitResult['items_remaining'] ?? 0) > 0)
-                <p class="mt-4 text-sm text-amber-700 dark:text-amber-300">
-                    {{ $commitResult['items_remaining'] }} actionable item(s) remain — run import again to continue.
-                </p>
-            @endif
-
             @if ($createdItems !== [])
                 <div class="mt-6 space-y-3" data-outcome-group="created">
                     <h3 class="border-b border-gray-200 pb-2 text-sm font-semibold text-gray-950 dark:border-gray-700 dark:text-white">Created</h3>
@@ -277,6 +412,11 @@
                                         <p class="text-xs text-gray-500">
                                             Affiliate: {{ ($item['affiliate_ready'] ?? false) ? 'Ready' : 'Not ready' }}
                                         </p>
+                                        @if (! empty($item['image_status']))
+                                            <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $badgeClass($imageBadgeTone($item['image_status'])) }}">
+                                                {{ $imageStatusLabels[$item['image_status']] ?? $item['image_status'] }}
+                                            </span>
+                                        @endif
                                     </div>
                                     @if (! empty($item['product_id']))
                                         <a
@@ -290,7 +430,6 @@
                                 </div>
                                 @if ($itemWarnings !== [] || $itemInformational !== [])
                                     <div class="mt-3 flex flex-wrap items-center gap-1">
-                                        <span class="mr-1 text-xs text-gray-500">Warnings:</span>
                                         @foreach ($itemWarnings as $code)
                                             <x-filament::badge color="warning">
                                                 {{ $warningLabels[$code] ?? $code }}
@@ -314,9 +453,30 @@
                     <h3 class="border-b border-gray-200 pb-2 text-sm font-semibold text-gray-950 dark:border-gray-700 dark:text-white">Updated</h3>
                     <div class="space-y-2">
                         @foreach ($updatedItems as $item)
+                            @php
+                                [$itemWarnings, $itemInformational] = $splitWarnings($item['warnings'] ?? []);
+                            @endphp
                             <div class="rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
-                                <span class="font-medium">{{ $item['title'] ?? $item['external_product_id'] ?? 'Item' }}</span>
-                                <span class="text-gray-500"> — commercial refresh applied</span>
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <span class="font-medium">{{ $item['product_name'] ?? $item['title'] ?? $item['external_product_id'] ?? 'Item' }}</span>
+                                        <span class="text-gray-500"> — commercial refresh applied</span>
+                                        @if (! empty($item['image_status']))
+                                            <span class="ml-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $badgeClass($imageBadgeTone($item['image_status'])) }}">
+                                                {{ $imageStatusLabels[$item['image_status']] ?? $item['image_status'] }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    @if (! empty($item['product_id']))
+                                        <a
+                                            href="{{ \App\Filament\Resources\Gifts\GiftResource::getUrl('edit', ['record' => $item['product_id']]) }}"
+                                            class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+                                            data-edit-gift-link
+                                        >
+                                            Edit Gift →
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
                         @endforeach
                     </div>
@@ -336,7 +496,7 @@
                                     ASIN: {{ $item['external_product_id'] ?? '—' }}
                                 </p>
                                 <p class="mt-1 text-danger-700 dark:text-danger-200">
-                                    {{ $item['error'] ?? 'Import failed' }}
+                                    {{ $item['error'] ?? 'Sync failed' }}
                                 </p>
                             </div>
                         @endforeach

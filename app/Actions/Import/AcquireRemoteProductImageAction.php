@@ -4,6 +4,7 @@ namespace App\Actions\Import;
 
 use App\Import\AcquiredProductImage;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Psr\Http\Message\ResponseInterface;
@@ -11,10 +12,24 @@ use Throwable;
 
 class AcquireRemoteProductImageAction
 {
-    public function execute(string $url): AcquiredProductImage
+    /**
+     * @param  null|callable(string): void  $validateUrl
+     */
+    public function execute(string $url, ?callable $validateUrl = null): AcquiredProductImage
     {
-        $this->assertHttpUrl($url);
+        if ($validateUrl === null) {
+            $this->assertHttpUrl($url);
 
+            return $this->download($url, allowRedirects: true);
+        }
+
+        $validateUrl($url);
+
+        return $this->download($url, allowRedirects: false, validateUrl: $validateUrl);
+    }
+
+    private function download(string $url, bool $allowRedirects, ?callable $validateUrl = null): AcquiredProductImage
+    {
         $tempPath = tempnam(sys_get_temp_dir(), 'gift-import-');
 
         if ($tempPath === false) {
@@ -29,24 +44,41 @@ class AcquireRemoteProductImageAction
             $connectTimeout = (int) config('import.http.connect_timeout', 5);
             $maxRedirects = (int) config('import.http.max_redirects', 3);
 
-            $response = Http::timeout($timeout)
-                ->connectTimeout($connectTimeout)
-                ->withOptions([
-                    'allow_redirects' => ['max' => $maxRedirects],
-                    'sink' => $tempPath,
-                    'on_headers' => function (ResponseInterface $response) use ($maxBytes): void {
-                        $length = $response->getHeaderLine('Content-Length');
+            if ($allowRedirects) {
+                $response = $this->request($url, $tempPath, $timeout, $connectTimeout, $maxRedirects, true);
+            } else {
+                $currentUrl = $url;
+                $response = null;
 
-                        if (is_numeric($length) && (int) $length > $maxBytes) {
-                            throw ValidationException::withMessages([
-                                'image' => ['The image exceeds the maximum upload size.'],
-                            ]);
-                        }
-                    },
-                ])
-                ->get($url);
+                for ($hop = 0; $hop <= $maxRedirects; $hop++) {
+                    $validateUrl !== null && $validateUrl($currentUrl);
+                    $response = $this->request($currentUrl, $tempPath, $timeout, $connectTimeout, 0, false);
 
-            if (! $response->successful()) {
+                    if (! $response->redirect()) {
+                        break;
+                    }
+
+                    $location = $response->header('Location');
+
+                    if (! is_string($location) || $location === '') {
+                        throw ValidationException::withMessages([
+                            'image' => ['The image could not be downloaded.'],
+                        ]);
+                    }
+
+                    $currentUrl = $this->resolveRedirectUrl($currentUrl, $location);
+                    $this->deleteTemp($tempPath);
+                    $tempPath = tempnam(sys_get_temp_dir(), 'gift-import-');
+
+                    if ($tempPath === false) {
+                        throw ValidationException::withMessages([
+                            'image' => ['The image could not be stored.'],
+                        ]);
+                    }
+                }
+            }
+
+            if (! $response instanceof Response || ! $response->successful()) {
                 throw ValidationException::withMessages([
                     'image' => ['The image could not be downloaded.'],
                 ]);
@@ -108,6 +140,65 @@ class AcquireRemoteProductImageAction
 
             throw $exception;
         }
+    }
+
+    private function request(
+        string $url,
+        string $tempPath,
+        int $timeout,
+        int $connectTimeout,
+        int $maxRedirects,
+        bool $allowRedirects,
+    ): Response {
+        $maxBytes = (int) config('media.product_images.max_upload_kilobytes') * 1024;
+
+        $options = [
+            'sink' => $tempPath,
+            'on_headers' => function (ResponseInterface $response) use ($maxBytes): void {
+                $length = $response->getHeaderLine('Content-Length');
+
+                if (is_numeric($length) && (int) $length > $maxBytes) {
+                    throw ValidationException::withMessages([
+                        'image' => ['The image exceeds the maximum upload size.'],
+                    ]);
+                }
+            },
+        ];
+
+        if ($allowRedirects) {
+            $options['allow_redirects'] = ['max' => $maxRedirects];
+        } else {
+            $options['allow_redirects'] = false;
+        }
+
+        return Http::timeout($timeout)
+            ->connectTimeout($connectTimeout)
+            ->withOptions($options)
+            ->get($url);
+    }
+
+    private function resolveRedirectUrl(string $currentUrl, string $location): string
+    {
+        if (filter_var($location, FILTER_VALIDATE_URL) !== false) {
+            return $location;
+        }
+
+        $parts = parse_url($currentUrl);
+        $scheme = $parts['scheme'] ?? 'https';
+        $host = $parts['host'] ?? '';
+
+        if (str_starts_with($location, '//')) {
+            return $scheme.':'.$location;
+        }
+
+        if (str_starts_with($location, '/')) {
+            return $scheme.'://'.$host.$location;
+        }
+
+        $path = $parts['path'] ?? '/';
+        $directory = str_contains($path, '/') ? substr($path, 0, (int) strrpos($path, '/')) : '';
+
+        return $scheme.'://'.$host.$directory.'/'.$location;
     }
 
     private function assertHttpUrl(string $url): void

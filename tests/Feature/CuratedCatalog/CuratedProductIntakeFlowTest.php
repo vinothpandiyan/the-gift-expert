@@ -4,7 +4,6 @@ namespace Tests\Feature\CuratedCatalog;
 
 use App\Actions\CuratedCatalog\CreateCuratedMerchantProductAction;
 use App\Actions\CuratedCatalog\PreviewCuratedProductIntakeAction;
-use App\Actions\CuratedCatalog\ProcessCuratedProductIntakeAction;
 use App\Actions\CuratedCatalog\RefreshCuratedMerchantProductAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\ProductStatus;
@@ -24,14 +23,19 @@ use App\Models\Relationship;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\ConfiguresCuratedCatalog;
 use Tests\Support\FakesCommercialEnrichment;
+use Tests\Support\FakesCuratedProductImages;
+use Tests\Support\ProcessesCuratedSyncRuns;
 use Tests\TestCase;
 
 class CuratedProductIntakeFlowTest extends TestCase
 {
     use ConfiguresCuratedCatalog;
     use FakesCommercialEnrichment;
+    use FakesCuratedProductImages;
+    use ProcessesCuratedSyncRuns;
     use RefreshDatabase;
 
     private Merchant $merchant;
@@ -152,7 +156,23 @@ class CuratedProductIntakeFlowTest extends TestCase
     public function test_create_builds_draft_product_with_server_side_affiliate_url_and_taxonomy(): void
     {
         $home = Category::query()->where('slug', 'home-and-living')->firstOrFail();
-        $this->fakeEnrichment($home->id);
+
+        Http::fake([
+            'https://api.openai.com/v1/chat/completions' => Http::response(
+                $this->commercialEnrichmentCompletion([
+                    'taxonomy' => [
+                        'primary_category_id' => $home->id,
+                        'category_ids' => [$home->id],
+                    ],
+                ]),
+            ),
+            'https://m.media-amazon.com/images/I/example.jpg' => Http::response(
+                (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg')),
+                200,
+                ['Content-Type' => 'image/jpeg'],
+            ),
+        ]);
+        Storage::fake('public');
 
         $input = app(PreviewCuratedProductIntakeAction::class)->execute($this->curatedPayload())->items[0]->input;
         $result = app(CreateCuratedMerchantProductAction::class)->execute($this->merchant, $input);
@@ -167,8 +187,8 @@ class CuratedProductIntakeFlowTest extends TestCase
         $this->assertSame('BrandX French Press', $product->name);
         $this->assertStringContainsString('tag=test-tag-20', $link->url);
         $this->assertTrue($product->categories()->where('categories.id', $home->id)->exists());
-        $this->assertSame(0, ProductImage::query()->count());
-        Http::assertSentCount(1);
+        $this->assertSame(1, ProductImage::query()->count());
+        Http::assertSentCount(2);
     }
 
     public function test_create_persists_broad_curated_relationship_eligibility_without_shared_cap_truncation(): void
@@ -279,7 +299,16 @@ class CuratedProductIntakeFlowTest extends TestCase
 
         Http::fake();
 
-        $input = app(PreviewCuratedProductIntakeAction::class)->execute($this->curatedPayload())->items[0]->input;
+        $input = app(PreviewCuratedProductIntakeAction::class)->execute($this->curatedPayload([
+            'items' => [[
+                'external_product_id' => 'B0ABCDEFGH',
+                'source_url' => 'https://www.amazon.in/dp/B0ABCDEFGH',
+                'title' => 'Stainless Steel French Press',
+                'price_amount' => '1299.00',
+                'price_currency' => 'INR',
+                'availability' => 'in_stock',
+            ]],
+        ]))->items[0]->input;
         $result = app(RefreshCuratedMerchantProductAction::class)->execute($this->merchant, $input);
 
         $product->refresh();
@@ -379,23 +408,25 @@ class CuratedProductIntakeFlowTest extends TestCase
         $this->assertSame(1, AffiliateLink::onlyTrashed()->count());
     }
 
-    public function test_process_import_creates_audit_rows_and_enforces_commit_limit(): void
+    public function test_process_sync_creates_audit_rows_for_all_items(): void
     {
-        config(['curated_catalog.max_items_per_commit' => 1]);
         $home = Category::query()->where('slug', 'home-and-living')->firstOrFail();
 
         $items = [];
 
         for ($i = 1; $i <= 2; $i++) {
-            $asin = 'B0NEW0000'.$i;
+            $asin = 'B00000000'.$i;
             $items[] = [
                 'external_product_id' => $asin,
                 'source_url' => 'https://www.amazon.in/dp/'.$asin,
                 'title' => 'Gift '.$i,
                 'price_amount' => '499.00',
                 'price_currency' => 'INR',
+                'source_image_url' => 'https://m.media-amazon.com/images/I/'.$asin.'.jpg',
             ];
         }
+
+        $imageBody = (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg'));
 
         Http::fake([
             'https://api.openai.com/v1/chat/completions' => Http::sequence()
@@ -407,36 +438,59 @@ class CuratedProductIntakeFlowTest extends TestCase
                     'name' => 'Gift Two',
                     'taxonomy' => ['primary_category_id' => $home->id, 'category_ids' => [$home->id]],
                 ])),
+            'https://m.media-amazon.com/images/I/*' => Http::response(
+                $imageBody,
+                200,
+                ['Content-Type' => 'image/jpeg'],
+            ),
         ]);
+        Storage::fake('public');
 
-        $result = app(ProcessCuratedProductIntakeAction::class)->execute($this->curatedPayload([
+        $result = $this->runCuratedSync($this->curatedPayload([
             'items' => $items,
         ]));
 
-        $this->assertSame(1, $result->itemsProcessed);
-        $this->assertSame(1, $result->itemsCreated);
-        $this->assertSame(1, $result->itemsRemaining);
+        $this->assertSame(2, $result->itemsProcessed);
+        $this->assertSame(2, $result->itemsCreated);
         $this->assertSame(1, CuratedProductIntakeRun::query()->count());
         $this->assertSame(2, CuratedProductIntakeItem::query()->count());
-        $this->assertSame(1, Product::query()->count());
+        $this->assertSame(2, Product::query()->count());
     }
 
     public function test_second_import_updates_existing_product(): void
     {
         $home = Category::query()->where('slug', 'home-and-living')->firstOrFail();
-        $this->fakeEnrichment($home->id);
+        $imageBody = (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg'));
 
-        app(ProcessCuratedProductIntakeAction::class)->execute($this->curatedPayload());
+        Http::fake([
+            'https://api.openai.com/v1/chat/completions' => Http::response(
+                $this->commercialEnrichmentCompletion([
+                    'taxonomy' => [
+                        'primary_category_id' => $home->id,
+                        'category_ids' => [$home->id],
+                    ],
+                ]),
+            ),
+            'https://m.media-amazon.com/images/I/*' => Http::response(
+                $imageBody,
+                200,
+                ['Content-Type' => 'image/jpeg'],
+            ),
+        ]);
+        Storage::fake('public');
+
+        $this->runCuratedSync($this->curatedPayload());
 
         Http::fake();
 
-        $result = app(ProcessCuratedProductIntakeAction::class)->execute($this->curatedPayload([
+        $result = $this->runCuratedSync($this->curatedPayload([
             'items' => [[
                 'external_product_id' => 'B0ABCDEFGH',
                 'source_url' => 'https://www.amazon.in/dp/B0ABCDEFGH',
                 'title' => 'Browser title should not overwrite',
                 'price_amount' => '1499.00',
                 'price_currency' => 'INR',
+                'source_image_url' => 'https://m.media-amazon.com/images/I/example.jpg',
             ]],
         ]));
 
@@ -449,9 +503,26 @@ class CuratedProductIntakeFlowTest extends TestCase
     public function test_isolation_from_candidate_sourcing_and_import_runs(): void
     {
         $home = Category::query()->where('slug', 'home-and-living')->firstOrFail();
-        $this->fakeEnrichment($home->id);
+        $imageBody = (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg'));
 
-        app(ProcessCuratedProductIntakeAction::class)->execute($this->curatedPayload());
+        Http::fake([
+            'https://api.openai.com/v1/chat/completions' => Http::response(
+                $this->commercialEnrichmentCompletion([
+                    'taxonomy' => [
+                        'primary_category_id' => $home->id,
+                        'category_ids' => [$home->id],
+                    ],
+                ]),
+            ),
+            'https://m.media-amazon.com/images/I/*' => Http::response(
+                $imageBody,
+                200,
+                ['Content-Type' => 'image/jpeg'],
+            ),
+        ]);
+        Storage::fake('public');
+
+        $this->runCuratedSync($this->curatedPayload());
 
         $this->assertSame(0, CatalogCandidate::query()->count());
         $this->assertSame(0, CatalogCandidateIngestionRun::query()->count());

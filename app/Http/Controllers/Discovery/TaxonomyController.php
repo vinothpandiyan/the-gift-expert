@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Discovery;
 
+use App\Actions\Discovery\BuildDiscoveryRankingContextAction;
+use App\Actions\Discovery\QueryRankedDiscoveryProductsAction;
 use App\Actions\SeoLandingPage\QueryDiscoverableSeoLandingPagesAction;
 use App\Http\Controllers\Controller;
 use App\Models\GiftType;
@@ -41,8 +43,13 @@ class TaxonomyController extends Controller
         'gift_type' => 'Gift type',
     ];
 
-    public function show(string $slug, string $taxonomy, QueryDiscoverableSeoLandingPagesAction $queryLandingPages): View
-    {
+    public function show(
+        string $slug,
+        string $taxonomy,
+        QueryDiscoverableSeoLandingPagesAction $queryLandingPages,
+        BuildDiscoveryRankingContextAction $buildRankingContext,
+        QueryRankedDiscoveryProductsAction $queryRankedProducts,
+    ): View {
         $modelClass = self::MODELS[$taxonomy] ?? null;
 
         if ($modelClass === null) {
@@ -58,19 +65,24 @@ class TaxonomyController extends Controller
             abort(404);
         }
 
-        $products = $record->products()
-            ->published()
-            ->with([
-                'images' => fn ($query) => $query
-                    ->orderByDesc('is_primary')
-                    ->orderBy('sort_order'),
-                'affiliateLinks' => fn ($query) => $query
-                    ->active()
-                    ->with('merchant')
-                    ->orderByDesc('is_primary'),
-            ])
-            ->orderByDesc('published_at')
-            ->paginate(12);
+        $products = $this->usesRankedDiscovery($taxonomy)
+            ? $queryRankedProducts->execute(
+                $buildRankingContext->fromTaxonomy($taxonomy, $record),
+                request()->integer('page', 1),
+            )
+            : $record->products()
+                ->published()
+                ->with([
+                    'images' => fn ($query) => $query
+                        ->orderByDesc('is_primary')
+                        ->orderBy('sort_order'),
+                    'affiliateLinks' => fn ($query) => $query
+                        ->active()
+                        ->with('merchant')
+                        ->orderByDesc('is_primary'),
+                ])
+                ->orderByDesc('published_at')
+                ->paginate(12);
 
         $pagination = PageMeta::paginatedCanonicals(
             $products,
@@ -92,6 +104,18 @@ class TaxonomyController extends Controller
             'breadcrumbs' => PageMeta::taxonomyBreadcrumbs($record, $taxonomy, self::LABELS[$taxonomy]),
             'giftBrowseContext' => $taxonomy.':'.$record->slug,
         ]);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function usesRankedDiscovery(string $taxonomy): bool
+    {
+        if (config('discovery_ranking.enabled') !== true) {
+            return false;
+        }
+
+        return in_array($taxonomy, ['relationship', 'occasion'], true);
     }
 
     /**

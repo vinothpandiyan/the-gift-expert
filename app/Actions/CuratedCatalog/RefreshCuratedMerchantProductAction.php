@@ -3,6 +3,7 @@
 namespace App\Actions\CuratedCatalog;
 
 use App\CuratedCatalog\Affiliate\BuildCuratedAffiliateUrlAction;
+use App\CuratedCatalog\CuratedImageAcquisitionOutcome;
 use App\CuratedCatalog\CuratedMerchantProductInput;
 use App\CuratedCatalog\CuratedProductIntakeItemResult;
 use App\Enums\AffiliateLinkStatus;
@@ -18,6 +19,7 @@ class RefreshCuratedMerchantProductAction
 {
     public function __construct(
         private BuildCuratedAffiliateUrlAction $buildAffiliateUrl,
+        private AcquireCuratedProductImageAction $acquireImage,
     ) {}
 
     /**
@@ -90,7 +92,7 @@ class RefreshCuratedMerchantProductAction
         }
 
         try {
-            return DB::transaction(function () use ($link, $product, $input, $affiliate, $warnings): CuratedProductIntakeItemResult {
+            DB::transaction(function () use ($link, $product, $input, $affiliate): void {
                 $originalName = $product->name;
                 $originalShortDescription = $product->short_description;
                 $originalDescription = $product->description;
@@ -114,15 +116,6 @@ class RefreshCuratedMerchantProductAction
 
                 $link->last_verified_at = $this->resolveVerifiedAt($input->capturedAt);
                 $link->save();
-
-                return new CuratedProductIntakeItemResult(
-                    success: true,
-                    outcome: 'updated',
-                    productId: $product->id,
-                    affiliateLinkId: $link->id,
-                    warnings: $warnings,
-                    error: null,
-                );
             });
         } catch (Throwable $exception) {
             return new CuratedProductIntakeItemResult(
@@ -134,6 +127,28 @@ class RefreshCuratedMerchantProductAction
                 error: $exception->getMessage(),
             );
         }
+
+        $imageOutcome = $this->acquireImage->execute($merchant, $product->fresh(), $input->sourceImageUrl);
+        $warnings = $this->mergeImageOutcome($warnings, $imageOutcome);
+
+        return new CuratedProductIntakeItemResult(
+            success: true,
+            outcome: 'updated',
+            productId: $product->id,
+            affiliateLinkId: $link->id,
+            warnings: $warnings,
+            error: null,
+            imageStatus: $imageOutcome->status,
+        );
+    }
+
+    /**
+     * @param  list<string>  $warnings
+     * @return list<string>
+     */
+    private function mergeImageOutcome(array $warnings, CuratedImageAcquisitionOutcome $outcome): array
+    {
+        return array_values(array_unique(array_merge($warnings, $outcome->auditCodes())));
     }
 
     private function resolveVerifiedAt(?string $capturedAt): Carbon
