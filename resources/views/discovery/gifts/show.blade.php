@@ -6,17 +6,15 @@
     @php
         $images = $product->images;
         $primaryImage = $images->firstWhere('is_primary', true) ?? $images->first();
-        $gallery = $images->reject(fn ($image) => $primaryImage && $image->is($primaryImage))->values();
         $affiliateLink = $product->affiliateLinks->firstWhere('is_primary', true) ?? $product->affiliateLinks->first();
-        $primaryCategory = $product->categories->first(fn ($category) => (bool) $category->pivot->is_primary)
-            ?? $product->categories->first();
+        $merchantName = $affiliateLink?->merchant?->name ?? 'merchant';
     @endphp
 
     <x-breadcrumbs :items="$breadcrumbs" />
 
-    <article class="grid gap-8 lg:grid-cols-2">
-        <div class="space-y-3">
-            <div class="aspect-square overflow-hidden rounded-lg bg-stone-100">
+    <article class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
+        <div class="overflow-hidden rounded-xl border border-stone-200 bg-white">
+            <div class="aspect-square bg-stone-50">
                 @if ($primaryImage)
                     <img
                         src="{{ $primaryImage->url() }}"
@@ -24,24 +22,9 @@
                         class="h-full w-full object-cover"
                     >
                 @else
-                    <div class="flex h-full items-center justify-center text-stone-400">No image</div>
+                    <x-gift-image-placeholder />
                 @endif
             </div>
-
-            @if ($gallery->isNotEmpty())
-                <div class="grid grid-cols-4 gap-2">
-                    @foreach ($gallery as $image)
-                        <div class="aspect-square overflow-hidden rounded-md bg-stone-100">
-                            <img
-                                src="{{ $image->url() }}"
-                                alt="{{ $image->alt_text ?: $product->name }}"
-                                class="h-full w-full object-cover"
-                                loading="lazy"
-                            >
-                        </div>
-                    @endforeach
-                </div>
-            @endif
         </div>
 
         <div class="space-y-6">
@@ -73,78 +56,82 @@
                 <p class="text-base leading-relaxed text-stone-700">{{ $product->short_description }}</p>
             @endif
 
-            @if ($product->description)
-                <div class="prose prose-stone max-w-none whitespace-pre-line text-stone-700">
-                    {{ $product->description }}
-                </div>
-            @endif
-
             @if ($affiliateLink)
-                <div>
+                <div class="space-y-2">
                     <a
                         href="{{ \App\Support\DiscoveryUrl::affiliateOut($affiliateLink->uuid) }}"
                         target="_blank"
                         rel="noopener noreferrer sponsored"
                         class="inline-flex items-center justify-center rounded-md bg-amber-600 px-5 py-3 text-sm font-semibold text-white hover:bg-amber-700"
                     >
-                        View at {{ $affiliateLink->merchant?->name ?? 'merchant' }}
+                        View on {{ $merchantName }}
                     </a>
+                    <p class="text-xs leading-relaxed text-stone-500">
+                        As an affiliate, we may earn from qualifying purchases. Price and availability are confirmed on {{ $merchantName }}.
+                    </p>
                 </div>
             @endif
 
+            @if ($product->relationships->isNotEmpty() || $product->occasions->isNotEmpty() || $product->interests->isNotEmpty())
+                <section class="space-y-4 rounded-lg border border-stone-200 bg-white p-5">
+                    @if ($product->relationships->isNotEmpty())
+                        <div class="space-y-2">
+                            <h2 class="text-sm font-semibold text-stone-900">Best for</h2>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($product->relationships as $relationship)
+                                    <a
+                                        href="{{ \App\Support\DiscoveryUrl::relationship($relationship->slug) }}"
+                                        class="inline-flex rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-700 hover:bg-stone-200"
+                                    >
+                                        {{ $relationship->name }}
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
 
-            <section class="space-y-3 border-t border-stone-200 pt-6 text-sm text-stone-600">
-                @if ($primaryCategory)
-                    <p>
-                        <span class="font-medium text-stone-800">Category:</span>
-                        <a href="{{ \App\Support\DiscoveryUrl::giftIdeasCategory($primaryCategory->full_path) }}" class="underline hover:text-stone-900">
-                            {{ $primaryCategory->name }}
-                        </a>
-                    </p>
-                @endif
+                    @if ($product->occasions->isNotEmpty())
+                        <div class="space-y-2">
+                            <h2 class="text-sm font-semibold text-stone-900">Good for</h2>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($product->occasions as $occasion)
+                                    <a
+                                        href="{{ \App\Support\DiscoveryUrl::occasion($occasion->slug) }}"
+                                        class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-sm text-amber-900 hover:bg-amber-100"
+                                    >
+                                        {{ $occasion->name }}
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
 
-                @if ($product->occasions->isNotEmpty())
-                    <p>
-                        <span class="font-medium text-stone-800">Occasions:</span>
-                        {{ $product->occasions->pluck('name')->join(', ') }}
-                    </p>
-                @endif
+                    @if ($product->interests->isNotEmpty())
+                        <div class="space-y-2">
+                            <h2 class="text-sm font-semibold text-stone-900">Interests</h2>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($product->interests as $interest)
+                                    <a
+                                        href="{{ \App\Support\DiscoveryUrl::interest($interest->slug) }}"
+                                        class="inline-flex rounded-full bg-stone-100 px-3 py-1 text-sm text-stone-700 hover:bg-stone-200"
+                                    >
+                                        {{ $interest->name }}
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                </section>
+            @endif
 
-                @if ($product->relationships->isNotEmpty())
-                    <p>
-                        <span class="font-medium text-stone-800">Relationships:</span>
-                        {{ $product->relationships->pluck('name')->join(', ') }}
-                    </p>
-                @endif
-
-                @if ($product->recipientTypes->isNotEmpty())
-                    <p>
-                        <span class="font-medium text-stone-800">Recipients:</span>
-                        {{ $product->recipientTypes->pluck('name')->join(', ') }}
-                    </p>
-                @endif
-
-                @if ($product->interests->isNotEmpty())
-                    <p>
-                        <span class="font-medium text-stone-800">Interests:</span>
-                        {{ $product->interests->pluck('name')->join(', ') }}
-                    </p>
-                @endif
-
-                @if ($product->professions->isNotEmpty())
-                    <p>
-                        <span class="font-medium text-stone-800">Professions:</span>
-                        {{ $product->professions->pluck('name')->join(', ') }}
-                    </p>
-                @endif
-
-                @if ($product->giftTypes->isNotEmpty())
-                    <p>
-                        <span class="font-medium text-stone-800">Gift types:</span>
-                        {{ $product->giftTypes->pluck('name')->join(', ') }}
-                    </p>
-                @endif
-            </section>
+            @if ($product->description)
+                <section class="space-y-2">
+                    <h2 class="text-lg font-semibold text-stone-900">Why we picked it</h2>
+                    <div class="prose prose-stone max-w-none whitespace-pre-line text-base leading-relaxed text-stone-700">
+                        {{ $product->description }}
+                    </div>
+                </section>
+            @endif
         </div>
     </article>
 @endsection

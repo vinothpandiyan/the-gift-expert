@@ -172,6 +172,95 @@ class ProductImageManagementTest extends TestCase
         $this->assertSame(1, $product->images()->where('is_primary', true)->count());
     }
 
+    public function test_filament_accepts_non_square_source_images(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $product = Product::factory()->create(['name' => 'Landscape Gift']);
+
+        Livewire::test(ImagesRelationManager::class, [
+            'ownerRecord' => $product,
+            'pageClass' => EditGift::class,
+        ])
+            ->callTableAction('create', data: [
+                'uploads' => [
+                    UploadedFile::fake()->image('landscape.jpg', 1200, 800),
+                    UploadedFile::fake()->image('portrait.jpg', 800, 1200),
+                    UploadedFile::fake()->image('square.jpg', 1500, 1500),
+                ],
+                'alt_text' => '',
+                'is_primary' => true,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $product->refresh();
+
+        $this->assertCount(3, $product->images);
+        $this->assertSame('Landscape Gift', $product->images->first()->alt_text);
+        $this->assertTrue($product->images->first()->is_primary);
+
+        foreach ($product->images as $image) {
+            $this->assertStringEndsWith('.webp', $image->path);
+            Storage::disk('public')->assertExists($image->path);
+        }
+    }
+
+    public function test_filament_defaults_primary_toggle_when_product_has_no_primary_image(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $product = Product::factory()->create(['name' => 'Primary Default Gift']);
+
+        Livewire::test(ImagesRelationManager::class, [
+            'ownerRecord' => $product,
+            'pageClass' => EditGift::class,
+        ])
+            ->callTableAction('create', data: [
+                'uploads' => [UploadedFile::fake()->image('first.jpg', 900, 600)],
+                'alt_text' => '',
+                'is_primary' => true,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertTrue($product->images()->where('is_primary', true)->exists());
+    }
+
+    public function test_filament_does_not_replace_existing_primary_unless_requested(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $product = Product::factory()->create(['name' => 'Existing Primary Gift']);
+        $existing = app(StoreProductImageAction::class)->execute($product, [
+            $this->rasterImagePath(500, 500),
+        ])->first();
+        $this->assertTrue($existing->is_primary);
+
+        Livewire::test(ImagesRelationManager::class, [
+            'ownerRecord' => $product->fresh(),
+            'pageClass' => EditGift::class,
+        ])
+            ->callTableAction('create', data: [
+                'uploads' => [UploadedFile::fake()->image('second.jpg', 900, 600)],
+                'alt_text' => '',
+                'is_primary' => false,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertTrue($existing->fresh()->is_primary);
+        $this->assertSame(2, $product->images()->count());
+    }
+
+    public function test_store_action_defaults_alt_text_to_product_name(): void
+    {
+        $product = Product::factory()->create(['name' => 'Named Gift']);
+
+        $images = app(StoreProductImageAction::class)->execute($product, [
+            $this->rasterImagePath(640, 480),
+        ]);
+
+        $this->assertSame('Named Gift', $images->first()->alt_text);
+    }
+
     public function test_public_gift_detail_still_renders_product_image_urls(): void
     {
         $product = Product::factory()->published()->create(['slug' => 'framed-print']);

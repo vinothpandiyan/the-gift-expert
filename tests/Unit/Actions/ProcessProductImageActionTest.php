@@ -35,6 +35,14 @@ class ProcessProductImageActionTest extends TestCase
         imagedestroy($decoded);
     }
 
+    public function test_portrait_source_is_accepted_and_center_cropped(): void
+    {
+        $processed = app(ProcessProductImageAction::class)->execute($this->rasterImagePath(800, 1200));
+
+        $this->assertSame(800, $processed->width);
+        $this->assertSame(800, $processed->height);
+    }
+
     public function test_square_source_is_not_upscaled(): void
     {
         $path = $this->rasterImagePath(1200, 1200);

@@ -27,7 +27,7 @@ class GiftCatalogTest extends TestCase
             ->assertSee('Ceramic Mug', false)
             ->assertSee('A lovely mug', false)
             ->assertSee(Terminology::gift(), false)
-            ->assertSee('View at Example Merchant', false);
+            ->assertSee('View on Example Merchant', false);
     }
 
     public function test_draft_gift_returns_not_found(): void

@@ -23,9 +23,7 @@
                 loading="lazy"
             >
         @else
-            <div class="flex h-full items-center justify-center text-sm text-stone-400">
-                No image
-            </div>
+            <x-gift-image-placeholder class="h-full" />
         @endif
     </a>
 

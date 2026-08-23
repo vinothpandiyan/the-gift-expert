@@ -74,10 +74,12 @@ class ImagesRelationManager extends RelationManager
                         $product = $this->getOwnerRecord();
 
                         try {
+                            $altText = is_string($data['alt_text'] ?? null) ? trim($data['alt_text']) : '';
+
                             $images = app(StoreProductImageAction::class)->execute(
                                 product: $product,
                                 sources: $this->sourceFiles($data['uploads'] ?? []),
-                                altText: $data['alt_text'] ?? null,
+                                altText: $altText !== '' ? $altText : null,
                                 preferPrimary: (bool) ($data['is_primary'] ?? false),
                             );
                         } catch (ValidationException $exception) {
@@ -145,16 +147,16 @@ class ImagesRelationManager extends RelationManager
                 ->panelLayout('grid')
                 ->imageEditor()
                 ->imageEditorMode(1)
-                ->imageAspectRatio($aspectRatio)
                 ->imageEditorAspectRatioOptions([$aspectRatio])
                 ->storeFiles(false)
                 ->previewable()
                 ->required(),
             TextInput::make('alt_text')
-                ->maxLength(255),
+                ->maxLength(255)
+                ->default(fn (): string => (string) $this->getOwnerRecord()->name),
             Toggle::make('is_primary')
                 ->label('Set the first uploaded image as primary')
-                ->default(false),
+                ->default(fn (): bool => ! $this->getOwnerRecord()->images()->where('is_primary', true)->exists()),
         ];
     }
 

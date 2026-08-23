@@ -79,7 +79,7 @@ class StoreProductImageAction
                     $image = $product->images()->create([
                         'disk' => $disk,
                         'path' => $path,
-                        'alt_text' => $altText,
+                        'alt_text' => $this->resolveAltText($altText, $product),
                         'sort_order' => $nextSort,
                         'is_primary' => false,
                     ]);
@@ -116,5 +116,14 @@ class StoreProductImageAction
             [(string) $productId, $filename],
             $template,
         );
+    }
+
+    private function resolveAltText(?string $altText, Product $product): string
+    {
+        if (is_string($altText) && trim($altText) !== '') {
+            return trim($altText);
+        }
+
+        return $product->name;
     }
 }
