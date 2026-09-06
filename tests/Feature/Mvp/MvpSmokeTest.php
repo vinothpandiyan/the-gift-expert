@@ -104,6 +104,7 @@ class MvpSmokeTest extends TestCase
         $this->get(DiscoveryUrl::finder())
             ->assertOk()
             ->assertSee('Find a Gift', false)
+            ->assertSee('Who are you buying for?', false)
             ->assertSee('<meta name="robots" content="index, follow">', false);
 
         $component = Livewire::test(GiftFinder::class)

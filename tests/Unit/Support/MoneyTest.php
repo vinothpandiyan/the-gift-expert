@@ -16,5 +16,8 @@ class MoneyTest extends TestCase
     {
         $this->assertNull(Money::around(null, 'INR'));
         $this->assertNull(Money::format('', 'INR'));
+        $this->assertNull(Money::around(0, 'INR'));
+        $this->assertNull(Money::around('0.00', 'INR'));
+        $this->assertNull(Money::format(-10, 'INR'));
     }
 }

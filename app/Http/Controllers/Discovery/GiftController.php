@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Discovery;
 
+use App\Actions\Discovery\QueryGiftDetailAction;
+use App\Actions\Discovery\QueryRelatedGiftsAction;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductSlugRedirect;
@@ -12,40 +14,26 @@ use Illuminate\View\View;
 
 class GiftController extends Controller
 {
-    public function show(string $slug): RedirectResponse|View
-    {
-        $product = Product::query()
-            ->published()
-            ->where('slug', $slug)
-            ->with([
-                'images' => fn ($query) => $query
-                    ->orderByDesc('is_primary')
-                    ->orderBy('sort_order'),
-                'affiliateLinks' => fn ($query) => $query
-                    ->active()
-                    ->with('merchant')
-                    ->orderByDesc('is_primary'),
-                'categories',
-                'occasions',
-                'relationships',
-                'recipientTypes',
-                'interests',
-                'professions',
-                'giftTypes',
-            ])
-            ->first();
+    public function show(
+        string $slug,
+        QueryGiftDetailAction $queryGiftDetail,
+        QueryRelatedGiftsAction $queryRelatedGifts,
+    ): RedirectResponse|View {
+        $detail = $queryGiftDetail->execute($slug);
 
-        if ($product !== null) {
+        if ($detail !== null) {
             $context = request()->query('context');
 
             return view('discovery.gifts.show', [
-                'product' => $product,
-                'seoTitle' => PageMeta::giftTitle($product),
-                'seoDescription' => PageMeta::giftDescription($product),
-                'seoCanonical' => PageMeta::giftCanonical($product),
+                'detail' => $detail,
+                'product' => $detail->product,
+                'relatedProducts' => $queryRelatedGifts->execute($detail->product),
+                'seoTitle' => PageMeta::giftTitle($detail->product),
+                'seoDescription' => PageMeta::giftDescription($detail->product),
+                'seoCanonical' => PageMeta::giftCanonical($detail->product),
                 'seoRobots' => 'index, follow',
                 'breadcrumbs' => PageMeta::giftBreadcrumbs(
-                    $product,
+                    $detail->product,
                     is_string($context) ? $context : null,
                 ),
             ]);

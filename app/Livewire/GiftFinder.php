@@ -9,6 +9,7 @@ use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
 use App\Models\RecipientType;
+use App\Models\RecommendationSession;
 use App\Models\Relationship;
 use App\Support\DiscoveryUrl;
 use App\Support\PageMeta;
@@ -18,10 +19,13 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 class GiftFinder extends Component
 {
+    public int $step = 1;
+
     public mixed $occasion_id = null;
 
     public mixed $relationship_id = null;
@@ -37,8 +41,124 @@ class GiftFinder extends Component
 
     public mixed $budget_range_id = null;
 
+    public ?string $stepError = null;
+
+    public bool $finding = false;
+
+    public function mount(?string $session = null): void
+    {
+        $uuid = is_string($session) && $session !== ''
+            ? $session
+            : request()->query('session');
+
+        if (! is_string($uuid) || $uuid === '') {
+            return;
+        }
+
+        $this->hydrateFromSession($uuid);
+    }
+
+    public function selectRelationship(int $id): void
+    {
+        $this->relationship_id = $id;
+        $this->stepError = null;
+    }
+
+    public function selectOccasion(int $id): void
+    {
+        $this->occasion_id = $id;
+        $this->stepError = null;
+    }
+
+    public function toggleInterest(int $id): void
+    {
+        $ids = collect($this->interest_ids)
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values();
+
+        if ($ids->contains($id)) {
+            $this->interest_ids = $ids
+                ->reject(fn (int $value) => $value === $id)
+                ->values()
+                ->all();
+            $this->stepError = null;
+
+            return;
+        }
+
+        if ($ids->count() >= $this->maxInterests()) {
+            return;
+        }
+
+        $this->interest_ids = $ids->push($id)->all();
+        $this->stepError = null;
+    }
+
+    public function selectRecipientType(int $id): void
+    {
+        $this->recipient_type_id = $this->nullableId($this->recipient_type_id) === $id ? null : $id;
+    }
+
+    public function selectProfession(int $id): void
+    {
+        $this->profession_id = $this->nullableId($this->profession_id) === $id ? null : $id;
+    }
+
+    public function selectGiftType(int $id): void
+    {
+        $this->gift_type_id = $this->nullableId($this->gift_type_id) === $id ? null : $id;
+    }
+
+    public function selectBudget(int $id): void
+    {
+        $this->budget_range_id = $id;
+        $this->stepError = null;
+    }
+
+    public function back(): void
+    {
+        $this->stepError = null;
+        $this->step = max(1, $this->step - 1);
+    }
+
+    public function continueStep(): void
+    {
+        if (! $this->canContinue()) {
+            $this->stepError = $this->stepErrorMessage();
+
+            return;
+        }
+
+        $this->stepError = null;
+        $this->step = min(5, $this->step + 1);
+    }
+
+    public function skipAbout(): void
+    {
+        if ($this->step !== 4) {
+            return;
+        }
+
+        $this->stepError = null;
+        $this->step = 5;
+    }
+
     public function submit(GenerateRecommendationsAction $action): void
     {
+        if ($this->finding) {
+            return;
+        }
+
+        $this->finding = true;
+
+        if ($this->step === 5 && ! $this->canContinue()) {
+            $this->finding = false;
+            $this->stepError = $this->stepErrorMessage();
+
+            return;
+        }
+
         $validated = $this->validate($this->rules());
 
         $interestIds = collect($validated['interest_ids'] ?? [])
@@ -62,16 +182,7 @@ class GiftFinder extends Component
 
     public function render(): View
     {
-        return view('livewire.gift-finder', [
-            'occasions' => $this->activeOptions(Occasion::query()),
-            'relationships' => $this->activeOptions(Relationship::query()),
-            'recipientTypes' => $this->activeOptions(RecipientType::query()),
-            'interests' => $this->activeOptions(Interest::query()),
-            'professions' => $this->activeOptions(Profession::query()),
-            'giftTypes' => $this->activeOptions(GiftType::query()),
-            'budgetRanges' => $this->activeOptions(BudgetRange::query()),
-            'maxInterests' => (int) config('gift_recommendations.max_interests'),
-        ])
+        return view('livewire.gift-finder')
             ->extends('layouts.public')
             ->title(PageMeta::finderTitle())
             ->layoutData([
@@ -81,12 +192,119 @@ class GiftFinder extends Component
             ]);
     }
 
+    public function canContinue(): bool
+    {
+        return match ($this->step) {
+            1 => $this->nullableId($this->relationship_id) !== null,
+            2 => $this->nullableId($this->occasion_id) !== null,
+            3 => $this->selectedInterestCount() >= 1,
+            4 => true,
+            5 => $this->nullableId($this->budget_range_id) !== null,
+            default => false,
+        };
+    }
+
+    /**
+     * @return Collection<int, object{id: int, name: string, description?: string|null}>
+     */
+    #[Computed]
+    public function relationships(): Collection
+    {
+        return $this->activeOptions(Relationship::query(), ['id', 'name', 'description']);
+    }
+
+    /**
+     * @return Collection<int, object{id: int, name: string, description?: string|null}>
+     */
+    #[Computed]
+    public function occasions(): Collection
+    {
+        return $this->activeOptions(Occasion::query(), ['id', 'name', 'description']);
+    }
+
+    /**
+     * @return Collection<int, object{id: int, name: string}>
+     */
+    #[Computed]
+    public function interests(): Collection
+    {
+        return $this->activeOptions(Interest::query());
+    }
+
+    /**
+     * @return Collection<int, object{id: int, name: string, description?: string|null}>
+     */
+    #[Computed]
+    public function recipientTypes(): Collection
+    {
+        return $this->activeOptions(RecipientType::query(), ['id', 'name', 'description']);
+    }
+
+    /**
+     * @return Collection<int, object{id: int, name: string, description?: string|null}>
+     */
+    #[Computed]
+    public function professions(): Collection
+    {
+        return $this->activeOptions(Profession::query(), ['id', 'name', 'description']);
+    }
+
+    /**
+     * @return Collection<int, object{id: int, name: string, description?: string|null}>
+     */
+    #[Computed]
+    public function giftTypes(): Collection
+    {
+        return $this->activeOptions(GiftType::query(), ['id', 'name', 'description']);
+    }
+
+    /**
+     * @return Collection<int, object{id: int, name: string}>
+     */
+    #[Computed]
+    public function budgetRanges(): Collection
+    {
+        return $this->activeOptions(BudgetRange::query());
+    }
+
+    public function stepLabel(): string
+    {
+        return match ($this->step) {
+            1 => 'Recipient',
+            2 => 'Occasion',
+            3 => 'Interests',
+            4 => 'About them',
+            5 => 'Budget',
+            default => '',
+        };
+    }
+
+    public function maxInterests(): int
+    {
+        return (int) config('gift_recommendations.max_interests');
+    }
+
+    public function selectedInterestCount(): int
+    {
+        return collect($this->interest_ids)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->count();
+    }
+
+    public function interestIsSelected(int $id): bool
+    {
+        return collect($this->interest_ids)
+            ->map(fn ($value) => (int) $value)
+            ->contains($id);
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function rules(): array
     {
-        $maxInterests = (int) config('gift_recommendations.max_interests');
+        $maxInterests = $this->maxInterests();
 
         return [
             'occasion_id' => ['nullable', $this->activeExistsRule('occasions')],
@@ -109,15 +327,54 @@ class GiftFinder extends Component
     }
 
     /**
+     * @param  list<string>  $columns
      * @return Collection<int, object{id: int, name: string}>
      */
-    private function activeOptions(EloquentBuilder $query): Collection
+    private function activeOptions(EloquentBuilder $query, array $columns = ['id', 'name']): Collection
     {
         return $query
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get($columns);
+    }
+
+    private function hydrateFromSession(string $uuid): void
+    {
+        $session = RecommendationSession::query()
+            ->with('interests:id')
+            ->where('uuid', $uuid)
+            ->first();
+
+        if ($session === null) {
+            return;
+        }
+
+        $this->relationship_id = $session->relationship_id;
+        $this->occasion_id = $session->occasion_id;
+        $this->recipient_type_id = $session->recipient_type_id;
+        $this->profession_id = $session->profession_id;
+        $this->gift_type_id = $session->gift_type_id;
+        $this->budget_range_id = $session->budget_range_id;
+        $this->interest_ids = $session->interests
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->take($this->maxInterests())
+            ->values()
+            ->all();
+        $this->step = 1;
+    }
+
+    private function stepErrorMessage(): string
+    {
+        return match ($this->step) {
+            1 => "Choose who you're buying for to continue.",
+            2 => 'Choose an occasion to continue.',
+            3 => 'Choose at least one interest to continue.',
+            5 => 'Choose a budget to continue.',
+            default => '',
+        };
     }
 
     private function nullableId(mixed $value): ?int
@@ -135,7 +392,7 @@ class GiftFinder extends Component
     protected function messages(): array
     {
         return [
-            'interest_ids.max' => 'You may select up to '.config('gift_recommendations.max_interests').' interests.',
+            'interest_ids.max' => 'You may select up to '.$this->maxInterests().' interests.',
         ];
     }
 

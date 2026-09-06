@@ -1,6 +1,8 @@
 @props([
     'product',
     'context' => null,
+    'matchReason' => null,
+    'greatMatch' => false,
 ])
 
 @php
@@ -14,10 +16,13 @@
     $price = \App\Support\Money::around($product->price_amount, $product->price_currency);
     $isPersonalized = $product->relationLoaded('categories')
         && $product->categories->contains(fn ($category) => $category->slug === 'personalized-gifts');
-    $badge = $product->is_featured ? 'Featured' : ($isPersonalized ? 'Personalized' : null);
+    $badge = $greatMatch
+        ? 'Great Match'
+        : ($product->is_featured ? 'Featured' : ($isPersonalized ? 'Personalized' : null));
     $badgeTone = $badge === 'Personalized'
         ? 'border-plum/15 bg-plum-light text-plum'
         : 'border-gold/30 bg-gold/15 text-[#7a5a12]';
+    $reason = filled($matchReason) ? $matchReason : $product->short_description;
 @endphp
 
 <article {{ $attributes->merge(['class' => 'group relative flex h-full flex-col rounded-[14px] border border-line bg-surface p-3 transition-shadow hover:shadow-[0_8px_24px_-16px_rgba(38,35,38,0.35)]']) }}>
@@ -49,9 +54,9 @@
             </a>
         </h3>
 
-        @if (filled($product->short_description))
+        @if (filled($reason))
             <p class="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-ink-muted">
-                {{ $product->short_description }}
+                {{ $reason }}
             </p>
         @endif
 

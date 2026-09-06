@@ -64,6 +64,9 @@ return [
         'seo_landing' => [
             'breadth_dimension' => null,
         ],
+        'gift_detail' => [
+            'breadth_dimension' => null,
+        ],
     ],
 
 ];

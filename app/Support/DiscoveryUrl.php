@@ -88,6 +88,11 @@ final class DiscoveryUrl
         return self::route('finder.show', absolute: $absolute);
     }
 
+    public static function finderEdit(string $uuid, bool $absolute = false): string
+    {
+        return self::finder($absolute).'?'.http_build_query(['session' => $uuid], '', '&', PHP_QUERY_RFC3986);
+    }
+
     public static function finderResults(string $uuid, bool $absolute = false): string
     {
         return self::route('finder.results', ['uuid' => $uuid], $absolute);

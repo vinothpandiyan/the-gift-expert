@@ -18,6 +18,10 @@ final class Money
         }
 
         $value = (float) $amount;
+
+        if ($value <= 0) {
+            return null;
+        }
         $currency = strtoupper((string) ($currency ?: 'INR'));
 
         if ($currency === 'INR') {

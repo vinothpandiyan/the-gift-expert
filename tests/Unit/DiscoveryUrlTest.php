@@ -44,6 +44,10 @@ class DiscoveryUrlTest extends TestCase
     public function test_finder_and_affiliate_urls_use_configured_paths(): void
     {
         $this->assertSame('/find-a-gift', DiscoveryUrl::finder());
+        $this->assertSame(
+            '/find-a-gift?session=550e8400-e29b-41d4-a716-446655440000',
+            DiscoveryUrl::finderEdit('550e8400-e29b-41d4-a716-446655440000'),
+        );
         $this->assertSame('/find-a-gift/results/550e8400-e29b-41d4-a716-446655440000', DiscoveryUrl::finderResults('550e8400-e29b-41d4-a716-446655440000'));
         $this->assertSame('/out/550e8400-e29b-41d4-a716-446655440000', DiscoveryUrl::affiliateOut('550e8400-e29b-41d4-a716-446655440000'));
         $this->assertSame('/birthday-gifts-for-husband', DiscoveryUrl::seoLandingPage('birthday-gifts-for-husband'));

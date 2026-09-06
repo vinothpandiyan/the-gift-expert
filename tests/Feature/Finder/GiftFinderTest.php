@@ -7,9 +7,10 @@ use App\Livewire\GiftFinder;
 use App\Models\BudgetRange;
 use App\Models\Interest;
 use App\Models\Occasion;
+use App\Models\RecipientType;
 use App\Models\RecommendationSession;
+use App\Models\Relationship;
 use App\Support\DiscoveryUrl;
-use App\Support\Terminology;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Mockery\MockInterface;
@@ -25,11 +26,25 @@ class GiftFinderTest extends TestCase
         $this->get(DiscoveryUrl::finder())
             ->assertOk()
             ->assertSee('Find a Gift', false)
-            ->assertSee(Terminology::giftRecommendations(), false);
+            ->assertSee('Who are you buying for?', false)
+            ->assertSee('Gift Finder', false)
+            ->assertSee('Step 1 of 5', false);
     }
 
-    public function test_finder_renders_expected_form_fields(): void
+    public function test_initial_step_lists_active_relationships_only(): void
     {
+        Relationship::query()->create([
+            'name' => 'Husband',
+            'slug' => 'husband',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+        Relationship::query()->create([
+            'name' => 'Hidden Relative',
+            'slug' => 'hidden-relative',
+            'is_active' => false,
+            'sort_order' => 2,
+        ]);
         Occasion::query()->create([
             'name' => 'Birthday',
             'slug' => 'birthday',
@@ -37,86 +52,123 @@ class GiftFinderTest extends TestCase
             'sort_order' => 1,
         ]);
 
-        Interest::query()->create([
-            'name' => 'Hiking',
-            'slug' => 'hiking',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        BudgetRange::query()->create([
-            'name' => 'Under 1000',
-            'slug' => 'under-1000',
-            'min_amount' => null,
-            'max_amount' => 1000,
-            'currency' => 'INR',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
         $this->get(DiscoveryUrl::finder())
             ->assertOk()
-            ->assertSee('Occasion', false)
-            ->assertSee('Relationship', false)
-            ->assertSee('Recipient', false)
-            ->assertSee('Interests', false)
-            ->assertSee('Profession', false)
-            ->assertSee('Gift Type', false)
-            ->assertSee('Budget', false)
-            ->assertSee('Birthday', false)
-            ->assertSee('Hiking', false)
-            ->assertSee('Under 1000', false);
+            ->assertSee('Husband', false)
+            ->assertDontSee('Hidden Relative', false)
+            ->assertDontSee('Birthday', false);
     }
 
-    public function test_valid_submission_creates_session_and_redirects_to_results(): void
+    public function test_continue_requires_recipient_and_preserves_selection_on_back(): void
     {
-        $occasion = Occasion::query()->create([
-            'name' => 'Anniversary',
-            'slug' => 'anniversary',
+        $relationship = $this->relationship('Husband');
+
+        Livewire::test(GiftFinder::class)
+            ->assertSet('step', 1)
+            ->call('continueStep')
+            ->assertSet('step', 1)
+            ->assertSee("Choose who you're buying for to continue.")
+            ->call('selectRelationship', $relationship->id)
+            ->call('continueStep')
+            ->assertSet('step', 2)
+            ->assertSee("What's the occasion?")
+            ->assertSet('relationship_id', $relationship->id)
+            ->call('back')
+            ->assertSet('step', 1)
+            ->assertSet('relationship_id', $relationship->id)
+            ->assertDontSee("Choose who you're buying for to continue.");
+    }
+
+    public function test_occasion_select_and_interest_max_and_deselect(): void
+    {
+        $occasion = $this->occasion('Birthday');
+        $first = $this->interest('Travel', 1);
+        $second = $this->interest('Coffee', 2);
+        $third = $this->interest('Books', 3);
+        $fourth = $this->interest('Music', 4);
+
+        Livewire::test(GiftFinder::class)
+            ->set('step', 2)
+            ->call('selectOccasion', $occasion->id)
+            ->call('continueStep')
+            ->assertSet('step', 3)
+            ->call('toggleInterest', $first->id)
+            ->call('toggleInterest', $second->id)
+            ->call('toggleInterest', $third->id)
+            ->call('toggleInterest', $fourth->id)
+            ->assertSet('interest_ids', [$first->id, $second->id, $third->id])
+            ->call('toggleInterest', $second->id)
+            ->assertSet('interest_ids', [$first->id, $third->id]);
+    }
+
+    public function test_optional_about_them_can_be_skipped_and_selections_persist(): void
+    {
+        $recipientType = RecipientType::query()->create([
+            'name' => 'Adult',
+            'slug' => 'adult',
             'is_active' => true,
+            'sort_order' => 1,
         ]);
+
+        Livewire::test(GiftFinder::class)
+            ->set('step', 4)
+            ->call('skipAbout')
+            ->assertSet('step', 5)
+            ->assertSet('recipient_type_id', null)
+            ->set('step', 4)
+            ->call('selectRecipientType', $recipientType->id)
+            ->call('continueStep')
+            ->assertSet('step', 5)
+            ->call('back')
+            ->assertSet('step', 4)
+            ->assertSet('recipient_type_id', $recipientType->id)
+            ->call('selectRecipientType', $recipientType->id)
+            ->assertSet('recipient_type_id', null);
+    }
+
+    public function test_budget_select_and_find_gifts_creates_session(): void
+    {
+        $relationship = $this->relationship('Wife');
+        $occasion = $this->occasion('Anniversary');
+        $interest = $this->interest('Travel');
+        $budget = $this->budgetRange('₹1,000–₹2,500');
 
         GiftCatalogTestHelpers::publishedGift([
             'name' => 'Frame',
             'slug' => 'frame',
-        ])->occasions()->attach($occasion);
+        ])->relationships()->attach($relationship);
 
         $component = Livewire::test(GiftFinder::class)
-            ->set('occasion_id', $occasion->id)
+            ->call('selectRelationship', $relationship->id)
+            ->call('continueStep')
+            ->call('selectOccasion', $occasion->id)
+            ->call('continueStep')
+            ->call('toggleInterest', $interest->id)
+            ->call('continueStep')
+            ->call('skipAbout')
+            ->call('selectBudget', $budget->id)
             ->call('submit')
             ->assertHasNoErrors();
 
         $session = RecommendationSession::query()->first();
 
         $this->assertNotNull($session);
+        $this->assertSame($relationship->id, $session->relationship_id);
         $this->assertSame($occasion->id, $session->occasion_id);
-        $this->assertDatabaseCount('recommendation_sessions', 1);
-
+        $this->assertSame($budget->id, $session->budget_range_id);
+        $this->assertEqualsCanonicalizing([$interest->id], $session->interests->pluck('id')->all());
         $component->assertRedirect(DiscoveryUrl::finderResults($session->uuid));
     }
 
-    public function test_optional_fields_can_all_be_null(): void
+    public function test_engine_still_accepts_an_all_null_payload(): void
     {
         GiftCatalogTestHelpers::publishedGift([
             'name' => 'Any Gift',
             'slug' => 'any-gift',
         ]);
 
-        Livewire::test(GiftFinder::class)
-            ->set('occasion_id', null)
-            ->set('relationship_id', null)
-            ->set('recipient_type_id', null)
-            ->set('profession_id', null)
-            ->set('gift_type_id', null)
-            ->set('budget_range_id', null)
-            ->set('interest_ids', [])
-            ->call('submit')
-            ->assertHasNoErrors()
-            ->assertRedirect();
+        $session = app(GenerateRecommendationsAction::class)->execute([]);
 
-        $session = RecommendationSession::query()->first();
-
-        $this->assertNotNull($session);
         $this->assertNull($session->occasion_id);
         $this->assertNull($session->relationship_id);
         $this->assertNull($session->recipient_type_id);
@@ -190,5 +242,110 @@ class GiftFinderTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseCount('recommendation_sessions', 1);
+    }
+
+    public function test_double_submit_does_not_create_a_second_session(): void
+    {
+        GiftCatalogTestHelpers::publishedGift([
+            'name' => 'Once Gift',
+            'slug' => 'once-gift',
+        ]);
+
+        Livewire::test(GiftFinder::class)
+            ->set('finding', true)
+            ->call('submit')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseCount('recommendation_sessions', 0);
+
+        $component = Livewire::test(GiftFinder::class)
+            ->call('submit')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseCount('recommendation_sessions', 1);
+
+        $component->call('submit');
+
+        $this->assertDatabaseCount('recommendation_sessions', 1);
+    }
+
+    public function test_session_query_hydrates_finder_state(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+        $interest = $this->interest('Coffee');
+        $budget = $this->budgetRange('Under ₹500');
+
+        $session = RecommendationSession::query()->create([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+            'budget_range_id' => $budget->id,
+        ]);
+        $session->interests()->attach($interest->id);
+
+        Livewire::test(GiftFinder::class, ['session' => $session->uuid])
+            ->assertSet('step', 1)
+            ->assertSet('relationship_id', $relationship->id)
+            ->assertSet('occasion_id', $occasion->id)
+            ->assertSet('budget_range_id', $budget->id)
+            ->assertSet('interest_ids', [$interest->id]);
+
+        $this->get(DiscoveryUrl::finderEdit($session->uuid))
+            ->assertOk()
+            ->assertSee('Husband', false);
+    }
+
+    public function test_unknown_session_query_is_ignored(): void
+    {
+        Livewire::test(GiftFinder::class, ['session' => '00000000-0000-0000-0000-000000000000'])
+            ->assertSet('relationship_id', null)
+            ->assertSet('step', 1);
+
+        $this->get(DiscoveryUrl::finder().'?session=00000000-0000-0000-0000-000000000000')
+            ->assertOk()
+            ->assertSee('Who are you buying for?', false);
+    }
+
+    private function relationship(string $name): Relationship
+    {
+        return Relationship::query()->create([
+            'name' => $name,
+            'slug' => str($name)->slug()->toString(),
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+    }
+
+    private function occasion(string $name): Occasion
+    {
+        return Occasion::query()->create([
+            'name' => $name,
+            'slug' => str($name)->slug()->toString(),
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+    }
+
+    private function interest(string $name, int $sortOrder = 1): Interest
+    {
+        return Interest::query()->create([
+            'name' => $name,
+            'slug' => str($name)->slug()->toString(),
+            'is_active' => true,
+            'sort_order' => $sortOrder,
+        ]);
+    }
+
+    private function budgetRange(string $name): BudgetRange
+    {
+        return BudgetRange::query()->create([
+            'name' => $name,
+            'slug' => str($name)->slug()->toString(),
+            'min_amount' => 1000,
+            'max_amount' => 2500,
+            'currency' => 'INR',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
     }
 }

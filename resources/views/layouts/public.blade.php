@@ -31,13 +31,17 @@
             @yield('page-header')
         @endif
 
-        <div @class([
-            'mx-auto w-full max-w-[1280px] px-5 md:px-8',
-            'py-8 md:py-10' => ! View::hasSection('page-header'),
-            'pt-6 pb-16 md:pt-8' => View::hasSection('page-header'),
-        ])>
-            @yield('content')
-        </div>
+        @hasSection('content-uncontained')
+            @yield('content-uncontained')
+        @else
+            <div @class([
+                'mx-auto w-full max-w-[1280px] px-5 md:px-8',
+                'py-8 md:py-10' => ! View::hasSection('page-header'),
+                'pt-6 pb-16 md:pt-8' => View::hasSection('page-header'),
+            ])>
+                @yield('content')
+            </div>
+        @endif
     </main>
 
     <x-site-footer />
