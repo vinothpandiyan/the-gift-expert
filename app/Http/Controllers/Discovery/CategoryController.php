@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Discovery;
 
+use App\Actions\Discovery\QueryDiscoveryListingProductsAction;
 use App\Actions\SeoLandingPage\QueryDiscoverableSeoLandingPagesAction;
+use App\DiscoveryListing\DiscoveryListingContext;
+use App\DiscoveryListing\DiscoveryListingQueryState;
 use App\Enums\SeoLandingPageStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
@@ -16,8 +19,11 @@ class CategoryController extends Controller
 {
     private const MAX_REDIRECT_HOPS = 3;
 
-    public function show(string $full_path, QueryDiscoverableSeoLandingPagesAction $queryLandingPages): RedirectResponse|View
-    {
+    public function show(
+        string $full_path,
+        QueryDiscoverableSeoLandingPagesAction $queryLandingPages,
+        QueryDiscoveryListingProductsAction $queryListing,
+    ): RedirectResponse|View {
         $path = $this->resolvedCategoryPath($full_path);
 
         $category = Category::query()
@@ -49,38 +55,26 @@ class CategoryController extends Controller
             ->orderBy('name')
             ->get();
 
-        $products = $category->products()
-            ->published()
-            ->with([
-                'images' => fn ($query) => $query
-                    ->orderByDesc('is_primary')
-                    ->orderBy('sort_order'),
-                'affiliateLinks' => fn ($query) => $query
-                    ->active()
-                    ->with('merchant')
-                    ->orderByDesc('is_primary'),
-            ])
-            ->orderByDesc('published_at')
-            ->paginate(12);
-
-        $pagination = PageMeta::paginatedCanonicals(
-            $products,
-            PageMeta::categoryCanonical($category),
-        );
+        $listingContext = DiscoveryListingContext::forCategory($category);
+        $state = DiscoveryListingQueryState::fromRequest(request())->scopedTo($listingContext);
+        $perPage = max(1, (int) config('discovery_ranking.per_page', 12));
+        $total = $state->hasUserFiltersOrSort()
+            ? 0
+            : $queryListing->count($listingContext, $state);
+        $seo = PageMeta::listingSeo(PageMeta::categoryCanonical($category), $total, $perPage);
 
         return view('discovery.categories.show', [
             'category' => $category,
             'children' => $children,
             'relatedLandingPages' => $queryLandingPages->forCategory($category),
-            'products' => $products,
+            'listingContext' => $listingContext->toArray(),
             'seoTitle' => PageMeta::categoryTitle($category),
             'seoDescription' => PageMeta::categoryDescription($category),
-            'seoCanonical' => $pagination['canonical'],
-            'seoRobots' => 'index, follow',
-            'seoPrev' => $pagination['prev'],
-            'seoNext' => $pagination['next'],
+            'seoCanonical' => $seo['canonical'],
+            'seoRobots' => $seo['robots'],
+            'seoPrev' => $seo['prev'],
+            'seoNext' => $seo['next'],
             'breadcrumbs' => PageMeta::categoryBreadcrumbs($category),
-            'giftBrowseContext' => 'category:'.$category->full_path,
         ]);
     }
 

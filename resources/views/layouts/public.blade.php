@@ -11,21 +11,22 @@
         :prev="$seoPrev ?? null"
         :next="$seoNext ?? null"
     />
+    @stack('head')
     @fonts
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
         <style>
-            @import url('https://fonts.bunny.net/css?family=instrument-sans:400,500,600');
-            body { font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; margin: 0; background: #fafaf9; color: #1c1917; }
+            @import url('https://fonts.bunny.net/css?family=dm-sans:400,500,600,700|dm-serif-display:400');
+            body { font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif; margin: 0; background: #FCFAF7; color: #262326; }
             a { color: inherit; }
         </style>
     @endif
 </head>
-<body class="min-h-screen bg-stone-50 text-stone-900 antialiased">
+<body class="min-h-screen bg-ivory font-sans text-ink antialiased">
     <x-site-header />
 
-    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
         @yield('content')
     </main>
 

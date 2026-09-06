@@ -2,12 +2,14 @@
 
 namespace App\Support;
 
+use App\DiscoveryListing\DiscoveryListingQueryState;
 use App\Models\Category;
 use App\Models\Interest;
 use App\Models\Product;
 use App\Models\Profession;
 use App\Models\SeoLandingPage;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -628,6 +630,52 @@ final class PageMeta
                 : $baseCanonical.'?page='.$page,
             'prev' => $paginator->previousPageUrl(),
             'next' => $paginator->nextPageUrl(),
+        ];
+    }
+
+    /**
+     * @return array{canonical: string, robots: string, prev: ?string, next: ?string}
+     */
+    public static function listingSeo(
+        string $baseCanonical,
+        int $total,
+        int $perPage = 12,
+        bool $indexable = true,
+        ?Request $request = null,
+    ): array {
+        $request ??= request();
+        $state = DiscoveryListingQueryState::fromRequest($request);
+
+        if ($state->hasUserFiltersOrSort() || DiscoveryListingQueryState::requestHasUserState($request)) {
+            return [
+                'canonical' => $baseCanonical,
+                'robots' => 'noindex, follow',
+                'prev' => null,
+                'next' => null,
+            ];
+        }
+
+        $page = max(1, $request->integer('page', 1));
+        $perPage = max(1, $perPage);
+
+        $paginator = new LengthAwarePaginator(
+            items: [],
+            total: $total,
+            perPage: $perPage,
+            currentPage: $page,
+            options: [
+                'path' => $request->url(),
+                'query' => [],
+            ],
+        );
+
+        $pagination = self::paginatedCanonicals($paginator, $baseCanonical);
+
+        return [
+            'canonical' => $pagination['canonical'],
+            'robots' => $indexable ? 'index, follow' : 'noindex, follow',
+            'prev' => $pagination['prev'],
+            'next' => $pagination['next'],
         ];
     }
 

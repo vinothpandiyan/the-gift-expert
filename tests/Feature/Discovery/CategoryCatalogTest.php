@@ -66,21 +66,29 @@ class CategoryCatalogTest extends TestCase
             'is_active' => true,
         ]);
 
+        $slugs = [];
+
         foreach (range(1, 13) as $index) {
+            $slug = "electronics-item-{$index}";
             $gift = GiftCatalogTestHelpers::publishedGift([
-                'name' => "Gift {$index}",
-                'slug' => "gift-{$index}",
+                'name' => "Unique Electronics {$index} Title",
+                'slug' => $slug,
             ]);
             $category->products()->attach($gift->id);
+            $slugs[] = $slug;
         }
 
-        $this->get(DiscoveryUrl::giftIdeasCategory($category->full_path))
-            ->assertOk()
-            ->assertSee('Gift 13', false);
+        $pageOne = $this->get(DiscoveryUrl::giftIdeasCategory($category->full_path))->assertOk();
+        $pageTwo = $this->get(DiscoveryUrl::giftIdeasCategory($category->full_path).'?page=2')->assertOk();
 
-        $this->get(DiscoveryUrl::giftIdeasCategory($category->full_path).'?page=2')
-            ->assertOk()
-            ->assertSee('Gift 1', false)
-            ->assertDontSee('Gift 13', false);
+        $pageOneHtml = $pageOne->getContent();
+        $pageTwoHtml = $pageTwo->getContent();
+
+        $onPageOne = array_values(array_filter($slugs, fn (string $slug): bool => str_contains($pageOneHtml, '/gifts/'.$slug.'"') || str_contains($pageOneHtml, '/gifts/'.$slug.'?')));
+        $onPageTwo = array_values(array_filter($slugs, fn (string $slug): bool => str_contains($pageTwoHtml, '/gifts/'.$slug.'"') || str_contains($pageTwoHtml, '/gifts/'.$slug.'?')));
+
+        $this->assertCount(12, $onPageOne);
+        $this->assertCount(1, $onPageTwo);
+        $this->assertSame([], array_values(array_intersect($onPageOne, $onPageTwo)));
     }
 }

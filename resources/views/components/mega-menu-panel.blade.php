@@ -27,22 +27,22 @@
             @mouseleave="scheduleClose()"
             role="region"
             aria-label="{{ $label }}"
-            class="pointer-events-auto border-b border-stone-200 bg-white shadow-sm"
+            class="pointer-events-auto border-b border-line bg-surface shadow-sm"
         >
-            <div class="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 {{ $gridClass }}">
+            <div class="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 {{ $gridClass }}">
                 @foreach ($sections as $section)
                     @php
                         $isCta = ($section['appearance'] ?? 'default') === 'cta';
                     @endphp
                     <div @class([
                         'min-w-0',
-                        'rounded-md border border-stone-200 bg-stone-50 p-4' => $isCta,
+                        'rounded-md border border-line bg-plum-light p-4' => $isCta,
                     ])>
                         @if (! empty($section['heading']))
                             <p @class([
-                                'text-xs font-semibold tracking-wide text-stone-500',
+                                'text-xs font-semibold tracking-wide text-ink-muted',
                                 'uppercase' => ! $isCta,
-                                'text-sm text-stone-800' => $isCta,
+                                'font-serif text-sm text-plum' => $isCta,
                             ])>
                                 {{ $section['heading'] }}
                             </p>
@@ -57,8 +57,8 @@
                                         @if (! empty($link['opens_in_new_tab'])) target="_blank" rel="noopener noreferrer" @endif
                                         @click="closeAll()"
                                         @class([
-                                            'text-sm text-stone-700 hover:text-stone-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400',
-                                            'font-medium text-stone-900' => $isCta,
+                                            'text-sm text-ink hover:text-plum hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum',
+                                            'font-medium text-plum-dark' => $isCta,
                                         ])
                                     >
                                         {{ $link['label'] }}

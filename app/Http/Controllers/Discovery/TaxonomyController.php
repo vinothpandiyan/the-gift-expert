@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Discovery;
 
-use App\Actions\Discovery\BuildDiscoveryRankingContextAction;
-use App\Actions\Discovery\QueryRankedDiscoveryProductsAction;
+use App\Actions\Discovery\QueryDiscoveryListingProductsAction;
 use App\Actions\SeoLandingPage\QueryDiscoverableSeoLandingPagesAction;
+use App\DiscoveryListing\DiscoveryListingContext;
+use App\DiscoveryListing\DiscoveryListingQueryState;
 use App\Http\Controllers\Controller;
 use App\Models\GiftType;
 use App\Models\Interest;
@@ -13,6 +14,7 @@ use App\Models\Profession;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use App\Support\PageMeta;
+use App\Support\Terminology;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -47,8 +49,7 @@ class TaxonomyController extends Controller
         string $slug,
         string $taxonomy,
         QueryDiscoverableSeoLandingPagesAction $queryLandingPages,
-        BuildDiscoveryRankingContextAction $buildRankingContext,
-        QueryRankedDiscoveryProductsAction $queryRankedProducts,
+        QueryDiscoveryListingProductsAction $queryListing,
     ): View {
         $modelClass = self::MODELS[$taxonomy] ?? null;
 
@@ -65,57 +66,57 @@ class TaxonomyController extends Controller
             abort(404);
         }
 
-        $products = $this->usesRankedDiscovery($taxonomy)
-            ? $queryRankedProducts->execute(
-                $buildRankingContext->fromTaxonomy($taxonomy, $record),
-                request()->integer('page', 1),
-            )
-            : $record->products()
-                ->published()
-                ->with([
-                    'images' => fn ($query) => $query
-                        ->orderByDesc('is_primary')
-                        ->orderBy('sort_order'),
-                    'affiliateLinks' => fn ($query) => $query
-                        ->active()
-                        ->with('merchant')
-                        ->orderByDesc('is_primary'),
-                ])
-                ->orderByDesc('published_at')
-                ->paginate(12);
-
-        $pagination = PageMeta::paginatedCanonicals(
-            $products,
+        $listingContext = DiscoveryListingContext::forTaxonomy($taxonomy, $record);
+        $seo = $this->listingSeo(
+            $listingContext,
             PageMeta::taxonomyCanonical($record, $taxonomy),
+            $queryListing,
         );
 
         return view('discovery.taxonomies.show', [
             'taxonomy' => $record,
             'taxonomyKey' => $taxonomy,
             'taxonomyLabel' => self::LABELS[$taxonomy],
-            'products' => $products,
+            'heading' => $this->heading($taxonomy, $record),
+            'listingContext' => $listingContext->toArray(),
             'relatedLandingPages' => $queryLandingPages->execute($this->landingPageFilters($taxonomy, $record->id)),
             'seoTitle' => PageMeta::taxonomyTitle($record, $taxonomy),
             'seoDescription' => PageMeta::taxonomyDescription($record),
-            'seoCanonical' => $pagination['canonical'],
-            'seoRobots' => 'index, follow',
-            'seoPrev' => $pagination['prev'],
-            'seoNext' => $pagination['next'],
+            'seoCanonical' => $seo['canonical'],
+            'seoRobots' => $seo['robots'],
+            'seoPrev' => $seo['prev'],
+            'seoNext' => $seo['next'],
             'breadcrumbs' => PageMeta::taxonomyBreadcrumbs($record, $taxonomy, self::LABELS[$taxonomy]),
-            'giftBrowseContext' => $taxonomy.':'.$record->slug,
         ]);
     }
 
-    /**
-     * @return array<string, int>
-     */
-    private function usesRankedDiscovery(string $taxonomy): bool
+    private function heading(string $taxonomy, Model $record): string
     {
-        if (config('discovery_ranking.enabled') !== true) {
-            return false;
-        }
+        $name = (string) $record->name;
 
-        return in_array($taxonomy, ['relationship', 'occasion'], true);
+        return match ($taxonomy) {
+            'relationship', 'recipient_type', 'profession' => Terminology::gifts().' for '.$name,
+            'occasion' => $name.' '.Terminology::gifts(),
+            'interest' => $name.' '.Terminology::giftIdeas(),
+            default => $name,
+        };
+    }
+
+    /**
+     * @return array{canonical: string, robots: string, prev: ?string, next: ?string}
+     */
+    private function listingSeo(
+        DiscoveryListingContext $listingContext,
+        string $baseCanonical,
+        QueryDiscoveryListingProductsAction $queryListing,
+    ): array {
+        $state = DiscoveryListingQueryState::fromRequest(request())->scopedTo($listingContext);
+        $perPage = max(1, (int) config('discovery_ranking.per_page', 12));
+        $total = $state->hasUserFiltersOrSort()
+            ? 0
+            : $queryListing->count($listingContext, $state);
+
+        return PageMeta::listingSeo($baseCanonical, $total, $perPage);
     }
 
     /**

@@ -9,17 +9,27 @@
     $merchantName = $affiliateLink?->merchant?->name;
     $giftUrl = \App\Support\DiscoveryUrl::gift(
         $product->slug,
-        context: is_string($context) ? $context : null,
+        context: is_string($context) && $context !== '' ? $context : null,
     );
+    $price = \App\Support\Money::around($product->price_amount, $product->price_currency);
+    $isPersonalized = $product->relationLoaded('categories')
+        && $product->categories->contains(fn ($category) => $category->slug === 'personalized-gifts');
+    $badge = $product->is_featured ? 'Featured' : ($isPersonalized ? 'Personalized' : null);
 @endphp
 
-<article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white']) }}>
-    <a href="{{ $giftUrl }}" class="block aspect-[4/3] bg-stone-100">
+<article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-lg border border-line bg-surface']) }}>
+    <a href="{{ $giftUrl }}" class="relative block aspect-square bg-plum-light p-4">
+        @if ($badge)
+            <span class="absolute left-3 top-3 rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-plum">
+                {{ $badge }}
+            </span>
+        @endif
+
         @if ($primaryImage)
             <img
                 src="{{ $primaryImage->url() }}"
                 alt="{{ $primaryImage->alt_text ?: $product->name }}"
-                class="h-full w-full object-cover"
+                class="h-full w-full object-contain"
                 loading="lazy"
             >
         @else
@@ -28,32 +38,36 @@
     </a>
 
     <div class="flex flex-1 flex-col gap-2 p-4">
-        <h3 class="text-base font-semibold leading-snug text-stone-900">
-            <a href="{{ $giftUrl }}" class="hover:underline">
+        <h3 class="text-base font-semibold leading-snug text-ink">
+            <a href="{{ $giftUrl }}" class="hover:text-plum hover:underline">
                 {{ $product->name }}
             </a>
         </h3>
 
-        @if ($product->price_amount !== null)
-            <p class="text-sm font-medium text-stone-800">
-                {{ $product->price_currency }} {{ number_format((float) $product->price_amount, 2) }}
-                @if ($product->compare_at_amount !== null)
-                    <span class="ml-1 text-stone-400 line-through">
-                        {{ number_format((float) $product->compare_at_amount, 2) }}
-                    </span>
-                @endif
+        @if (filled($product->short_description))
+            <p class="line-clamp-2 text-sm leading-relaxed text-ink-muted">
+                {{ $product->short_description }}
             </p>
         @endif
 
-        @if ($affiliateLink)
-            <a
-                href="{{ \App\Support\DiscoveryUrl::affiliateOut($affiliateLink->uuid) }}"
-                target="_blank"
-                rel="noopener noreferrer sponsored"
-                class="mt-auto text-xs font-medium text-amber-700 hover:underline"
-            >
-                View at {{ $merchantName ?? 'merchant' }}
-            </a>
+        @if ($price !== null)
+            <p class="text-sm font-medium text-ink">
+                {{ $price }}
+            </p>
         @endif
+
+        @if ($merchantName)
+            <p class="text-xs text-ink-muted">
+                At {{ $merchantName }}
+            </p>
+        @endif
+
+        <a
+            href="{{ $giftUrl }}"
+            class="mt-auto inline-flex min-h-11 items-center gap-1 text-sm font-medium text-plum hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+        >
+            View gift
+            <span aria-hidden="true">↗</span>
+        </a>
     </div>
 </article>

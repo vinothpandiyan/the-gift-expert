@@ -6,28 +6,28 @@
     <x-breadcrumbs :items="$breadcrumbs" />
 
     <header class="mb-8 space-y-3">
-        <p class="text-sm font-medium uppercase tracking-wide text-stone-500">
+        <p class="text-sm font-medium uppercase tracking-wide text-ink-muted">
             {{ \App\Support\Terminology::giftIdeas() }}
         </p>
-        <h1 class="text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">
+        <h1 class="font-serif text-4xl tracking-tight text-plum sm:text-5xl">
             {{ $category->name }}
         </h1>
         @if ($category->description)
-            <p class="max-w-3xl text-base leading-relaxed text-stone-600">
+            <p class="max-w-3xl text-base leading-relaxed text-ink-muted">
                 {{ $category->description }}
             </p>
         @endif
     </header>
 
     @if ($children->isNotEmpty())
-        <section class="mb-10">
-            <h2 class="mb-4 text-lg font-semibold text-stone-900">Browse</h2>
+        <section class="mb-8">
+            <h2 class="mb-4 font-serif text-xl text-plum">Browse</h2>
             <ul class="flex flex-wrap gap-2">
                 @foreach ($children as $child)
                     <li>
                         <a
                             href="{{ \App\Support\DiscoveryUrl::giftIdeasCategory($child->full_path) }}"
-                            class="inline-flex rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 hover:border-stone-400 hover:bg-stone-50"
+                            class="inline-flex min-h-11 items-center rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink hover:border-plum hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                         >
                             {{ $child->name }}
                         </a>
@@ -42,23 +42,5 @@
         :heading="'Related '.\App\Support\Terminology::giftIdeas()"
     />
 
-    <section>
-        <h2 class="mb-4 text-lg font-semibold text-stone-900">
-            {{ \App\Support\Terminology::gifts() }}
-        </h2>
-
-        @if ($products->isEmpty())
-            <p class="text-stone-500">No {{ strtolower(\App\Support\Terminology::gifts()) }} found in this category yet.</p>
-        @else
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach ($products as $product)
-                    <x-gift-card :product="$product" :context="$giftBrowseContext" />
-                @endforeach
-            </div>
-
-            <div class="mt-8">
-                {{ $products->links() }}
-            </div>
-        @endif
-    </section>
+    <livewire:gift-listing :context="$listingContext" />
 @endsection

@@ -84,6 +84,7 @@ class QueryRankedDiscoveryProductsAction
     private function presentationRelations(): array
     {
         return [
+            'categories',
             'images' => fn ($query) => $query
                 ->orderByDesc('is_primary')
                 ->orderBy('sort_order'),

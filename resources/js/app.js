@@ -64,6 +64,22 @@ document.addEventListener('alpine:init', () => {
             document.body.classList.remove('overflow-hidden');
         },
     }));
+
+    window.Alpine.data('filterDrawer', () => ({
+        previouslyFocused: null,
+
+        sync(open) {
+            document.body.classList.toggle('overflow-hidden', open);
+
+            if (open) {
+                this.previouslyFocused = document.activeElement;
+                this.$nextTick(() => this.$refs.close?.focus());
+            } else if (this.previouslyFocused instanceof HTMLElement) {
+                this.previouslyFocused.focus();
+                this.previouslyFocused = null;
+            }
+        },
+    }));
 });
 
 if (! window.Livewire) {

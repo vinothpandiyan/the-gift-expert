@@ -41,27 +41,18 @@ class RankProductsForDiscoveryContextAction
         $breakdown = [];
         $filters = $context->filters;
 
-        if ($this->nullableId($filters['relationship_id'] ?? null) !== null) {
-            $relationshipId = (int) $filters['relationship_id'];
-
-            if ($product->relationLoaded('relationships')
-                ? $product->relationships->contains('id', $relationshipId)
-                : $product->relationships()->whereKey($relationshipId)->exists()) {
-                $breakdown['relationship_match'] = $this->weight('relationship_match');
-            }
+        if ($this->matchesAnyId($product, 'relationships', $this->dimensionIds($filters, 'relationship_id', 'relationship_ids'))) {
+            $breakdown['relationship_match'] = $this->weight('relationship_match');
         }
 
-        if ($this->nullableId($filters['occasion_id'] ?? null) !== null) {
-            $occasionId = (int) $filters['occasion_id'];
-
-            if ($product->relationLoaded('occasions')
-                ? $product->occasions->contains('id', $occasionId)
-                : $product->occasions()->whereKey($occasionId)->exists()) {
-                $breakdown['occasion_match'] = $this->weight('occasion_match');
-            }
+        if ($this->matchesAnyId($product, 'occasions', $this->dimensionIds($filters, 'occasion_id', 'occasion_ids'))) {
+            $breakdown['occasion_match'] = $this->weight('occasion_match');
         }
 
-        $interestIds = $this->normalizedInterestIds($filters['interest_ids'] ?? []);
+        $interestIds = $this->normalizedInterestIds([
+            ...($filters['interest_ids'] ?? []),
+            ...($filters['any_interest_ids'] ?? []),
+        ]);
 
         if ($interestIds !== []) {
             $overlap = $product->relationLoaded('interests')
@@ -76,47 +67,30 @@ class RankProductsForDiscoveryContextAction
             }
         }
 
-        if ($this->nullableId($filters['recipient_type_id'] ?? null) !== null) {
-            $recipientTypeId = (int) $filters['recipient_type_id'];
-
-            if ($product->relationLoaded('recipientTypes')
-                ? $product->recipientTypes->contains('id', $recipientTypeId)
-                : $product->recipientTypes()->whereKey($recipientTypeId)->exists()) {
-                $breakdown['recipient_type_match'] = $this->weight('recipient_type_match');
-            }
+        if ($this->matchesAnyId($product, 'recipientTypes', $this->dimensionIds($filters, 'recipient_type_id', 'recipient_type_ids'))) {
+            $breakdown['recipient_type_match'] = $this->weight('recipient_type_match');
         }
 
-        if ($this->nullableId($filters['profession_id'] ?? null) !== null) {
-            $professionId = (int) $filters['profession_id'];
-
-            if ($product->relationLoaded('professions')
-                ? $product->professions->contains('id', $professionId)
-                : $product->professions()->whereKey($professionId)->exists()) {
-                $breakdown['profession_match'] = $this->weight('profession_match');
-            }
+        if ($this->matchesAnyId($product, 'professions', $this->dimensionIds($filters, 'profession_id', 'profession_ids'))) {
+            $breakdown['profession_match'] = $this->weight('profession_match');
         }
 
-        if ($this->nullableId($filters['gift_type_id'] ?? null) !== null) {
-            $giftTypeId = (int) $filters['gift_type_id'];
-
-            if ($product->relationLoaded('giftTypes')
-                ? $product->giftTypes->contains('id', $giftTypeId)
-                : $product->giftTypes()->whereKey($giftTypeId)->exists()) {
-                $breakdown['gift_type_match'] = $this->weight('gift_type_match');
-            }
+        if ($this->matchesAnyId($product, 'giftTypes', $this->dimensionIds($filters, 'gift_type_id', 'gift_type_ids'))) {
+            $breakdown['gift_type_match'] = $this->weight('gift_type_match');
         }
 
-        if ($this->nullableId($filters['category_id'] ?? null) !== null) {
-            $categoryId = (int) $filters['category_id'];
+        $categoryIds = $this->dimensionIds($filters, 'category_id', 'category_ids');
+
+        if ($categoryIds !== []) {
             $categories = $product->relationLoaded('categories')
                 ? $product->categories
                 : $product->categories()->get();
 
             $primaryCategory = $categories->first(fn ($category) => (bool) $category->pivot?->is_primary);
 
-            if ($primaryCategory !== null && (int) $primaryCategory->id === $categoryId) {
+            if ($primaryCategory !== null && in_array((int) $primaryCategory->id, $categoryIds, true)) {
                 $breakdown['primary_category_match'] = $this->weight('primary_category_match');
-            } elseif ($categories->contains('id', $categoryId)) {
+            } elseif ($categories->contains(fn ($category) => in_array((int) $category->id, $categoryIds, true))) {
                 $breakdown['secondary_category_match'] = $this->weight('secondary_category_match');
             }
         }
@@ -210,6 +184,38 @@ class RankProductsForDiscoveryContextAction
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<int>
+     */
+    private function dimensionIds(array $filters, string $scalarKey, string $listKey): array
+    {
+        $ids = $this->normalizedInterestIds($filters[$listKey] ?? []);
+        $scalar = $this->nullableId($filters[$scalarKey] ?? null);
+
+        if ($scalar !== null) {
+            $ids[] = $scalar;
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  list<int>  $ids
+     */
+    private function matchesAnyId(Product $product, string $relation, array $ids): bool
+    {
+        if ($ids === []) {
+            return false;
+        }
+
+        if ($product->relationLoaded($relation)) {
+            return $product->{$relation}->contains(fn ($record) => in_array((int) $record->id, $ids, true));
+        }
+
+        return $product->{$relation}()->whereKey($ids)->exists();
     }
 
     private function nullableId(mixed $value): ?int

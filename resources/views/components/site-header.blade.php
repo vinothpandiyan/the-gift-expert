@@ -2,7 +2,7 @@
     $finderUrl = \App\Support\DiscoveryUrl::finder();
 @endphp
 
-<header class="relative z-40 border-b border-stone-200 bg-white">
+<header class="relative z-40 border-b border-line bg-surface">
     <div
         x-data="primaryNav"
         x-effect="document.body.classList.toggle('overflow-hidden', mobileOpen)"
@@ -10,8 +10,8 @@
         @click.outside="closeDesktop()"
         class="relative"
     >
-        <div class="relative z-50 mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-            <a href="{{ url('/') }}" class="shrink-0 text-lg font-semibold tracking-tight text-stone-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400">
+        <div class="relative z-50 mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+            <a href="{{ url('/') }}" class="shrink-0 font-serif text-xl tracking-tight text-plum focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum">
                 {{ config('app.name') }}
             </a>
 
@@ -36,7 +36,7 @@
                                 aria-expanded="false"
                                 aria-haspopup="true"
                                 aria-controls="mega-menu-{{ $slug }}"
-                                class="rounded-md px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 hover:text-stone-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                                class="min-h-11 rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-plum-light hover:text-plum-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                             >
                                 {{ $label }}
                             </button>
@@ -45,7 +45,7 @@
                                 href="{{ $menu['href'] }}"
                                 @if (! empty($menu['opens_in_new_tab'])) target="_blank" rel="noopener noreferrer" @endif
                                 @click="closeAll()"
-                                class="rounded-md px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 hover:text-stone-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                                class="inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-plum-light hover:text-plum-dark hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                             >
                                 {{ $label }}
                             </a>
@@ -56,7 +56,7 @@
                 <a
                     href="{{ $finderUrl }}"
                     @click="closeAll()"
-                    class="inline-flex shrink-0 items-center rounded-md bg-stone-900 px-3 py-2 text-sm font-medium text-white hover:bg-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                    class="inline-flex min-h-11 shrink-0 items-center rounded-md bg-plum px-4 py-2 text-sm font-medium text-white hover:bg-plum-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                 >
                     Find a Gift
                 </a>
@@ -65,7 +65,7 @@
             <div class="flex items-center gap-3 lg:hidden">
                 <a
                     href="{{ $finderUrl }}"
-                    class="text-sm font-medium text-stone-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                    class="inline-flex min-h-11 items-center text-sm font-medium text-plum hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                 >
                     Find a Gift
                 </a>
@@ -77,7 +77,7 @@
                     aria-expanded="false"
                     aria-controls="mobile-primary-nav"
                     aria-label="Open menu"
-                    class="inline-flex items-center justify-center rounded-md p-2 text-stone-700 hover:bg-stone-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                    class="inline-flex size-11 items-center justify-center rounded-md text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6" aria-hidden="true">
                         <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
@@ -97,7 +97,7 @@
                 x-show="mobileOpen"
                 x-cloak
                 x-transition.opacity.duration.150ms
-                class="fixed inset-0 z-40 bg-stone-900/40"
+                class="fixed inset-0 z-40 bg-plum-dark/40"
                 @click="closeMobile()"
             ></div>
 
@@ -108,13 +108,13 @@
                 role="dialog"
                 aria-modal="true"
                 aria-label="Primary"
-                class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col overflow-y-auto overflow-x-hidden border-l border-stone-200 bg-white shadow-lg"
+                class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col overflow-y-auto overflow-x-hidden border-l border-line bg-surface shadow-lg"
             >
-                <div class="flex items-center justify-between gap-3 border-b border-stone-200 px-4 py-4">
+                <div class="flex items-center justify-between gap-3 border-b border-line px-4 py-4">
                     <a
                         href="{{ $finderUrl }}"
                         @click="closeAll()"
-                        class="text-sm font-medium text-stone-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                        class="inline-flex min-h-11 items-center text-sm font-medium text-plum hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                     >
                         Find a Gift
                     </a>
@@ -122,7 +122,7 @@
                         type="button"
                         @click="closeMobile()"
                         aria-label="Close menu"
-                        class="inline-flex items-center justify-center rounded-md p-2 text-stone-700 hover:bg-stone-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                        class="inline-flex size-11 items-center justify-center rounded-md text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6" aria-hidden="true">
                             <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />
@@ -140,17 +140,17 @@
                         @endphp
 
                         @if ($itemType === 'mega' && $slug !== '')
-                            <div class="border-b border-stone-100">
+                            <div class="border-b border-line">
                                 <button
                                     type="button"
                                     @click="toggleMobileAccordion(@js($slug))"
                                     :aria-expanded="mobileAccordion === @js($slug)"
                                     aria-expanded="false"
                                     aria-controls="{{ $accordionId }}"
-                                    class="flex w-full items-center justify-between px-2 py-3 text-left text-sm font-medium text-stone-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                                    class="flex min-h-11 w-full items-center justify-between px-2 py-3 text-left text-sm font-medium text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                                 >
                                     <span>{{ $label }}</span>
-                                    <span class="text-stone-400" aria-hidden="true">+</span>
+                                    <span class="text-ink-muted" aria-hidden="true">+</span>
                                 </button>
                                 <div
                                     id="{{ $accordionId }}"
@@ -161,7 +161,7 @@
                                     @foreach ($menu['sections'] ?? [] as $section)
                                         <div>
                                             @if (! empty($section['heading']))
-                                                <p class="text-xs font-semibold tracking-wide text-stone-500">
+                                                <p class="text-xs font-semibold tracking-wide text-ink-muted">
                                                     {{ $section['heading'] }}
                                                 </p>
                                             @endif
@@ -173,7 +173,7 @@
                                                             href="{{ $link['href'] }}"
                                                             @if (! empty($link['opens_in_new_tab'])) target="_blank" rel="noopener noreferrer" @endif
                                                             @click="closeAll()"
-                                                            class="text-sm text-stone-700 hover:text-stone-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                                                            class="inline-flex min-h-11 items-center text-sm text-ink hover:text-plum hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                                                         >
                                                             {{ $link['label'] }}
                                                         </a>
@@ -189,7 +189,7 @@
                                 href="{{ $menu['href'] }}"
                                 @if (! empty($menu['opens_in_new_tab'])) target="_blank" rel="noopener noreferrer" @endif
                                 @click="closeAll()"
-                                class="px-2 py-3 text-sm font-medium text-stone-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-400"
+                                class="inline-flex min-h-11 items-center px-2 py-3 text-sm font-medium text-ink hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                             >
                                 {{ $label }}
                             </a>

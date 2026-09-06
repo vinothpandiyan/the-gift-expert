@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Discovery;
 
-use App\Actions\Discovery\BuildDiscoveryRankingContextAction;
-use App\Actions\Discovery\QueryRankedDiscoveryProductsAction;
+use App\Actions\Discovery\QueryDiscoveryListingProductsAction;
+use App\DiscoveryListing\DiscoveryListingContext;
+use App\DiscoveryListing\DiscoveryListingQueryState;
 use App\Enums\SeoLandingPageStatus;
 use App\Http\Controllers\Controller;
 use App\Models\SeoLandingPage;
@@ -18,8 +19,7 @@ class SeoLandingPageController extends Controller
 {
     public function show(
         string $slug,
-        BuildDiscoveryRankingContextAction $buildRankingContext,
-        QueryRankedDiscoveryProductsAction $queryRankedProducts,
+        QueryDiscoveryListingProductsAction $queryListing,
     ): RedirectResponse|View {
         if (in_array($slug, config('discovery.reserved_prefixes', []), true)) {
             abort(404);
@@ -43,31 +43,35 @@ class SeoLandingPageController extends Controller
             return $this->redirectFromOldSlug($slug);
         }
 
+        $listingContext = DiscoveryListingContext::forSeoLandingPage($page);
+
         try {
-            $products = $queryRankedProducts->execute(
-                $buildRankingContext->fromSeoLandingPage($page),
-                request()->integer('page', 1),
-            );
+            $state = DiscoveryListingQueryState::fromRequest(request())->scopedTo($listingContext);
+            $perPage = max(1, (int) config('discovery_ranking.per_page', 12));
+            $total = $state->hasUserFiltersOrSort()
+                ? 0
+                : $queryListing->count($listingContext, $state);
         } catch (InvalidArgumentException) {
             abort(404);
         }
 
-        $pagination = PageMeta::paginatedCanonicals(
-            $products,
+        $seo = PageMeta::listingSeo(
             PageMeta::seoLandingPageCanonical($page),
+            $total,
+            $perPage,
+            $page->is_indexable,
         );
 
         return view('discovery.seo-landing-pages.show', [
             'page' => $page,
-            'products' => $products,
+            'listingContext' => $listingContext->toArray(),
             'seoTitle' => PageMeta::seoLandingPageTitle($page),
             'seoDescription' => PageMeta::seoLandingPageDescription($page),
-            'seoCanonical' => $pagination['canonical'],
-            'seoRobots' => PageMeta::seoLandingPageRobots($page),
-            'seoPrev' => $pagination['prev'],
-            'seoNext' => $pagination['next'],
+            'seoCanonical' => $seo['canonical'],
+            'seoRobots' => $seo['robots'],
+            'seoPrev' => $seo['prev'],
+            'seoNext' => $seo['next'],
             'breadcrumbs' => PageMeta::seoLandingPageBreadcrumbs($page),
-            'giftBrowseContext' => PageMeta::seoLandingPageProductLinkContext($page),
         ]);
     }
 

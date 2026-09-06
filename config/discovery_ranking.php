@@ -46,6 +46,21 @@ return [
         'occasion' => [
             'breadth_dimension' => 'occasions',
         ],
+        'recipient_type' => [
+            'breadth_dimension' => null,
+        ],
+        'interest' => [
+            'breadth_dimension' => null,
+        ],
+        'profession' => [
+            'breadth_dimension' => null,
+        ],
+        'gift_type' => [
+            'breadth_dimension' => null,
+        ],
+        'category' => [
+            'breadth_dimension' => null,
+        ],
         'seo_landing' => [
             'breadth_dimension' => null,
         ],

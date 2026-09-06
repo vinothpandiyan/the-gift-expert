@@ -127,7 +127,8 @@ class MvpSmokeTest extends TestCase
             ->assertOk()
             ->assertSee('Smoke Frame', false)
             ->assertSee('<meta name="robots" content="noindex, follow">', false)
-            ->assertSee('href="'.DiscoveryUrl::affiliateOut($affiliateLink->uuid).'"', false);
+            ->assertSee('View gift', false)
+            ->assertSee('href="'.DiscoveryUrl::gift($product->slug).'"', false);
 
         $this->assertSame(0, AffiliateClick::query()->count());
 

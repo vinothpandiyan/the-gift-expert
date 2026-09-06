@@ -384,6 +384,82 @@ class QueryPublishedProductsByFiltersActionTest extends TestCase
         $this->assertEqualsCanonicalizing([$both->id, $coffeeOnly->id], $ids);
     }
 
+    public function test_multiple_occasion_ids_match_any_selected_occasion(): void
+    {
+        $birthday = $this->occasion('Birthday');
+        $anniversary = $this->occasion('Anniversary');
+
+        $birthdayGift = $this->publishedGift('birthday-gift');
+        $birthdayGift->occasions()->attach($birthday);
+
+        $anniversaryGift = $this->publishedGift('anniversary-gift');
+        $anniversaryGift->occasions()->attach($anniversary);
+
+        $other = $this->publishedGift('other-gift');
+        $other->occasions()->attach($this->occasion('Housewarming'));
+
+        $ids = $this->filteredIds([
+            'occasion_ids' => [$birthday->id, $anniversary->id],
+        ]);
+
+        $this->assertEqualsCanonicalizing([$birthdayGift->id, $anniversaryGift->id], $ids);
+        $this->assertNotContains($other->id, $ids);
+    }
+
+    public function test_list_filters_and_across_dimensions(): void
+    {
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+        $anniversary = $this->occasion('Anniversary');
+
+        $match = $this->publishedGift('husband-birthday');
+        $match->relationships()->attach($husband);
+        $match->occasions()->attach($birthday);
+
+        $husbandAnniversary = $this->publishedGift('husband-anniversary');
+        $husbandAnniversary->relationships()->attach($husband);
+        $husbandAnniversary->occasions()->attach($anniversary);
+
+        $husbandOnly = $this->publishedGift('husband-only');
+        $husbandOnly->relationships()->attach($husband);
+
+        $ids = $this->filteredIds([
+            'relationship_id' => $husband->id,
+            'occasion_ids' => [$birthday->id, $anniversary->id],
+        ]);
+
+        $this->assertEqualsCanonicalizing([$match->id, $husbandAnniversary->id], $ids);
+        $this->assertNotContains($husbandOnly->id, $ids);
+    }
+
+    public function test_any_interest_ids_or_with_required_interest_and(): void
+    {
+        $travel = $this->interest('Travel');
+        $coffee = $this->interest('Coffee');
+        $music = $this->interest('Music');
+
+        $travelCoffee = $this->publishedGift('travel-coffee');
+        $travelCoffee->interests()->attach([$travel->id, $coffee->id]);
+
+        $travelMusic = $this->publishedGift('travel-music');
+        $travelMusic->interests()->attach([$travel->id, $music->id]);
+
+        $travelOnly = $this->publishedGift('travel-only');
+        $travelOnly->interests()->attach($travel);
+
+        $coffeeOnly = $this->publishedGift('coffee-only');
+        $coffeeOnly->interests()->attach($coffee);
+
+        $ids = $this->filteredIds([
+            'interest_ids' => [$travel->id],
+            'any_interest_ids' => [$coffee->id, $music->id],
+        ]);
+
+        $this->assertEqualsCanonicalizing([$travelCoffee->id, $travelMusic->id], $ids);
+        $this->assertNotContains($travelOnly->id, $ids);
+        $this->assertNotContains($coffeeOnly->id, $ids);
+    }
+
     /**
      * @param  array<string, mixed>  $filters
      * @return list<int>

@@ -112,7 +112,7 @@ class AffiliateRedirectTest extends TestCase
             ->assertSee('View on Example Merchant', false);
     }
 
-    public function test_gift_card_cta_uses_affiliate_out_url(): void
+    public function test_gift_card_cta_links_to_gift_detail_not_affiliate_out(): void
     {
         $product = GiftCatalogTestHelpers::publishedGift([
             'name' => 'Card CTA Gift',
@@ -123,12 +123,15 @@ class AffiliateRedirectTest extends TestCase
 
         $html = $this->blade(
             '<x-gift-card :product="$product" />',
-            ['product' => $product->fresh(['images', 'affiliateLinks.merchant'])],
+            ['product' => $product->fresh(['images', 'affiliateLinks.merchant', 'categories'])],
         );
 
-        $this->assertStringContainsString('href="'.$outUrl.'"', $html);
+        $giftUrl = DiscoveryUrl::gift($product->slug);
+        $this->assertStringContainsString('href="'.$giftUrl.'"', $html);
+        $this->assertStringContainsString('View gift', $html);
+        $this->assertStringNotContainsString('href="'.$outUrl.'"', $html);
         $this->assertStringNotContainsString('href="'.$link->url.'"', $html);
-        $this->assertStringContainsString('View at Example Merchant', $html);
+        $this->assertStringContainsString('At Example Merchant', $html);
     }
 
     public function test_affiliate_out_route_is_registered(): void
