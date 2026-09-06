@@ -139,6 +139,8 @@ class GiftListing extends Component
         $activeChips = $this->activeChips($options);
         $activeCount = count($activeChips);
 
+        $lastItem = $products->lastItem();
+
         return view('livewire.gift-listing', [
             'context' => $context,
             'products' => $products,
@@ -147,7 +149,9 @@ class GiftListing extends Component
             'activeCount' => $activeCount,
             'selected' => $this->selectedSlugs(),
             'finderUrl' => DiscoveryUrl::finder(),
+            'giftIdeasUrl' => DiscoveryUrl::giftIdeas(),
             'giftsLabel' => Terminology::gifts(),
+            'remaining' => $lastItem === null ? 0 : max(0, $products->total() - (int) $lastItem),
         ]);
     }
 

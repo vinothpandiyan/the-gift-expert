@@ -2,7 +2,7 @@
     $finderUrl = \App\Support\DiscoveryUrl::finder();
 @endphp
 
-<header class="relative z-40 border-b border-line bg-surface">
+<header class="sticky top-0 z-50 border-b border-line bg-surface/95 backdrop-blur">
     <div
         x-data="primaryNav"
         x-effect="document.body.classList.toggle('overflow-hidden', mobileOpen)"
@@ -10,13 +10,11 @@
         @click.outside="closeDesktop()"
         class="relative"
     >
-        <div class="relative z-50 mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-            <a href="{{ url('/') }}" class="shrink-0 font-serif text-xl tracking-tight text-plum focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum">
-                {{ config('app.name') }}
-            </a>
+        <div class="relative z-50 mx-auto flex h-16 max-w-[1280px] items-center justify-between gap-4 px-5 md:px-8">
+            <x-site-logo class="shrink-0" />
 
             <div class="hidden min-w-0 items-center gap-6 lg:flex">
-                <nav aria-label="Primary" class="flex flex-wrap items-center gap-1">
+                <nav aria-label="Primary" class="flex flex-wrap items-center">
                     @foreach ($navigation as $menu)
                         @php
                             $itemType = $menu['item_type'] ?? '';
@@ -36,7 +34,7 @@
                                 aria-expanded="false"
                                 aria-haspopup="true"
                                 aria-controls="mega-menu-{{ $slug }}"
-                                class="min-h-11 rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-plum-light hover:text-plum-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                                class="flex h-16 items-center px-3 text-[15px] font-medium text-ink hover:text-plum focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                             >
                                 {{ $label }}
                             </button>
@@ -45,7 +43,7 @@
                                 href="{{ $menu['href'] }}"
                                 @if (! empty($menu['opens_in_new_tab'])) target="_blank" rel="noopener noreferrer" @endif
                                 @click="closeAll()"
-                                class="inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-plum-light hover:text-plum-dark hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                                class="inline-flex h-16 items-center px-3 text-[15px] font-medium text-ink hover:text-plum hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                             >
                                 {{ $label }}
                             </a>
@@ -56,7 +54,7 @@
                 <a
                     href="{{ $finderUrl }}"
                     @click="closeAll()"
-                    class="inline-flex min-h-11 shrink-0 items-center rounded-md bg-plum px-4 py-2 text-sm font-medium text-white hover:bg-plum-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                    class="inline-flex h-10 shrink-0 items-center rounded-[10px] bg-plum px-4 text-sm font-semibold text-white hover:bg-plum-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                 >
                     Find a Gift
                 </a>
@@ -77,7 +75,7 @@
                     aria-expanded="false"
                     aria-controls="mobile-primary-nav"
                     aria-label="Open menu"
-                    class="inline-flex size-11 items-center justify-center rounded-md text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                    class="inline-flex size-11 items-center justify-center rounded-[10px] text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6" aria-hidden="true">
                         <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
@@ -122,7 +120,7 @@
                         type="button"
                         @click="closeMobile()"
                         aria-label="Close menu"
-                        class="inline-flex size-11 items-center justify-center rounded-md text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                        class="inline-flex size-11 items-center justify-center rounded-[10px] border border-line text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6" aria-hidden="true">
                             <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />

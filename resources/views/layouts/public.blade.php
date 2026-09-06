@@ -26,8 +26,18 @@
 <body class="min-h-screen bg-ivory font-sans text-ink antialiased">
     <x-site-header />
 
-    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-        @yield('content')
+    <main>
+        @hasSection('page-header')
+            @yield('page-header')
+        @endif
+
+        <div @class([
+            'mx-auto w-full max-w-[1280px] px-5 md:px-8',
+            'py-8 md:py-10' => ! View::hasSection('page-header'),
+            'pt-6 pb-16 md:pt-8' => View::hasSection('page-header'),
+        ])>
+            @yield('content')
+        </div>
     </main>
 
     <x-site-footer />

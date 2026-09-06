@@ -2,14 +2,14 @@
     'count' => 6,
 ])
 
-<div {{ $attributes->merge(['class' => 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3']) }} aria-hidden="true">
+<div {{ $attributes->merge(['class' => 'grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 xl:grid-cols-4']) }} aria-hidden="true">
     @foreach (range(1, $count) as $item)
-        <div class="overflow-hidden rounded-lg border border-line bg-surface">
-            <div class="aspect-square animate-pulse bg-plum-light"></div>
-            <div class="space-y-3 p-4">
-                <div class="h-4 w-3/4 animate-pulse rounded bg-plum-light"></div>
-                <div class="h-3 w-full animate-pulse rounded bg-plum-light"></div>
-                <div class="h-3 w-1/2 animate-pulse rounded bg-plum-light"></div>
+        <div class="rounded-[14px] border border-line bg-surface p-3">
+            <div class="aspect-4/3 animate-pulse rounded-[10px] bg-surface-sunken"></div>
+            <div class="space-y-3 px-1.5 pt-4">
+                <div class="h-4 w-3/4 animate-pulse rounded bg-surface-sunken"></div>
+                <div class="h-3 w-full animate-pulse rounded bg-surface-sunken"></div>
+                <div class="h-3 w-1/2 animate-pulse rounded bg-surface-sunken"></div>
             </div>
         </div>
     @endforeach

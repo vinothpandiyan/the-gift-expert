@@ -2,32 +2,29 @@
 
 @section('title', $seoTitle)
 
-@section('content')
-    <x-breadcrumbs :items="$breadcrumbs" />
-
-    <header class="mb-8 space-y-3">
-        <h1 class="font-serif text-4xl tracking-tight text-plum sm:text-5xl">
-            {{ $page->heading }}
-        </h1>
+@section('page-header')
+    <x-listing.page-header :breadcrumbs="$breadcrumbs" :heading="$page->heading">
         @if (filled($page->intro_content))
-            <div class="max-w-3xl text-base leading-relaxed text-ink-muted">
+            <div class="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
                 {!! nl2br(e($page->intro_content)) !!}
             </div>
         @endif
-    </header>
+    </x-listing.page-header>
+@endsection
 
+@section('content')
     <livewire:gift-listing :context="$listingContext" />
 
     @if (filled($page->body_content))
-        <section class="mt-12 max-w-3xl space-y-3 text-base leading-relaxed text-ink">
+        <section class="mt-12 max-w-3xl space-y-4 text-[15px] leading-relaxed text-ink-muted">
             {!! nl2br(e($page->body_content)) !!}
         </section>
     @endif
 
     @if (filled($page->faq_content))
-        <section class="mt-10 max-w-3xl space-y-3">
-            <h2 class="font-serif text-xl text-plum">FAQ</h2>
-            <div class="text-base leading-relaxed text-ink">
+        <section class="mt-12 max-w-3xl">
+            <h2 class="font-serif text-2xl text-ink">FAQ</h2>
+            <div class="mt-3 text-[15px] leading-relaxed text-ink-muted">
                 {!! nl2br(e($page->faq_content)) !!}
             </div>
         </section>

@@ -2,44 +2,34 @@
 
 @section('title', $seoTitle)
 
-@section('content')
-    <x-breadcrumbs :items="$breadcrumbs" />
-
-    <header class="mb-8 space-y-3">
-        <p class="text-sm font-medium uppercase tracking-wide text-ink-muted">
-            {{ \App\Support\Terminology::giftIdeas() }}
-        </p>
-        <h1 class="font-serif text-4xl tracking-tight text-plum sm:text-5xl">
-            {{ $category->name }}
-        </h1>
+@section('page-header')
+    <x-listing.page-header :breadcrumbs="$breadcrumbs" :heading="$category->name">
         @if ($category->description)
-            <p class="max-w-3xl text-base leading-relaxed text-ink-muted">
+            <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
                 {{ $category->description }}
             </p>
         @endif
-    </header>
+    </x-listing.page-header>
+@endsection
 
-    @if ($children->isNotEmpty())
-        <section class="mb-8">
-            <h2 class="mb-4 font-serif text-xl text-plum">Browse</h2>
-            <ul class="flex flex-wrap gap-2">
-                @foreach ($children as $child)
-                    <li>
-                        <a
-                            href="{{ \App\Support\DiscoveryUrl::giftIdeasCategory($child->full_path) }}"
-                            class="inline-flex min-h-11 items-center rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink hover:border-plum hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
-                        >
-                            {{ $child->name }}
-                        </a>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-    @endif
+@section('content')
+    @php
+        $browseLinks = $children->map(fn ($child) => [
+            'label' => $child->name,
+            'href' => \App\Support\DiscoveryUrl::giftIdeasCategory($child->full_path),
+        ])->all();
+        $relatedLinks = ($relatedLandingPages ?? collect())->map(fn ($page) => [
+            'label' => $page->heading,
+            'href' => \App\Support\DiscoveryUrl::seoLandingPage($page->slug),
+        ])->all();
+    @endphp
 
-    <x-related-seo-landing-pages
-        :pages="$relatedLandingPages ?? collect()"
-        :heading="'Related '.\App\Support\Terminology::giftIdeas()"
+    <x-listing.contextual-links :links="$browseLinks" label="Browse" class="pb-6" />
+
+    <x-listing.contextual-links
+        :links="$relatedLinks"
+        :label="'Related '.\App\Support\Terminology::giftIdeas()"
+        class="pb-6"
     />
 
     <livewire:gift-listing :context="$listingContext" />

@@ -15,59 +15,63 @@
     $isPersonalized = $product->relationLoaded('categories')
         && $product->categories->contains(fn ($category) => $category->slug === 'personalized-gifts');
     $badge = $product->is_featured ? 'Featured' : ($isPersonalized ? 'Personalized' : null);
+    $badgeTone = $badge === 'Personalized'
+        ? 'border-plum/15 bg-plum-light text-plum'
+        : 'border-gold/30 bg-gold/15 text-[#7a5a12]';
 @endphp
 
-<article {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden rounded-lg border border-line bg-surface']) }}>
-    <a href="{{ $giftUrl }}" class="relative block aspect-square bg-plum-light p-4">
-        @if ($badge)
-            <span class="absolute left-3 top-3 rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-plum">
-                {{ $badge }}
-            </span>
-        @endif
-
+<article {{ $attributes->merge(['class' => 'group relative flex h-full flex-col rounded-[14px] border border-line bg-surface p-3 transition-shadow hover:shadow-[0_8px_24px_-16px_rgba(38,35,38,0.35)]']) }}>
+    <div class="relative aspect-4/3 overflow-hidden rounded-[10px] bg-surface-sunken p-4">
         @if ($primaryImage)
             <img
                 src="{{ $primaryImage->url() }}"
                 alt="{{ $primaryImage->alt_text ?: $product->name }}"
-                class="h-full w-full object-contain"
+                class="h-full w-full object-contain motion-safe:transition-transform motion-safe:duration-300 group-hover:scale-[1.02]"
                 loading="lazy"
             >
         @else
-            <x-gift-image-placeholder class="h-full" />
+            <x-gift-image-placeholder class="h-full bg-transparent" />
         @endif
-    </a>
+    </div>
 
-    <div class="flex flex-1 flex-col gap-2 p-4">
-        <h3 class="text-base font-semibold leading-snug text-ink">
-            <a href="{{ $giftUrl }}" class="hover:text-plum hover:underline">
+    <div class="flex flex-1 flex-col px-1.5 pt-4 pb-1">
+        @if ($badge)
+            <div class="mb-2">
+                <span class="inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-semibold tracking-wide {{ $badgeTone }}">
+                    {{ $badge }}
+                </span>
+            </div>
+        @endif
+
+        <h3 class="text-[15px] font-semibold leading-snug text-ink">
+            <a href="{{ $giftUrl }}" class="hover:text-plum after:absolute after:inset-0">
                 {{ $product->name }}
             </a>
         </h3>
 
         @if (filled($product->short_description))
-            <p class="line-clamp-2 text-sm leading-relaxed text-ink-muted">
+            <p class="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-ink-muted">
                 {{ $product->short_description }}
             </p>
         @endif
 
-        @if ($price !== null)
-            <p class="text-sm font-medium text-ink">
-                {{ $price }}
-            </p>
-        @endif
+        <div class="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-4">
+            @if ($price !== null)
+                <span class="text-sm font-semibold text-ink">{{ $price }}</span>
+            @else
+                <span></span>
+            @endif
+
+            <span class="inline-flex items-center gap-1 text-[13px] font-medium text-plum">
+                View gift
+                <span aria-hidden="true">↗</span>
+            </span>
+        </div>
 
         @if ($merchantName)
-            <p class="text-xs text-ink-muted">
-                At {{ $merchantName }}
+            <p class="mt-1 text-[11px] text-ink-muted">
+                Available at {{ $merchantName }}
             </p>
         @endif
-
-        <a
-            href="{{ $giftUrl }}"
-            class="mt-auto inline-flex min-h-11 items-center gap-1 text-sm font-medium text-plum hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
-        >
-            View gift
-            <span aria-hidden="true">↗</span>
-        </a>
     </div>
 </article>

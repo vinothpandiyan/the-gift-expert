@@ -3,7 +3,7 @@
 ])
 
 @if (count($items) > 0)
-    <nav aria-label="Breadcrumb" class="mb-6 text-sm text-ink-muted">
+    <nav {{ $attributes->merge(['aria-label' => 'Breadcrumb', 'class' => 'text-sm text-ink-muted']) }}>
         <ol class="flex flex-wrap items-center gap-1">
             @foreach ($items as $index => $item)
                 <li class="flex items-center gap-1">

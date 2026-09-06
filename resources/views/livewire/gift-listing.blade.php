@@ -1,120 +1,138 @@
 <div x-data="filterDrawer" x-effect="sync($wire.filtersOpen)">
-    <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <aside class="hidden w-64 shrink-0 lg:block xl:w-72" aria-label="Filters">
-            <div class="sticky top-6 space-y-6 rounded-lg border border-line bg-surface p-4" wire:loading.class="pointer-events-none opacity-60">
-                <h2 class="text-sm font-semibold text-ink">Filters</h2>
-                @include('livewire.partials.gift-listing-filters', ['idPrefix' => 'desktop'])
+    <div class="flex gap-8 lg:gap-10">
+        <aside class="hidden w-[240px] shrink-0 md:block lg:w-[264px]" aria-label="Filters">
+            <div class="sticky top-24" wire:loading.class="pointer-events-none opacity-60">
+                <div class="flex items-center justify-between pb-2">
+                    <h2 class="text-[13px] font-semibold uppercase tracking-[0.12em] text-ink-muted">Narrow it down</h2>
+                    @if ($activeCount > 0)
+                        <button type="button" wire:click="clearFilters" class="text-[13px] font-medium text-plum hover:underline">
+                            Clear all
+                        </button>
+                    @endif
+                </div>
+                <div class="rounded-[14px] border border-line bg-surface px-4">
+                    @include('livewire.partials.gift-listing-filters', ['idPrefix' => 'desktop'])
+                </div>
             </div>
         </aside>
 
         <div class="min-w-0 flex-1">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <p class="text-sm text-ink-muted" aria-live="polite">
+            <div class="flex flex-col gap-3 border-b border-line pb-4 md:flex-row md:items-center md:justify-between">
+                <p class="text-[14px] font-medium text-ink" aria-live="polite">
                     {{ number_format($products->total()) }}
-                    {{ strtolower($products->total() === 1 ? \Illuminate\Support\Str::singular($giftsLabel) : $giftsLabel) }}
+                    gift {{ $products->total() === 1 ? 'idea' : 'ideas' }}
                 </p>
 
-                <div class="flex items-center gap-3">
+                <div class="hidden md:block">
+                    @include('livewire.partials.gift-listing-sort', ['id' => 'gift-listing-sort', 'showLabel' => true])
+                </div>
+
+                <div class="flex items-center gap-2 md:hidden">
                     <button
                         type="button"
-                        class="inline-flex min-h-11 items-center rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-ink lg:hidden"
+                        class="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] border border-plum/30 bg-surface px-4 text-sm font-semibold text-plum hover:border-plum hover:bg-plum-light"
                         wire:click="$toggle('filtersOpen')"
                         :aria-expanded="$wire.filtersOpen"
                         aria-controls="gift-listing-filter-drawer"
                     >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="size-4" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M7 12h10M10 19h4" />
+                        </svg>
                         Filters{{ $activeCount > 0 ? ' · '.$activeCount : '' }}
                     </button>
-
-                    <label class="flex min-h-11 items-center gap-2 text-sm text-ink">
-                        <span class="sr-only lg:not-sr-only text-ink-muted">Sort</span>
-                        <select
-                            id="gift-listing-sort"
-                            wire:model.live="sort"
-                            wire:loading.attr="disabled"
-                            class="min-h-11 rounded-md border border-line bg-surface px-3 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
-                        >
-                            <option value="">Recommended</option>
-                            <option value="price_asc">Price: Low to High</option>
-                            <option value="price_desc">Price: High to Low</option>
-                            <option value="newest">Newest</option>
-                        </select>
-                    </label>
+                    @include('livewire.partials.gift-listing-sort', ['id' => 'gift-listing-sort-mobile', 'wrapperClass' => 'flex-1'])
                 </div>
             </div>
 
             @if ($activeChips !== [])
-                <div class="mb-4 flex flex-wrap items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2 pt-4">
                     @foreach ($activeChips as $chip)
                         <button
                             type="button"
                             wire:click="removeFilter('{{ $chip['dimension'] }}', @js($chip['slug']))"
-                            class="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-plum-light px-3 text-sm text-plum-dark"
+                            class="inline-flex min-h-9 items-center gap-1.5 rounded-[8px] border border-plum/25 bg-plum-light px-3 text-[13px] font-medium text-plum hover:border-plum"
                         >
                             <span>{{ $chip['label'] }}</span>
                             <span aria-hidden="true">×</span>
                             <span class="sr-only">Remove {{ $chip['label'] }} filter</span>
                         </button>
                     @endforeach
-                    <button type="button" wire:click="clearFilters" class="inline-flex min-h-11 items-center text-sm font-medium text-plum hover:underline">
+                    <button type="button" wire:click="clearFilters" class="min-h-9 px-1 text-[13px] font-medium text-ink-muted hover:text-plum hover:underline">
                         Clear all
                     </button>
                 </div>
             @endif
 
-            <div
-                wire:loading.class="opacity-50"
-                class="motion-safe:transition-opacity"
-                aria-busy="false"
-                wire:loading.attr="aria-busy"
-            >
-                <div wire:loading class="mb-4">
-                    <x-gift-listing.skeleton :count="3" class="sm:hidden" />
+            <div class="pt-6">
+                <div wire:loading wire:target="toggleFilter, removeFilter, clearFilters, nextPage, sort">
+                    <x-gift-listing.skeleton :count="6" />
                 </div>
 
-                @if ($products->isEmpty())
-                    <x-gift-listing.empty :finder-url="$finderUrl" :has-active-filters="$activeCount > 0" />
-                @else
-                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        @foreach ($products as $product)
-                            <x-gift-card :product="$product" :context="$context->browseContext" wire:key="gift-{{ $product->id }}" />
-                        @endforeach
-                    </div>
-
-                    @if ($products->hasMorePages())
-                        <div class="mt-8 flex justify-center">
-                            <a
-                                href="{{ $products->nextPageUrl() }}"
-                                wire:click.prevent="nextPage"
-                                class="inline-flex min-h-11 items-center rounded-md border border-line bg-surface px-5 py-2 text-sm font-medium text-plum hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
-                            >
-                                Load more gift ideas
-                            </a>
+                <div
+                    wire:loading.remove
+                    wire:target="toggleFilter, removeFilter, clearFilters, nextPage, sort"
+                    class="motion-safe:transition-opacity"
+                    aria-busy="false"
+                >
+                    @if ($products->isEmpty())
+                        <x-gift-listing.empty
+                            :finder-url="$finderUrl"
+                            :has-active-filters="$activeCount > 0"
+                            :last-chip="$activeChips === [] ? null : $activeChips[array_key_last($activeChips)]"
+                            :gift-ideas-url="$giftIdeasUrl"
+                        />
+                    @else
+                        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 xl:grid-cols-4">
+                            @foreach ($products as $product)
+                                <x-gift-card :product="$product" :context="$context->browseContext" wire:key="gift-{{ $product->id }}" />
+                            @endforeach
                         </div>
-                    @endif
-                @endif
-            </div>
 
-            <section class="mt-12 rounded-lg border border-line bg-surface px-6 py-8 text-center">
-                <p class="font-serif text-2xl text-plum">Still not sure?</p>
-                <p class="mt-2 text-sm text-ink-muted">Start Gift Finder for a short, guided recommendation.</p>
-                <div class="mt-5">
-                    <x-ui.button :href="$finderUrl" variant="primary">
-                        Start Gift Finder
-                    </x-ui.button>
+                        @if ($products->hasMorePages())
+                            <div class="mt-10 flex flex-col items-center gap-2">
+                                <x-ui.button
+                                    :href="$products->nextPageUrl()"
+                                    variant="secondary"
+                                    wire:click.prevent="nextPage"
+                                >
+                                    Load more gift ideas
+                                </x-ui.button>
+                                @if ($remaining > 0)
+                                    <p class="text-[13px] text-ink-muted">{{ number_format($remaining) }} more to see</p>
+                                @endif
+                            </div>
+                        @endif
+                    @endif
                 </div>
-            </section>
+            </div>
         </div>
     </div>
 
+    <section class="mt-14 flex flex-col gap-5 rounded-[14px] bg-plum px-6 py-8 text-white md:flex-row md:items-center md:justify-between md:px-10 md:py-10">
+        <div class="max-w-xl">
+            <p class="mb-2 inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/80">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-3.5" aria-hidden="true">
+                    <path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+                </svg>
+                Gift Finder
+            </p>
+            <h2 class="font-serif text-2xl md:text-3xl">Still not sure what they'd like?</h2>
+            <p class="mt-2 text-[15px] text-white/85">Answer a few questions and we'll narrow it down to a handful of ideas.</p>
+        </div>
+        <x-ui.button :href="$finderUrl" variant="coral" class="h-14 w-full shrink-0 px-7 text-base md:w-auto">
+            Start Gift Finder
+        </x-ui.button>
+    </section>
+
     <div
-        class="lg:hidden"
+        class="md:hidden"
         @keydown.escape.window="$wire.filtersOpen && $wire.set('filtersOpen', false)"
     >
         <div
             x-show="$wire.filtersOpen"
             x-cloak
             x-transition.opacity.duration.150ms
-            class="fixed inset-0 z-40 bg-plum-dark/40"
+            class="fixed inset-0 z-[60] bg-ink/40"
             wire:click="$set('filtersOpen', false)"
         ></div>
 
@@ -125,13 +143,13 @@
             role="dialog"
             aria-modal="true"
             aria-label="Filters"
-            class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-line bg-surface shadow-lg"
+            class="fixed inset-x-0 bottom-0 top-10 z-[60] flex flex-col rounded-t-[16px] bg-ivory"
         >
-            <div class="flex items-center justify-between gap-3 border-b border-line px-4 py-4">
-                <h2 class="text-base font-semibold text-ink">Filters</h2>
-                <div class="flex items-center gap-2">
+            <div class="flex items-center justify-between border-b border-line px-5 py-4">
+                <h2 class="font-serif text-xl text-ink">Filters</h2>
+                <div class="flex items-center gap-3">
                     @if ($activeCount > 0)
-                        <button type="button" wire:click="clearFilters" class="text-sm font-medium text-plum hover:underline">
+                        <button type="button" wire:click="clearFilters" class="text-[13px] font-medium text-plum">
                             Clear all
                         </button>
                     @endif
@@ -140,22 +158,22 @@
                         x-ref="close"
                         wire:click="$set('filtersOpen', false)"
                         aria-label="Close filters"
-                        class="inline-flex size-11 items-center justify-center rounded-md text-ink hover:bg-plum-light"
+                        class="inline-flex size-11 items-center justify-center rounded-[10px] border border-line bg-surface text-ink"
                     >
                         <span aria-hidden="true">×</span>
                     </button>
                 </div>
             </div>
 
-            <div class="flex-1 space-y-6 overflow-y-auto px-4 py-4">
+            <div class="flex-1 overflow-y-auto px-5 pb-4">
                 @include('livewire.partials.gift-listing-filters', ['idPrefix' => 'mobile'])
             </div>
 
-            <div class="flex gap-3 border-t border-line px-4 py-4">
+            <div class="flex items-center gap-3 border-t border-line bg-surface px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <x-ui.button type="button" variant="secondary" class="flex-1" wire:click="clearFilters">
                     Reset
                 </x-ui.button>
-                <x-ui.button type="button" variant="primary" class="flex-1" wire:click="applyFilters">
+                <x-ui.button type="button" variant="primary" class="flex-[1.6]" wire:click="applyFilters">
                     Show {{ number_format($products->total()) }} {{ strtolower($products->total() === 1 ? \Illuminate\Support\Str::singular($giftsLabel) : $giftsLabel) }}
                 </x-ui.button>
             </div>

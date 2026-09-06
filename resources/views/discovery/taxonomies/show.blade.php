@@ -2,26 +2,28 @@
 
 @section('title', $seoTitle)
 
-@section('content')
-    <x-breadcrumbs :items="$breadcrumbs" />
-
-    <header class="mb-8 space-y-3">
-        <p class="text-sm font-medium uppercase tracking-wide text-ink-muted">
-            {{ $taxonomyLabel }}
-        </p>
-        <h1 class="font-serif text-4xl tracking-tight text-plum sm:text-5xl">
-            {{ $heading }}
-        </h1>
+@section('page-header')
+    <x-listing.page-header :breadcrumbs="$breadcrumbs" :heading="$heading" :eyebrow="$taxonomyLabel">
         @if (! empty($taxonomy->description))
-            <p class="max-w-3xl text-base leading-relaxed text-ink-muted">
+            <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
                 {{ $taxonomy->description }}
             </p>
         @endif
-    </header>
+    </x-listing.page-header>
+@endsection
 
-    <x-related-seo-landing-pages
-        :pages="$relatedLandingPages ?? collect()"
-        :heading="'Related '.\App\Support\Terminology::giftIdeas()"
+@section('content')
+    @php
+        $relatedLinks = ($relatedLandingPages ?? collect())->map(fn ($page) => [
+            'label' => $page->heading,
+            'href' => \App\Support\DiscoveryUrl::seoLandingPage($page->slug),
+        ])->all();
+    @endphp
+
+    <x-listing.contextual-links
+        :links="$relatedLinks"
+        :label="'Related '.\App\Support\Terminology::giftIdeas()"
+        class="pb-6"
     />
 
     <livewire:gift-listing :context="$listingContext" />

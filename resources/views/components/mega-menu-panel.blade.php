@@ -27,9 +27,9 @@
             @mouseleave="scheduleClose()"
             role="region"
             aria-label="{{ $label }}"
-            class="pointer-events-auto border-b border-line bg-surface shadow-sm"
+            class="pointer-events-auto border-t border-line bg-surface shadow-[0_16px_40px_-28px_rgba(38,35,38,0.5)]"
         >
-            <div class="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 {{ $gridClass }}">
+            <div class="mx-auto grid max-w-[1280px] gap-8 px-5 py-8 md:px-8 {{ $gridClass }}">
                 @foreach ($sections as $section)
                     @php
                         $isCta = ($section['appearance'] ?? 'default') === 'cta';

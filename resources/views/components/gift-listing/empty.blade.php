@@ -1,28 +1,39 @@
 @props([
     'finderUrl',
     'hasActiveFilters' => false,
+    'lastChip' => null,
+    'giftIdeasUrl' => null,
 ])
 
-<div class="rounded-lg border border-dashed border-line bg-surface px-6 py-12 text-center">
-    <p class="text-lg font-medium text-ink">
+<div class="rounded-[14px] border border-dashed border-line bg-surface px-6 py-14 text-center">
+    <h2 class="font-serif text-2xl text-ink">
         @if ($hasActiveFilters)
             No gift ideas match all those filters.
         @else
             No {{ strtolower(\App\Support\Terminology::gifts()) }} found yet.
         @endif
-    </p>
+    </h2>
     @if ($hasActiveFilters)
-        <p class="mt-2 text-sm text-ink-muted">
-            Try removing a filter or choosing a different budget.
+        <p class="mx-auto mt-2 max-w-md text-[15px] text-ink-muted">
+            Try removing one filter or increasing the budget — most gifts sit in one or two categories only.
         </p>
-        <div class="mt-6">
-            <x-ui.button type="button" variant="secondary" wire:click="clearFilters">
-                Clear filters
-            </x-ui.button>
-        </div>
     @endif
-    <p class="mt-8 text-sm text-ink-muted">Still stuck?</p>
-    <div class="mt-3">
+    <div class="mt-6 flex flex-wrap justify-center gap-3">
+        @if ($hasActiveFilters && is_array($lastChip) && filled($lastChip['label'] ?? null))
+            <x-ui.button type="button" variant="secondary" wire:click="removeFilter('{{ $lastChip['dimension'] }}', @js($lastChip['slug']))">
+                Remove “{{ $lastChip['label'] }}”
+            </x-ui.button>
+        @endif
+        @if ($hasActiveFilters)
+            <x-ui.button type="button" variant="secondary" wire:click="clearFilters">
+                Clear all filters
+            </x-ui.button>
+        @endif
+        @if (filled($giftIdeasUrl))
+            <x-ui.button :href="$giftIdeasUrl" variant="secondary">
+                Browse all gifts
+            </x-ui.button>
+        @endif
         <x-ui.button :href="$finderUrl" variant="primary">
             Try Gift Finder
         </x-ui.button>

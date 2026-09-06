@@ -131,7 +131,7 @@ class AffiliateRedirectTest extends TestCase
         $this->assertStringContainsString('View gift', $html);
         $this->assertStringNotContainsString('href="'.$outUrl.'"', $html);
         $this->assertStringNotContainsString('href="'.$link->url.'"', $html);
-        $this->assertStringContainsString('At Example Merchant', $html);
+        $this->assertStringContainsString('Available at Example Merchant', $html);
     }
 
     public function test_affiliate_out_route_is_registered(): void

@@ -10,7 +10,7 @@
         $merchantName = $affiliateLink?->merchant?->name ?? 'merchant';
     @endphp
 
-    <x-breadcrumbs :items="$breadcrumbs" />
+    <x-breadcrumbs :items="$breadcrumbs" class="mb-6" />
 
     <article class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
         <div class="overflow-hidden rounded-xl border border-stone-200 bg-white">

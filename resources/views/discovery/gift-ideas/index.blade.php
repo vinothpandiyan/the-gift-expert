@@ -2,18 +2,15 @@
 
 @section('title', $seoTitle)
 
-@section('content')
-    <x-breadcrumbs :items="$breadcrumbs" />
-
-    <header class="mb-10 space-y-3">
-        <h1 class="font-serif text-4xl tracking-tight text-plum sm:text-5xl">
-            {{ \App\Support\Terminology::giftIdeas() }}
-        </h1>
-        <p class="max-w-3xl text-base leading-relaxed text-ink-muted">
+@section('page-header')
+    <x-listing.page-header :breadcrumbs="$breadcrumbs" :heading="\App\Support\Terminology::giftIdeas()">
+        <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
             Browse gifts by recipient, occasion, interest, profession, gift type, or category.
         </p>
-    </header>
+    </x-listing.page-header>
+@endsection
 
+@section('content')
     @if ($recipientTypes->isNotEmpty())
         <section class="mb-10">
             <h2 class="mb-4 font-serif text-xl text-plum">Recipients</h2>
