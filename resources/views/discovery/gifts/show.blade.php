@@ -8,11 +8,11 @@
         $outboundUrl = $detail->outboundUrl();
         $badgeTone = $detail->badge === 'Personalized'
             ? 'border-plum/15 bg-plum-light text-plum'
-            : 'border-gold/30 bg-gold/15 text-[#7a5a12]';
+            : 'border-gold/30 bg-gold/15 text-gold-ink';
         $showDetailsBand = $detail->giftDetailRows !== [] || $detail->merchantOffers->isNotEmpty();
     @endphp
 
-    <div @class(['bg-ivory', 'pb-24 md:pb-0' => $outboundUrl !== null])>
+    <div @class(['bg-ivory', 'pb-32 md:pb-0' => $outboundUrl !== null])>
         <x-ui.container class="py-6">
             <x-breadcrumbs :items="$breadcrumbs" />
         </x-ui.container>
@@ -81,7 +81,7 @@
                     </div>
 
                     @if ($detail->hasWhy())
-                        <div class="mt-8 rounded-[14px] border border-line bg-surface p-5">
+                        <div class="mt-8 rounded-xl border border-line bg-surface p-5">
                             <h2 class="font-serif text-xl text-ink">Why it's a great gift</h2>
                             @if ($detail->whyAsList())
                                 <ul class="mt-3 space-y-2.5">

@@ -48,6 +48,25 @@ final class DiscoveryUrl
         return self::route('gift_ideas.index', absolute: $absolute);
     }
 
+    /**
+     * @param  array<string, scalar|null>  $query
+     */
+    public static function giftIdeasQuery(array $query = [], bool $absolute = false): string
+    {
+        $url = self::giftIdeas($absolute);
+
+        $query = collect($query)
+            ->reject(fn ($value) => $value === null || $value === '')
+            ->map(fn ($value) => (string) $value)
+            ->all();
+
+        if ($query === []) {
+            return $url;
+        }
+
+        return $url.'?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+    }
+
     public static function giftIdeasCategory(string $fullPath, bool $absolute = false): string
     {
         return self::route('gift_ideas.category', ['full_path' => $fullPath], $absolute);

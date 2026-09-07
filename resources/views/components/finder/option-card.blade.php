@@ -14,7 +14,7 @@
         aria-pressed="{{ $selected ? 'true' : 'false' }}"
     @endif
     {{ $attributes->class([
-        'relative flex min-h-16 w-full flex-col justify-center rounded-[12px] border p-4 text-left transition-colors',
+        'relative flex min-h-16 w-full flex-col justify-center rounded-lg border p-4 text-left transition-colors',
         'border-plum bg-plum-light ring-1 ring-plum' => $selected,
         'border-line bg-surface hover:border-plum/40 hover:bg-plum-light/40' => ! $selected,
     ]) }}

@@ -25,6 +25,21 @@ final class PageMeta
         return (string) config('app.name');
     }
 
+    public static function homeTitle(): string
+    {
+        return "Find a gift they'll actually love | ".self::appName();
+    }
+
+    public static function homeDescription(): ?string
+    {
+        return 'Thoughtful gift ideas for every person, occasion and budget. Tell us who you\'re buying for and we\'ll narrow it down.';
+    }
+
+    public static function homeCanonical(): string
+    {
+        return url('/');
+    }
+
     public static function giftTitle(Product $product): string
     {
         if (filled($product->meta_title)) {

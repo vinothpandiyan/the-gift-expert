@@ -4,7 +4,7 @@
     'giftIdeasUrl',
 ])
 
-<div class="rounded-[14px] border border-dashed border-line bg-surface px-6 py-14 text-center">
+<div class="rounded-xl border border-dashed border-line bg-surface px-6 py-14 text-center">
     <h2 class="font-serif text-2xl text-ink">We couldn't find a strong match yet.</h2>
     <p class="mx-auto mt-2 max-w-md text-[15px] text-ink-muted">
         Try broadening your search — change who it's for, the occasion, or the budget.

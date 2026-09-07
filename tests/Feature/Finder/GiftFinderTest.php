@@ -12,6 +12,7 @@ use App\Models\RecommendationSession;
 use App\Models\Relationship;
 use App\Support\DiscoveryUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Mockery\MockInterface;
 use Tests\Feature\Discovery\GiftCatalogTestHelpers;
@@ -304,6 +305,75 @@ class GiftFinderTest extends TestCase
         $this->get(DiscoveryUrl::finder().'?session=00000000-0000-0000-0000-000000000000')
             ->assertOk()
             ->assertSee('Who are you buying for?', false);
+    }
+
+    public function test_query_slugs_prefill_finder_selections_without_submitting(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+        $budget = $this->budgetRange('₹1,000–₹2,500');
+        $budget->update(['slug' => '1000-2500']);
+
+        Livewire::withQueryParams([
+            'relationship' => 'husband',
+            'occasion' => 'birthday',
+            'budget' => '1000-2500',
+        ])
+            ->test(GiftFinder::class)
+            ->assertSet('step', 1)
+            ->assertSet('relationship_id', $relationship->id)
+            ->assertSet('occasion_id', $occasion->id)
+            ->assertSet('budget_range_id', $budget->id);
+
+        $this->assertDatabaseCount('recommendation_sessions', 0);
+    }
+
+    public function test_invalid_query_slugs_are_ignored_and_session_wins(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+        Relationship::query()->create([
+            'name' => 'Wife',
+            'slug' => 'wife',
+            'is_active' => false,
+        ]);
+
+        Livewire::withQueryParams([
+            'relationship' => 'not-real',
+            'occasion' => 'birthday',
+            'budget' => 'nope',
+        ])
+            ->test(GiftFinder::class)
+            ->assertSet('relationship_id', null)
+            ->assertSet('occasion_id', $occasion->id)
+            ->assertSet('budget_range_id', null);
+
+        $session = RecommendationSession::query()->create([
+            'relationship_id' => $relationship->id,
+        ]);
+
+        Livewire::withQueryParams([
+            'session' => $session->uuid,
+            'relationship' => 'wife',
+        ])
+            ->test(GiftFinder::class)
+            ->assertSet('relationship_id', $relationship->id);
+    }
+
+    public function test_finder_step_one_query_count_stays_bounded(): void
+    {
+        $this->relationship('Husband');
+        $this->occasion('Birthday');
+        $this->interest('Travel');
+        $this->budgetRange('Under ₹500');
+
+        $this->get(DiscoveryUrl::finder())->assertOk();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->get(DiscoveryUrl::finder())->assertOk();
+
+        $this->assertLessThanOrEqual(30, count(DB::getQueryLog()));
     }
 
     private function relationship(string $name): Relationship

@@ -225,6 +225,7 @@ class GiftListingTest extends TestCase
             ->assertOk()
             ->assertSee('No gift ideas match all those filters.', false)
             ->assertSee('Try Gift Finder', false)
+            ->assertSee('Browse Gift Ideas', false)
             ->assertSee(DiscoveryUrl::finder(), false);
     }
 
@@ -327,6 +328,7 @@ class GiftListingTest extends TestCase
         $second = $this->countQueries(fn () => $this->get(DiscoveryUrl::relationship('husband'))->assertOk());
 
         $this->assertSame($first, $second);
+        $this->assertLessThanOrEqual(50, $first);
     }
 
     public function test_occasion_listing_reuses_the_same_component(): void
@@ -340,6 +342,22 @@ class GiftListingTest extends TestCase
             ->assertSee('Birthday Gifts', false)
             ->assertSee('Party Hat', false)
             ->assertSee('Filters', false);
+    }
+
+    public function test_long_product_name_still_renders_on_the_listing(): void
+    {
+        $husband = $this->relationship('Husband');
+        $name = 'Hand-engraved walnut anniversary keepsake box with a surprisingly long editorial title for layout stress';
+        $gift = GiftCatalogTestHelpers::publishedGift([
+            'name' => $name,
+            'slug' => 'long-name-gift',
+        ]);
+        $gift->relationships()->attach($husband);
+
+        $this->get(DiscoveryUrl::relationship('husband'))
+            ->assertOk()
+            ->assertSee($name, false)
+            ->assertSee('View gift', false);
     }
 
     private function relationship(string $name): Relationship

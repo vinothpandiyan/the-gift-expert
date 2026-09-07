@@ -1,5 +1,5 @@
 @php
-    $selectClass = 'h-11 w-full appearance-none rounded-[10px] border border-line bg-surface pr-9 pl-3 text-[14px] font-medium text-ink hover:border-plum/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum';
+    $selectClass = 'h-11 w-full appearance-none rounded-md border border-line bg-surface pr-9 pl-3 text-[14px] font-medium text-ink hover:border-plum/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum';
     $wrapperClass = $wrapperClass ?? '';
     $showLabel = $showLabel ?? false;
 @endphp

@@ -67,6 +67,9 @@ return [
         'gift_detail' => [
             'breadth_dimension' => null,
         ],
+        'gift_ideas' => [
+            'breadth_dimension' => null,
+        ],
     ],
 
 ];

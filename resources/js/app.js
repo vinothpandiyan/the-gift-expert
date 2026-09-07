@@ -1,11 +1,46 @@
 import Alpine from 'alpinejs';
 
+const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function trapFocus(container, event) {
+    if (event.key !== 'Tab' || ! (container instanceof HTMLElement)) {
+        return;
+    }
+
+    const focusable = Array.from(container.querySelectorAll(FOCUSABLE))
+        .filter((element) => ! element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true');
+
+    if (focusable.length === 0) {
+        event.preventDefault();
+
+        return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (! event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
+}
+
+function restoreFocus(element) {
+    if (element instanceof HTMLElement) {
+        element.focus();
+    }
+}
+
 document.addEventListener('alpine:init', () => {
     window.Alpine.data('primaryNav', () => ({
         openMenu: null,
         mobileOpen: false,
         mobileAccordion: null,
         closeTimer: null,
+        previouslyFocused: null,
 
         open(slug) {
             clearTimeout(this.closeTimer);
@@ -53,6 +88,26 @@ document.addEventListener('alpine:init', () => {
             });
         },
 
+        syncMobile(open) {
+            document.body.classList.toggle('overflow-hidden', open);
+
+            if (open) {
+                this.previouslyFocused = document.activeElement;
+                this.$nextTick(() => this.$refs.mobileClose?.focus());
+            } else if (this.previouslyFocused instanceof HTMLElement) {
+                restoreFocus(this.previouslyFocused);
+                this.previouslyFocused = null;
+            }
+        },
+
+        trapMobile(event) {
+            if (! this.mobileOpen) {
+                return;
+            }
+
+            trapFocus(this.$refs.mobilePanel, event);
+        },
+
         init() {
             this._mq = window.matchMedia('(min-width: 1024px)');
             this._onBreakpoint = () => this.closeAll();
@@ -75,9 +130,13 @@ document.addEventListener('alpine:init', () => {
                 this.previouslyFocused = document.activeElement;
                 this.$nextTick(() => this.$refs.close?.focus());
             } else if (this.previouslyFocused instanceof HTMLElement) {
-                this.previouslyFocused.focus();
+                restoreFocus(this.previouslyFocused);
                 this.previouslyFocused = null;
             }
+        },
+
+        trap(event) {
+            trapFocus(this.$refs.panel, event);
         },
     }));
 });

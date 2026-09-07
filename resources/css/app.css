@@ -19,12 +19,16 @@
     --color-ink-muted: #6c666c;
     --color-coral: #e97867;
     --color-gold: #d7a447;
+    --color-gold-ink: #7a5a12;
     --color-forest: #4f7a63;
     --color-line: #e9e3e6;
 
-    --radius-sm: 0.375rem;
-    --radius-md: 0.75rem;
-    --radius-lg: 0.875rem;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.625rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 0.875rem;
+
+    --max-width-page: 80rem;
 }
 
 [x-cloak] {

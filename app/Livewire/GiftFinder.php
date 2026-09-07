@@ -51,11 +51,13 @@ class GiftFinder extends Component
             ? $session
             : request()->query('session');
 
-        if (! is_string($uuid) || $uuid === '') {
+        if (is_string($uuid) && $uuid !== '') {
+            $this->hydrateFromSession($uuid);
+
             return;
         }
 
-        $this->hydrateFromSession($uuid);
+        $this->hydrateFromQuery();
     }
 
     public function selectRelationship(int $id): void
@@ -364,6 +366,27 @@ class GiftFinder extends Component
             ->values()
             ->all();
         $this->step = 1;
+    }
+
+    private function hydrateFromQuery(): void
+    {
+        $this->relationship_id = $this->activeIdFromSlug(Relationship::query(), request()->query('relationship'));
+        $this->occasion_id = $this->activeIdFromSlug(Occasion::query(), request()->query('occasion'));
+        $this->budget_range_id = $this->activeIdFromSlug(BudgetRange::query(), request()->query('budget'));
+    }
+
+    private function activeIdFromSlug(EloquentBuilder $query, mixed $slug): ?int
+    {
+        if (! is_string($slug) || trim($slug) === '') {
+            return null;
+        }
+
+        $id = $query
+            ->where('slug', trim($slug))
+            ->where('is_active', true)
+            ->value('id');
+
+        return $id === null ? null : (int) $id;
     }
 
     private function stepErrorMessage(): string

@@ -5,7 +5,7 @@
     'giftIdeasUrl' => null,
 ])
 
-<div class="rounded-[14px] border border-dashed border-line bg-surface px-6 py-14 text-center">
+<div class="rounded-xl border border-dashed border-line bg-surface px-6 py-14 text-center">
     <h2 class="font-serif text-2xl text-ink">
         @if ($hasActiveFilters)
             No gift ideas match all those filters.
@@ -31,7 +31,7 @@
         @endif
         @if (filled($giftIdeasUrl))
             <x-ui.button :href="$giftIdeasUrl" variant="secondary">
-                Browse all gifts
+                Browse Gift Ideas
             </x-ui.button>
         @endif
         <x-ui.button :href="$finderUrl" variant="primary">

@@ -5,12 +5,12 @@
 <header class="sticky top-0 z-50 border-b border-line bg-surface/95 backdrop-blur">
     <div
         x-data="primaryNav"
-        x-effect="document.body.classList.toggle('overflow-hidden', mobileOpen)"
+        x-effect="syncMobile(mobileOpen)"
         @keydown.escape.window="closeAll()"
         @click.outside="closeDesktop()"
         class="relative"
     >
-        <div class="relative z-50 mx-auto flex h-16 max-w-[1280px] items-center justify-between gap-4 px-5 md:px-8">
+        <div class="relative z-50 mx-auto flex h-16 max-w-page items-center justify-between gap-4 px-5 md:px-8">
             <x-site-logo class="shrink-0" />
 
             <div class="hidden min-w-0 items-center gap-6 lg:flex">
@@ -54,7 +54,7 @@
                 <a
                     href="{{ $finderUrl }}"
                     @click="closeAll()"
-                    class="inline-flex h-10 shrink-0 items-center rounded-[10px] bg-plum px-4 text-sm font-semibold text-white hover:bg-plum-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                    class="inline-flex h-10 shrink-0 items-center rounded-md bg-plum px-4 text-sm font-semibold text-white hover:bg-plum-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                 >
                     Find a Gift
                 </a>
@@ -75,7 +75,7 @@
                     aria-expanded="false"
                     aria-controls="mobile-primary-nav"
                     aria-label="Open menu"
-                    class="inline-flex size-11 items-center justify-center rounded-[10px] text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                    class="inline-flex size-11 items-center justify-center rounded-md text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6" aria-hidden="true">
                         <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
@@ -101,12 +101,15 @@
 
             <div
                 id="mobile-primary-nav"
+                x-ref="mobilePanel"
                 x-show="mobileOpen"
                 x-cloak
                 role="dialog"
                 aria-modal="true"
                 aria-label="Primary"
-                class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col overflow-y-auto overflow-x-hidden border-l border-line bg-surface shadow-lg"
+                tabindex="-1"
+                @keydown.tab="trapMobile($event)"
+                class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col overflow-y-auto overflow-x-hidden border-l border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-lg"
             >
                 <div class="flex items-center justify-between gap-3 border-b border-line px-4 py-4">
                     <a
@@ -118,9 +121,10 @@
                     </a>
                     <button
                         type="button"
+                        x-ref="mobileClose"
                         @click="closeMobile()"
                         aria-label="Close menu"
-                        class="inline-flex size-11 items-center justify-center rounded-[10px] border border-line text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                        class="inline-flex size-11 items-center justify-center rounded-md border border-line text-ink hover:bg-plum-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6" aria-hidden="true">
                             <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />
@@ -148,7 +152,7 @@
                                     class="flex min-h-11 w-full items-center justify-between px-2 py-3 text-left text-sm font-medium text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
                                 >
                                     <span>{{ $label }}</span>
-                                    <span class="text-ink-muted" aria-hidden="true">+</span>
+                                    <span class="text-ink-muted" aria-hidden="true" x-text="mobileAccordion === @js($slug) ? '−' : '+'"></span>
                                 </button>
                                 <div
                                     id="{{ $accordionId }}"

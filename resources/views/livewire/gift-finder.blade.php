@@ -1,5 +1,5 @@
 <div>
-<div class="mx-auto w-full max-w-3xl pb-32 md:pb-8">
+<div class="mx-auto w-full max-w-3xl pb-36 md:pb-8">
     <div class="text-center">
         <span class="inline-flex items-center gap-2 rounded-md bg-plum-light px-3 py-1.5 text-[12px] font-semibold tracking-wide text-plum">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">

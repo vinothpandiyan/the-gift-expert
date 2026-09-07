@@ -25,6 +25,13 @@ class QueryDiscoveryListingProductsAction
         $perPage = max(1, (int) config('discovery_ranking.per_page', 12));
         $page = max(1, $page);
 
+        if (! $this->hasProductFilters($filters)) {
+            return $this->withListingQuery(
+                new LengthAwarePaginator([], 0, $perPage, $page),
+                $state,
+            );
+        }
+
         if ($state->isRecommended()) {
             $ranked = $this->queryRanked->execute(
                 new DiscoveryRankingContext(
@@ -50,9 +57,33 @@ class QueryDiscoveryListingProductsAction
 
     public function count(DiscoveryListingContext $context, DiscoveryListingQueryState $state): int
     {
+        $filters = $state->toProductFilters($context);
+
+        if (! $this->hasProductFilters($filters)) {
+            return 0;
+        }
+
         return $this->queryProducts
-            ->execute($state->toProductFilters($context), false, false, true)
+            ->execute($filters, false, false, true)
             ->count();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function hasProductFilters(array $filters): bool
+    {
+        foreach ($filters as $value) {
+            if (is_array($value) && $value !== []) {
+                return true;
+            }
+
+            if (! is_array($value) && $value !== null && $value !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -74,9 +74,12 @@ class PrimaryNavigationTest extends TestCase
         $this->assertStringContainsString('id="mega-menu-by-recipient"', $header);
         $this->assertSame(1, substr_count($html, 'id="mega-menu-by-recipient"'));
         $this->assertStringContainsString('aria-label="Open menu"', $header);
+        $this->assertStringContainsString('aria-label="Close menu"', $header);
         $this->assertStringContainsString('id="mobile-primary-nav"', $header);
         $this->assertStringContainsString('Find a Gift', $header);
         $this->assertStringContainsString('href="'.DiscoveryUrl::finder().'"', $header);
+        $this->assertStringContainsString('Skip to content', $html);
+        $this->assertStringContainsString('id="content"', $html);
 
         $this->assertStringContainsString('Find a Gift', $footer);
         $this->assertStringContainsString(Terminology::giftIdeas(), $footer);

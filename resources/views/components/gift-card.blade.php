@@ -21,17 +21,21 @@
         : ($product->is_featured ? 'Featured' : ($isPersonalized ? 'Personalized' : null));
     $badgeTone = $badge === 'Personalized'
         ? 'border-plum/15 bg-plum-light text-plum'
-        : 'border-gold/30 bg-gold/15 text-[#7a5a12]';
+        : 'border-gold/30 bg-gold/15 text-gold-ink';
     $reason = filled($matchReason) ? $matchReason : $product->short_description;
+    $imageWidth = (int) config('media.product_images.canonical_width');
+    $imageHeight = (int) config('media.product_images.canonical_height');
 @endphp
 
-<article {{ $attributes->merge(['class' => 'group relative flex h-full flex-col rounded-[14px] border border-line bg-surface p-3 transition-shadow hover:shadow-[0_8px_24px_-16px_rgba(38,35,38,0.35)]']) }}>
-    <div class="relative aspect-4/3 overflow-hidden rounded-[10px] bg-surface-sunken p-4">
+<article {{ $attributes->merge(['class' => 'group relative flex h-full flex-col rounded-xl border border-line bg-surface p-3 transition-shadow hover:shadow-[0_8px_24px_-16px_rgba(38,35,38,0.35)]']) }}>
+    <div class="relative aspect-4/3 overflow-hidden rounded-md bg-surface-sunken p-4">
         @if ($primaryImage)
             <img
                 src="{{ $primaryImage->url() }}"
                 alt="{{ $primaryImage->alt_text ?: $product->name }}"
                 class="h-full w-full object-contain motion-safe:transition-transform motion-safe:duration-300 group-hover:scale-[1.02]"
+                width="{{ $imageWidth }}"
+                height="{{ $imageHeight }}"
                 loading="lazy"
             >
         @else
@@ -42,13 +46,13 @@
     <div class="flex flex-1 flex-col px-1.5 pt-4 pb-1">
         @if ($badge)
             <div class="mb-2">
-                <span class="inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-semibold tracking-wide {{ $badgeTone }}">
+                <span class="inline-flex items-center rounded-sm border px-2 py-1 text-[11px] font-semibold tracking-wide {{ $badgeTone }}">
                     {{ $badge }}
                 </span>
             </div>
         @endif
 
-        <h3 class="text-[15px] font-semibold leading-snug text-ink">
+        <h3 class="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">
             <a href="{{ $giftUrl }}" class="hover:text-plum after:absolute after:inset-0">
                 {{ $product->name }}
             </a>

@@ -79,6 +79,7 @@ class GiftListing extends Component
         if ($property === 'budget') {
             $this->budget = $this->budget === $slug ? '' : $slug;
             $this->page = 1;
+            $this->redirectToHubIfGiftIdeasBudgetCleared();
 
             return;
         }
@@ -113,6 +114,7 @@ class GiftListing extends Component
         $this->sort = '';
         $this->page = 1;
         $this->filtersOpen = false;
+        $this->redirectToHubIfGiftIdeasBudgetCleared();
     }
 
     public function applyFilters(): void
@@ -158,6 +160,19 @@ class GiftListing extends Component
     private function listingContext(): DiscoveryListingContext
     {
         return DiscoveryListingContext::fromArray($this->listingContext);
+    }
+
+    private function redirectToHubIfGiftIdeasBudgetCleared(): void
+    {
+        if (($this->listingContext['surface'] ?? '') !== 'gift_ideas') {
+            return;
+        }
+
+        if ($this->budget !== '') {
+            return;
+        }
+
+        $this->redirect(DiscoveryUrl::giftIdeas());
     }
 
     private function queryState(): DiscoveryListingQueryState

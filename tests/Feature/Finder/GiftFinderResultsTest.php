@@ -14,6 +14,7 @@ use App\Models\Relationship;
 use App\Support\DiscoveryUrl;
 use App\Support\Terminology;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Feature\Discovery\GiftCatalogTestHelpers;
 use Tests\TestCase;
@@ -315,6 +316,41 @@ class GiftFinderResultsTest extends TestCase
             ->assertDontSee('Around ₹', false);
     }
 
+    public function test_long_explanation_still_renders(): void
+    {
+        $session = RecommendationSession::query()->create([]);
+        $gift = GiftCatalogTestHelpers::publishedGift([
+            'name' => 'Explained Gift',
+            'slug' => 'explained-gift',
+        ]);
+        $explanation = 'This is a long recommendation explanation that should remain in the document even when the card clamps it visually. '.str_repeat('More detail. ', 20);
+        $this->createResult($session, $gift, rank: 1, score: 40, explanation: $explanation);
+
+        $this->get(DiscoveryUrl::finderResults($session->uuid))
+            ->assertOk()
+            ->assertSee('This is a long recommendation explanation', false)
+            ->assertSee('Explained Gift', false);
+    }
+
+    public function test_results_query_count_stays_bounded(): void
+    {
+        $session = RecommendationSession::query()->create([]);
+
+        foreach (range(1, 4) as $index) {
+            $gift = GiftCatalogTestHelpers::publishedGift([
+                'name' => "Bound Result {$index}",
+                'slug' => "bound-result-{$index}",
+            ]);
+            $this->createResult($session, $gift, rank: $index, score: 40 - $index, explanation: 'Match.');
+        }
+
+        $this->get(DiscoveryUrl::finderResults($session->uuid))->assertOk();
+
+        $count = $this->countQueries(fn () => $this->get(DiscoveryUrl::finderResults($session->uuid))->assertOk());
+
+        $this->assertLessThanOrEqual(40, $count);
+    }
+
     /**
      * @param  array<string, float|int>  $breakdown
      */
@@ -334,5 +370,14 @@ class GiftFinderResultsTest extends TestCase
             'score_breakdown' => $breakdown !== [] ? $breakdown : ['total' => $score],
             'explanation' => $explanation,
         ]);
+    }
+
+    private function countQueries(callable $callback): int
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $callback();
+
+        return count(DB::getQueryLog());
     }
 }

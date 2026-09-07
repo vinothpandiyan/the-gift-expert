@@ -14,17 +14,11 @@ class GiftFinderResults extends Component
 {
     public string $uuid;
 
+    private ?RecommendationSession $resolvedSession = null;
+
     public function mount(string $uuid): void
     {
-        $session = RecommendationSession::query()
-            ->where('uuid', $uuid)
-            ->first();
-
-        if ($session === null) {
-            abort(404);
-        }
-
-        $this->uuid = $session->uuid;
+        $this->uuid = $uuid;
     }
 
     public function render(): View
@@ -52,7 +46,7 @@ class GiftFinderResults extends Component
 
     public function session(): RecommendationSession
     {
-        return RecommendationSession::query()
+        return $this->resolvedSession ??= RecommendationSession::query()
             ->where('uuid', $this->uuid)
             ->with([
                 'occasion:id,name',

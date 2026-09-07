@@ -22,6 +22,22 @@ class DiscoveryUrlTest extends TestCase
         $this->assertSame('/gifts/wallet', DiscoveryUrl::gift('wallet', context: ''));
     }
 
+    public function test_gift_ideas_query_appends_budget_slug(): void
+    {
+        $this->assertSame('/gift-ideas', DiscoveryUrl::giftIdeasQuery());
+        $this->assertSame('/gift-ideas', DiscoveryUrl::giftIdeasQuery(['budget' => '']));
+        $this->assertSame(
+            '/gift-ideas?budget=1000-2500',
+            DiscoveryUrl::giftIdeasQuery(['budget' => '1000-2500']),
+        );
+        config(['app.url' => 'http://localhost']);
+
+        $this->assertSame(
+            'http://localhost/gift-ideas?budget=under-500',
+            DiscoveryUrl::giftIdeasQuery(['budget' => 'under-500'], absolute: true),
+        );
+    }
+
     public function test_gift_ideas_category_url_supports_hierarchical_paths(): void
     {
         $this->assertSame(

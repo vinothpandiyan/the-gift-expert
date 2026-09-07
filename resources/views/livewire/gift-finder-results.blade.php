@@ -1,5 +1,5 @@
 <div>
-    <div class="rounded-[14px] border border-line bg-surface p-5 md:p-6">
+    <div class="rounded-xl border border-line bg-surface p-5 md:p-6">
         <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
                 <span class="inline-flex items-center gap-1.5 text-[12px] font-semibold tracking-wide text-plum uppercase">
@@ -51,11 +51,12 @@
                         :product="$result->product"
                         :match-reason="$result->explanation"
                         :great-match="$this->isGreatMatch($result, $index + 1)"
+                        wire:key="result-{{ $result->id }}"
                     />
                 @endforeach
             </div>
 
-            <div class="mt-10 flex flex-col items-center gap-3 rounded-[14px] border border-line bg-surface p-6 text-center">
+            <div class="mt-10 flex flex-col items-center gap-3 rounded-xl border border-line bg-surface p-6 text-center">
                 <span class="inline-flex items-center rounded-md border border-plum/15 bg-plum-light px-2 py-1 text-[11px] font-semibold tracking-wide text-plum">
                     Still deciding?
                 </span>

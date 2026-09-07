@@ -144,6 +144,8 @@ class GiftShowPageTest extends TestCase
 
         $this->assertStringNotContainsString('View image 6', $html);
         $this->assertStringNotContainsString('images/gallery-6.webp', $html);
+        $this->assertStringContainsString('loading="lazy"', $html);
+        $this->assertStringContainsString('fetchpriority="high"', $html);
     }
 
     public function test_affiliate_cta_uses_outbound_route(): void
@@ -439,6 +441,22 @@ class GiftShowPageTest extends TestCase
             ->assertOk()
             ->assertSee('Breadcrumb Gift', false)
             ->assertSee('Gift Ideas', false);
+    }
+
+    public function test_long_gift_name_and_description_remain_visible(): void
+    {
+        $name = 'An unusually long gift name that should still be readable on the gift detail page without breaking the layout chrome';
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'slug' => 'long-copy-gift',
+            'name' => $name,
+            'short_description' => str_repeat('A thoughtful short description that keeps going. ', 8),
+        ]);
+
+        $this->get(DiscoveryUrl::gift($product->slug))
+            ->assertOk()
+            ->assertSee($name, false)
+            ->assertSee('A thoughtful short description that keeps going.', false)
+            ->assertSee('Check price at', false);
     }
 
     private function fullyTaggedGift(

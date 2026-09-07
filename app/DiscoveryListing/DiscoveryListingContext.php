@@ -143,6 +143,25 @@ final class DiscoveryListingContext
         );
     }
 
+    public static function forGiftIdeas(): self
+    {
+        return new self(
+            surface: 'gift_ideas',
+            fixedFilters: [],
+            availableDimensions: [
+                'relationship',
+                'occasion',
+                'recipient',
+                'profession',
+                'budget',
+                'interest',
+                'gift_type',
+                'category',
+            ],
+            browseContext: 'gift_ideas',
+        );
+    }
+
     public static function forSeoLandingPage(SeoLandingPage $page): self
     {
         $filters = SeoLandingPageEditorial::productFilters($page);

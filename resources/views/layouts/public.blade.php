@@ -24,9 +24,16 @@
     @endif
 </head>
 <body class="min-h-screen bg-ivory font-sans text-ink antialiased">
+    <a
+        href="#content"
+        class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-4 focus:z-100 focus:rounded-md focus:bg-plum focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+    >
+        Skip to content
+    </a>
+
     <x-site-header />
 
-    <main>
+    <main id="content">
         @hasSection('page-header')
             @yield('page-header')
         @endif
@@ -35,7 +42,7 @@
             @yield('content-uncontained')
         @else
             <div @class([
-                'mx-auto w-full max-w-[1280px] px-5 md:px-8',
+                'mx-auto w-full max-w-page px-5 md:px-8',
                 'py-8 md:py-10' => ! View::hasSection('page-header'),
                 'pt-6 pb-16 md:pt-8' => View::hasSection('page-header'),
             ])>

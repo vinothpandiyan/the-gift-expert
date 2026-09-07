@@ -15,11 +15,13 @@
     @continue(! isset($options[$dimension]) || $options[$dimension]->isEmpty())
 
     <div class="border-b border-line py-4 last:border-b-0" x-data="{ open: true }">
+        @php $panelId = $idPrefix.'-'.$dimension.'-panel'; @endphp
         <button
             type="button"
             @click="open = ! open"
             :aria-expanded="open"
             aria-expanded="true"
+            aria-controls="{{ $panelId }}"
             class="flex min-h-11 w-full items-center justify-between text-left text-[14px] font-semibold text-ink"
         >
             {{ $label }}
@@ -33,7 +35,7 @@
             </span>
         </button>
 
-        <div x-show="open" class="mt-1.5 flex flex-col">
+        <div id="{{ $panelId }}" x-show="open" class="mt-1.5 flex flex-col">
             @foreach ($options[$dimension] as $option)
                 @php
                     $value = $dimension === 'category'
@@ -43,7 +45,7 @@
                     $isChecked = in_array($value, $selected[$dimension] ?? [], true);
                     $isBudget = $dimension === 'budget';
                 @endphp
-                <label for="{{ $inputId }}" class="flex min-h-11 cursor-pointer items-center gap-3 rounded-[8px] px-1 text-[14px] text-ink hover:text-plum">
+                <label for="{{ $inputId }}" class="flex min-h-11 cursor-pointer items-center gap-3 rounded-sm px-1 text-[14px] text-ink hover:text-plum">
                     <input
                         id="{{ $inputId }}"
                         type="{{ $isBudget ? 'radio' : 'checkbox' }}"
