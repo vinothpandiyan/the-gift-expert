@@ -11,7 +11,7 @@
         name="{{ $name }}"
         value="{{ $value }}"
         @checked($checked)
-        {{ $attributes->merge(['class' => 'mt-1 size-4 shrink-0 rounded border-line text-plum focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum']) }}
+        {{ $attributes->class(['form-control form-control-checkbox mt-1']) }}
     >
     <span class="text-sm text-ink">{{ $label }}</span>
 </label>

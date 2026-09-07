@@ -224,22 +224,16 @@ class AnalyzeCatalogCoverageAction
             return null;
         }
 
-        $amount = (float) $priceAmount;
+        $amount = (string) $priceAmount;
 
         foreach ($budgetRanges as $range) {
             if (strtoupper($range->currency) !== $currency) {
                 continue;
             }
 
-            if ($range->min_amount !== null && $amount < (float) $range->min_amount) {
-                continue;
+            if ($range->containsAmount($amount)) {
+                return $range->id;
             }
-
-            if ($range->max_amount !== null && $amount > (float) $range->max_amount) {
-                continue;
-            }
-
-            return $range->id;
         }
 
         return null;

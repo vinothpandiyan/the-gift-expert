@@ -18,16 +18,20 @@ class MapPriceToBudgetRangeActionTest extends TestCase
         $this->seed(BudgetRangeSeeder::class);
     }
 
-    public function test_it_maps_inr_boundaries_using_existing_min_max_semantics(): void
+    public function test_it_maps_each_seeded_boundary_to_exactly_one_range(): void
     {
         $action = app(MapPriceToBudgetRangeAction::class);
 
         $this->assertSame('under-500', $action->execute('499.99', 'INR')?->slug);
         $this->assertSame('500-1000', $action->execute('500.00', 'INR')?->slug);
-        $this->assertSame('500-1000', $action->execute('1000.00', 'INR')?->slug);
-        $this->assertSame('1000-2500', $action->execute('1000.01', 'INR')?->slug);
-        $this->assertSame('5000-10000', $action->execute('10000.00', 'INR')?->slug);
-        $this->assertSame('10000-plus', $action->execute('10000.01', 'INR')?->slug);
+        $this->assertSame('500-1000', $action->execute('999.99', 'INR')?->slug);
+        $this->assertSame('1000-2500', $action->execute('1000.00', 'INR')?->slug);
+        $this->assertSame('1000-2500', $action->execute('2499.99', 'INR')?->slug);
+        $this->assertSame('2500-5000', $action->execute('2500.00', 'INR')?->slug);
+        $this->assertSame('2500-5000', $action->execute('4999.99', 'INR')?->slug);
+        $this->assertSame('5000-10000', $action->execute('5000.00', 'INR')?->slug);
+        $this->assertSame('5000-10000', $action->execute('9999.99', 'INR')?->slug);
+        $this->assertSame('10000-plus', $action->execute('10000.00', 'INR')?->slug);
     }
 
     public function test_it_returns_null_for_missing_or_mismatched_currency(): void

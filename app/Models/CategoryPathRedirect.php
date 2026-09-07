@@ -11,5 +11,6 @@ class CategoryPathRedirect extends Model
     protected $fillable = [
         'from_path',
         'to_path',
+        'to_url',
     ];
 }

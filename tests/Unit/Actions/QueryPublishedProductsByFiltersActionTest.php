@@ -16,6 +16,7 @@ use App\Models\Product;
 use App\Models\Profession;
 use App\Models\RecipientType;
 use App\Models\Relationship;
+use Database\Seeders\BudgetRangeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -274,6 +275,31 @@ class QueryPublishedProductsByFiltersActionTest extends TestCase
         $this->assertSame([$expensive->id], $this->filteredIds(['budget_range_id' => $tenThousandPlus->id]));
         $this->assertNotContains($mid->id, $this->filteredIds(['budget_range_id' => $under500->id]));
         $this->assertNotContains($mid->id, $this->filteredIds(['budget_range_id' => $tenThousandPlus->id]));
+    }
+
+    public function test_seeded_budget_ranges_use_half_open_boundaries(): void
+    {
+        $this->seed(BudgetRangeSeeder::class);
+
+        $at499 = $this->publishedGift('price-499', ['price_amount' => '499.99']);
+        $at500 = $this->publishedGift('price-500', ['price_amount' => '500.00']);
+        $at999 = $this->publishedGift('price-999', ['price_amount' => '999.99']);
+        $at1000 = $this->publishedGift('price-1000', ['price_amount' => '1000.00']);
+        $at2499 = $this->publishedGift('price-2499', ['price_amount' => '2499.99']);
+        $at2500 = $this->publishedGift('price-2500', ['price_amount' => '2500.00']);
+        $at4999 = $this->publishedGift('price-4999', ['price_amount' => '4999.99']);
+        $at5000 = $this->publishedGift('price-5000', ['price_amount' => '5000.00']);
+        $at9999 = $this->publishedGift('price-9999', ['price_amount' => '9999.99']);
+        $at10000 = $this->publishedGift('price-10000', ['price_amount' => '10000.00']);
+
+        $id = fn (string $slug): int => (int) BudgetRange::query()->where('slug', $slug)->value('id');
+
+        $this->assertSame([$at499->id], $this->filteredIds(['budget_range_id' => $id('under-500')]));
+        $this->assertEqualsCanonicalizing([$at500->id, $at999->id], $this->filteredIds(['budget_range_id' => $id('500-1000')]));
+        $this->assertEqualsCanonicalizing([$at1000->id, $at2499->id], $this->filteredIds(['budget_range_id' => $id('1000-2500')]));
+        $this->assertEqualsCanonicalizing([$at2500->id, $at4999->id], $this->filteredIds(['budget_range_id' => $id('2500-5000')]));
+        $this->assertEqualsCanonicalizing([$at5000->id, $at9999->id], $this->filteredIds(['budget_range_id' => $id('5000-10000')]));
+        $this->assertSame([$at10000->id], $this->filteredIds(['budget_range_id' => $id('10000-plus')]));
     }
 
     public function test_unpublished_products_are_never_returned(): void

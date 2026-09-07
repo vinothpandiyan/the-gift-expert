@@ -203,12 +203,6 @@ class QueryPublishedProductsByFiltersAction
         $query->where('price_currency', $budget->currency)
             ->whereNotNull('price_amount');
 
-        if ($budget->min_amount !== null) {
-            $query->where('price_amount', '>=', $budget->min_amount);
-        }
-
-        if ($budget->max_amount !== null) {
-            $query->where('price_amount', '<=', $budget->max_amount);
-        }
+        $budget->constrainPriceQuery($query);
     }
 }

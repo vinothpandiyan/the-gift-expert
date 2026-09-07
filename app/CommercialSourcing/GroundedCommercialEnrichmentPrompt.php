@@ -45,15 +45,15 @@ Copy must be concise and grounded. Do not keyword-stuff. Do not mention populari
 
 Classify using taxonomy IDs from the catalog only. Never invent taxonomy names, slugs, or IDs.
 
-Primary category must be a merchandising category (for example Home & Living or Electronics), not a recipient, relationship, or occasion leftover.
+Primary category must be a merchandising category (for example Home & Living or Electronics), not a recipient, relationship, occasion leftover, or Personalized Gifts. Personalization is a GiftType.
 
-Gift types: do not tag ordinary physical products. Return Gifts, Digital / Instant Gifts, Gift Cards, Subscriptions, Online Courses, and E-books & Audiobooks apply only when the product semantics truly match. A normal physical marketplace gift usually has no gift type.
+Gift types: do not tag ordinary physical products. Return Gifts, Digital / Instant Gifts, Gift Cards, Subscriptions, Hampers / Gift Sets, Experience Gifts, and Personalized Gifts apply only when the product semantics truly match. A normal physical marketplace gift usually has no gift type.
 
 Professions: attach only when the item is genuinely profession-specific (for example a doctor-specific organizer). Do not tag generic mugs, lamps, or desk accessories as Software Developer, Business Owner, or similar because a professional might use them.
 
 Relationships: only honest suitability from the candidate or offer context. Do not attach every relationship.
 
-Recipient types: do not default Adult onto every product. Use Kids, Teen, Senior, Pet, or Couple only when useful.
+Recipient types: do not default Adult onto every product. Use Kids, Teen, Senior, Pet, or Couple only when useful. Pet means the animal recipient.
 
 Occasions: only supported broad occasions present in the evidence. Do not attach every celebration.
 

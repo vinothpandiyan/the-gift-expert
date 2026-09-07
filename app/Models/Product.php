@@ -128,4 +128,19 @@ class Product extends Model
             ->where('status', ProductStatus::Published)
             ->whereNull('deleted_at');
     }
+
+    public function isPersonalized(): bool
+    {
+        $matchesSlug = fn ($record): bool => $record->slug === 'personalized-gifts';
+
+        if ($this->relationLoaded('giftTypes') && $this->giftTypes->contains($matchesSlug)) {
+            return true;
+        }
+
+        if ($this->relationLoaded('categories') && $this->categories->contains($matchesSlug)) {
+            return true;
+        }
+
+        return false;
+    }
 }

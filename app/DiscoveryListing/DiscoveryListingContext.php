@@ -2,6 +2,7 @@
 
 namespace App\DiscoveryListing;
 
+use App\Enums\TaxonomyDimension;
 use App\Models\Category;
 use App\Models\GiftType;
 use App\Models\Interest;
@@ -16,6 +17,26 @@ use InvalidArgumentException;
 
 final class DiscoveryListingContext
 {
+    /**
+     * Preferred public filter order. Page-specific contexts omit dimensions
+     * they already fix; remaining dimensions keep this relative order.
+     *
+     * @var list<string>
+     */
+    private const DIMENSION_ORDER = [
+        'relationship',
+        'occasion',
+        'category',
+        'interest',
+        'gift_type',
+        'profession',
+        'recipient',
+        'budget',
+    ];
+
+    /** @var list<string> */
+    public readonly array $availableDimensions;
+
     /**
      * @param  array{
      *     occasion_id?: int|null,
@@ -33,10 +54,12 @@ final class DiscoveryListingContext
     public function __construct(
         public readonly string $surface,
         public readonly array $fixedFilters,
-        public readonly array $availableDimensions,
+        array $availableDimensions,
         public readonly string $browseContext,
         public readonly array $hiddenInterestIds = [],
-    ) {}
+    ) {
+        $this->availableDimensions = self::orderDimensions($availableDimensions);
+    }
 
     /**
      * @return array{
@@ -228,5 +251,47 @@ final class DiscoveryListingContext
     public function allows(string $dimension): bool
     {
         return in_array($dimension, $this->availableDimensions, true);
+    }
+
+    public static function dimensionLabel(string $dimension): string
+    {
+        return match ($dimension) {
+            'occasion' => 'Occasion',
+            'relationship' => 'Relationship',
+            'recipient' => 'Recipient',
+            'budget' => 'Budget',
+            'interest' => 'Interest',
+            'profession' => 'Profession',
+            'gift_type' => 'Gift Type',
+            'category' => 'Category',
+            default => $dimension,
+        };
+    }
+
+    /**
+     * @param  list<string>  $dimensions
+     * @return list<string>
+     */
+    private static function orderDimensions(array $dimensions): array
+    {
+        $rank = array_flip(self::DIMENSION_ORDER);
+
+        $ordered = array_values($dimensions);
+        usort($ordered, function (string $left, string $right) use ($rank): int {
+            return ($rank[$left] ?? 99) <=> ($rank[$right] ?? 99);
+        });
+
+        return $ordered;
+    }
+
+    /**
+     * Semantic taxonomy contexts from this listing's fixed filters.
+     * BudgetRange is not a semantic applicability dimension.
+     *
+     * @return list<array{dimension: TaxonomyDimension, id: int}>
+     */
+    public function semanticTaxonomyContexts(): array
+    {
+        return TaxonomyDimension::contextsFromFilters($this->fixedFilters);
     }
 }

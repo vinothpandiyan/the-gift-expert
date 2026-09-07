@@ -2,21 +2,15 @@
 
 namespace App\Livewire;
 
+use App\Actions\Discovery\NormalizeDiscoveryFilterStateAction;
 use App\Actions\Discovery\QueryDiscoveryListingProductsAction;
+use App\Actions\Discovery\ResolveDiscoveryFilterOptionsAction;
+use App\DiscoveryListing\DiscoveryFilterOption;
 use App\DiscoveryListing\DiscoveryListingContext;
 use App\DiscoveryListing\DiscoveryListingQueryState;
-use App\Models\BudgetRange;
-use App\Models\Category;
-use App\Models\GiftType;
-use App\Models\Interest;
-use App\Models\Occasion;
-use App\Models\Profession;
-use App\Models\RecipientType;
-use App\Models\Relationship;
 use App\Support\DiscoveryUrl;
 use App\Support\Terminology;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -77,23 +71,18 @@ class GiftListing extends Component
         }
 
         if ($property === 'budget') {
-            $this->budget = $this->budget === $slug ? '' : $slug;
-            $this->page = 1;
-            $this->redirectToHubIfGiftIdeasBudgetCleared();
+            $this->applyFilter($dimension, $slug, $this->budget !== $slug);
 
             return;
         }
 
         $current = DiscoveryListingQueryState::decodeList($this->{$property});
+        $this->applyFilter($dimension, $slug, ! in_array($slug, $current, true));
+    }
 
-        if (in_array($slug, $current, true)) {
-            $current = array_values(array_filter($current, fn (string $item): bool => $item !== $slug));
-        } else {
-            $current[] = $slug;
-        }
-
-        $this->{$property} = DiscoveryListingQueryState::encodeList($current);
-        $this->page = 1;
+    public function setFilter(string $dimension, string $slug, bool $enabled): void
+    {
+        $this->applyFilter($dimension, $slug, $enabled);
     }
 
     public function removeFilter(string $dimension, string $slug): void
@@ -132,12 +121,15 @@ class GiftListing extends Component
         $this->page = 1;
     }
 
-    public function render(QueryDiscoveryListingProductsAction $queryListing): View
-    {
+    public function render(
+        QueryDiscoveryListingProductsAction $queryListing,
+        ResolveDiscoveryFilterOptionsAction $resolveOptions,
+    ): View {
+        $this->syncNormalizedFilters();
         $context = $this->listingContext();
         $state = $this->queryState();
         $products = $queryListing->execute($context, $state, $this->page);
-        $options = $this->filterOptions($context);
+        $options = $resolveOptions->execute($context, $state);
         $activeChips = $this->activeChips($options);
         $activeCount = count($activeChips);
 
@@ -160,6 +152,26 @@ class GiftListing extends Component
     private function listingContext(): DiscoveryListingContext
     {
         return DiscoveryListingContext::fromArray($this->listingContext);
+    }
+
+    private function syncNormalizedFilters(?string $preferredDimension = null): void
+    {
+        $before = $this->queryState()->toPaginatorQuery();
+        $normalized = app(NormalizeDiscoveryFilterStateAction::class)
+            ->execute($this->listingContext(), $this->queryState(), $preferredDimension);
+
+        $this->occasion = DiscoveryListingQueryState::encodeList($normalized->occasionSlugs);
+        $this->relationship = DiscoveryListingQueryState::encodeList($normalized->relationshipSlugs);
+        $this->recipient = DiscoveryListingQueryState::encodeList($normalized->recipientSlugs);
+        $this->interest = DiscoveryListingQueryState::encodeList($normalized->interestSlugs);
+        $this->profession = DiscoveryListingQueryState::encodeList($normalized->professionSlugs);
+        $this->giftType = DiscoveryListingQueryState::encodeList($normalized->giftTypeSlugs);
+        $this->category = DiscoveryListingQueryState::encodeList($normalized->categoryPaths);
+        $this->budget = $normalized->budgetSlug ?? '';
+
+        if ($before !== $this->queryState()->toPaginatorQuery()) {
+            $this->page = 1;
+        }
     }
 
     private function redirectToHubIfGiftIdeasBudgetCleared(): void
@@ -200,61 +212,6 @@ class GiftListing extends Component
     }
 
     /**
-     * @return array<string, Collection<int, object>>
-     */
-    private function filterOptions(DiscoveryListingContext $context): array
-    {
-        $options = [];
-
-        if ($context->allows('occasion')) {
-            $options['occasion'] = $this->activeTaxonomy(Occasion::query());
-        }
-        if ($context->allows('relationship')) {
-            $options['relationship'] = $this->activeTaxonomy(Relationship::query());
-        }
-        if ($context->allows('recipient')) {
-            $options['recipient'] = $this->activeTaxonomy(RecipientType::query());
-        }
-        if ($context->allows('profession')) {
-            $options['profession'] = $this->activeTaxonomy(Profession::query());
-        }
-        if ($context->allows('gift_type')) {
-            $options['gift_type'] = $this->activeTaxonomy(GiftType::query());
-        }
-        if ($context->allows('interest')) {
-            $hidden = $context->hiddenInterestIds;
-            $options['interest'] = $this->activeTaxonomy(Interest::query())
-                ->reject(fn ($item) => in_array((int) $item->id, $hidden, true))
-                ->values();
-        }
-        if ($context->allows('category')) {
-            $options['category'] = Category::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['id', 'name', 'slug', 'full_path']);
-        }
-        if ($context->allows('budget')) {
-            $options['budget'] = BudgetRange::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get(['id', 'name', 'slug']);
-        }
-
-        return $options;
-    }
-
-    private function activeTaxonomy(EloquentBuilder $query): Collection
-    {
-        return $query
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
-    }
-
-    /**
      * @return array<string, list<string>>
      */
     private function selectedSlugs(): array
@@ -272,35 +229,61 @@ class GiftListing extends Component
     }
 
     /**
-     * @param  array<string, Collection<int, object>>  $options
+     * @param  array<string, Collection<int, DiscoveryFilterOption>>  $options
      * @return list<array{dimension: string, slug: string, label: string}>
      */
     private function activeChips(array $options): array
     {
         $chips = [];
-        $selected = $this->selectedSlugs();
 
-        foreach ($selected as $dimension => $slugs) {
-            if ($slugs === [] || ! isset($options[$dimension])) {
-                continue;
-            }
-
-            foreach ($options[$dimension] as $option) {
-                $value = $dimension === 'category'
-                    ? (string) $option->full_path
-                    : (string) $option->slug;
-
-                if (in_array($value, $slugs, true)) {
-                    $chips[] = [
-                        'dimension' => $dimension,
-                        'slug' => $value,
-                        'label' => (string) $option->name,
-                    ];
+        foreach ($options as $dimension => $dimensionOptions) {
+            foreach ($dimensionOptions as $option) {
+                if (! $option->selected) {
+                    continue;
                 }
+
+                $chips[] = [
+                    'dimension' => $dimension,
+                    'slug' => $option->slug,
+                    'label' => $option->label,
+                ];
             }
         }
 
         return $chips;
+    }
+
+    private function applyFilter(string $dimension, string $slug, bool $enabled): void
+    {
+        $property = $this->propertyFor($dimension);
+
+        if ($property === null) {
+            return;
+        }
+
+        if ($property === 'budget') {
+            $this->budget = $enabled ? $slug : ($this->budget === $slug ? '' : $this->budget);
+            $this->page = 1;
+            $this->syncNormalizedFilters();
+            $this->redirectToHubIfGiftIdeasBudgetCleared();
+
+            return;
+        }
+
+        $current = DiscoveryListingQueryState::decodeList($this->{$property});
+        $isSelected = in_array($slug, $current, true);
+
+        if ($enabled && ! $isSelected) {
+            $current[] = $slug;
+        } elseif (! $enabled && $isSelected) {
+            $current = array_values(array_filter($current, fn (string $item): bool => $item !== $slug));
+        } else {
+            return;
+        }
+
+        $this->{$property} = DiscoveryListingQueryState::encodeList($current);
+        $this->page = 1;
+        $this->syncNormalizedFilters($dimension);
     }
 
     private function propertyFor(string $dimension): ?string

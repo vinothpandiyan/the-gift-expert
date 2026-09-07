@@ -1,63 +1,59 @@
-@php
-    $groups = [
-        'occasion' => 'Occasion',
-        'relationship' => 'Relationship',
-        'recipient' => 'Recipient',
-        'budget' => 'Budget',
-        'interest' => 'Interest',
-        'profession' => 'Profession',
-        'gift_type' => 'Gift Type',
-        'category' => 'Category',
-    ];
-@endphp
+@foreach ($options as $dimension => $dimensionOptions)
+    @continue($dimensionOptions->isEmpty())
 
-@foreach ($groups as $dimension => $label)
-    @continue(! isset($options[$dimension]) || $options[$dimension]->isEmpty())
+    @php
+        $label = \App\DiscoveryListing\DiscoveryListingContext::dimensionLabel($dimension);
+        $headingId = $idPrefix.'-'.$dimension.'-heading';
+        $panelId = $idPrefix.'-'.$dimension.'-panel';
+        $isBudget = $dimension === 'budget';
+        $rows = $dimension === 'category'
+            ? \App\DiscoveryListing\DiscoveryFilterOptionTree::nest($dimensionOptions)
+            : $dimensionOptions->map(fn ($option) => ['option' => $option, 'children' => []])->all();
+    @endphp
 
-    <div class="border-b border-line py-4 last:border-b-0" x-data="{ open: true }">
-        @php $panelId = $idPrefix.'-'.$dimension.'-panel'; @endphp
-        <button
-            type="button"
-            @click="open = ! open"
-            :aria-expanded="open"
-            aria-expanded="true"
-            aria-controls="{{ $panelId }}"
-            class="flex min-h-11 w-full items-center justify-between text-left text-[14px] font-semibold text-ink"
-        >
-            {{ $label }}
-            <span class="text-ink-muted" aria-hidden="true">
-                <svg x-show="open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="size-4">
-                    <path stroke-linecap="round" d="M5 12h14" />
-                </svg>
-                <svg x-show="! open" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="size-4">
-                    <path stroke-linecap="round" d="M12 5v14M5 12h14" />
-                </svg>
-            </span>
-        </button>
+    <fieldset class="border-b border-line py-4 last:border-b-0" x-data="{ open: true }">
+        <legend class="w-full">
+            <button
+                type="button"
+                id="{{ $headingId }}"
+                @click="open = ! open"
+                :aria-expanded="open"
+                aria-expanded="true"
+                aria-controls="{{ $panelId }}"
+                class="flex min-h-11 w-full items-center justify-between text-left text-[14px] font-semibold text-ink"
+            >
+                {{ $label }}
+                <span class="text-ink-muted" aria-hidden="true">
+                    <svg x-show="open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="size-4">
+                        <path stroke-linecap="round" d="M5 12h14" />
+                    </svg>
+                    <svg x-show="! open" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="size-4">
+                        <path stroke-linecap="round" d="M12 5v14M5 12h14" />
+                    </svg>
+                </span>
+            </button>
+        </legend>
 
-        <div id="{{ $panelId }}" x-show="open" class="mt-1.5 flex flex-col">
-            @foreach ($options[$dimension] as $option)
-                @php
-                    $value = $dimension === 'category'
-                        ? (string) $option->full_path
-                        : (string) $option->slug;
-                    $inputId = $idPrefix.'-'.$dimension.'-'.str_replace('/', '-', $value);
-                    $isChecked = in_array($value, $selected[$dimension] ?? [], true);
-                    $isBudget = $dimension === 'budget';
-                @endphp
-                <label for="{{ $inputId }}" class="flex min-h-11 cursor-pointer items-center gap-3 rounded-sm px-1 text-[14px] text-ink hover:text-plum">
-                    <input
-                        id="{{ $inputId }}"
-                        type="{{ $isBudget ? 'radio' : 'checkbox' }}"
-                        @if ($isBudget) name="{{ $idPrefix }}-budget" @endif
-                        value="{{ $value }}"
-                        @checked($isChecked)
-                        wire:click.prevent="toggleFilter('{{ $dimension }}', @js($value))"
-                        class="size-[18px] shrink-0 rounded border-line accent-plum focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
-                    >
-                    <span>{{ $option->name }}</span>
-                </label>
+        <div id="{{ $panelId }}" x-show="open" role="group" aria-labelledby="{{ $headingId }}" class="mt-1.5 flex flex-col">
+            @foreach ($rows as $row)
+                @include('livewire.partials.gift-listing-filter-option', [
+                    'dimension' => $dimension,
+                    'option' => $row['option'],
+                    'idPrefix' => $idPrefix,
+                    'isBudget' => $isBudget,
+                    'indent' => false,
+                ])
+
+                @foreach ($row['children'] as $child)
+                    @include('livewire.partials.gift-listing-filter-option', [
+                        'dimension' => $dimension,
+                        'option' => $child,
+                        'idPrefix' => $idPrefix,
+                        'isBudget' => $isBudget,
+                        'indent' => true,
+                    ])
+                @endforeach
             @endforeach
         </div>
-    </div>
+    </fieldset>
 @endforeach

@@ -28,8 +28,9 @@ class NavigationSeeder extends Seeder
         $this->seedByOccasion();
         $this->seedByInterest();
         $this->seedByProfession();
-        $this->seedDigitalGifts();
+        $this->seedGiftTypes();
         $this->seedReturnGifts();
+        $this->deactivateLinksToInactiveTaxonomy();
 
         Cache::forget(BuildPrimaryNavigationTreeAction::CACHE_KEY);
     }
@@ -38,7 +39,7 @@ class NavigationSeeder extends Seeder
     {
         $menu = $this->upsertMenu('by-recipient', 'By Recipient', 1);
 
-        $this->upsertSectionWithLinks($menu, 'FOR HIM', 1, [
+        $this->syncSectionWithLinks($menu, 'FOR HIM', 1, [
             ['Gifts for Husband', NavigationLinkType::Relationship, Relationship::class, 'husband'],
             ['Gifts for Boyfriend', NavigationLinkType::Relationship, Relationship::class, 'boyfriend'],
             ['Gifts for Dad', NavigationLinkType::Relationship, Relationship::class, 'father'],
@@ -46,7 +47,7 @@ class NavigationSeeder extends Seeder
             ['Gifts for Son', NavigationLinkType::Relationship, Relationship::class, 'son'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'FOR HER', 2, [
+        $this->syncSectionWithLinks($menu, 'FOR HER', 2, [
             ['Gifts for Wife', NavigationLinkType::Relationship, Relationship::class, 'wife'],
             ['Gifts for Girlfriend', NavigationLinkType::Relationship, Relationship::class, 'girlfriend'],
             ['Gifts for Mom', NavigationLinkType::Relationship, Relationship::class, 'mother'],
@@ -54,84 +55,111 @@ class NavigationSeeder extends Seeder
             ['Gifts for Daughter', NavigationLinkType::Relationship, Relationship::class, 'daughter'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'FAMILY', 3, [
+        $this->syncSectionWithLinks($menu, 'FAMILY', 3, [
             ['Gifts for Kids', NavigationLinkType::RecipientType, RecipientType::class, 'kids'],
             ['Gifts for Parents', NavigationLinkType::Relationship, Relationship::class, 'parents'],
             ['Gifts for Grandparents', NavigationLinkType::Relationship, Relationship::class, 'grandparents'],
             ['Gifts for Newlyweds', NavigationLinkType::Relationship, Relationship::class, 'newlyweds'],
-            ['Gifts for Colleagues', NavigationLinkType::Relationship, Relationship::class, 'colleagues'],
+            ['Gifts for Friends', NavigationLinkType::Relationship, Relationship::class, 'friends'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'SPECIAL', 4, [
+        $this->syncSectionWithLinks($menu, 'WORK', 4, [
+            ['Gifts for Colleagues', NavigationLinkType::Relationship, Relationship::class, 'colleagues'],
             ['Gifts for Boss', NavigationLinkType::Relationship, Relationship::class, 'boss'],
-            ['Gifts for Friends', NavigationLinkType::Relationship, Relationship::class, 'friends'],
-            ['Eco-friendly gifts', NavigationLinkType::Interest, Interest::class, 'eco-friendly'],
         ]);
 
         $this->upsertBrowseAll($menu, 'View all recipients');
+        $this->deactivateUnlistedSections($menu, ['FOR HIM', 'FOR HER', 'FAMILY', 'WORK', 'BROWSE ALL']);
     }
 
     private function seedByOccasion(): void
     {
         $menu = $this->upsertMenu('by-occasion', 'By Occasion', 2);
 
-        $this->upsertSectionWithLinks($menu, 'POPULAR', 1, [
+        $this->syncSectionWithLinks($menu, 'CELEBRATIONS', 1, [
             ['Birthday Gifts', NavigationLinkType::Occasion, Occasion::class, 'birthday'],
             ['Anniversary Gifts', NavigationLinkType::Occasion, Occasion::class, 'anniversary'],
             ['Wedding Gifts', NavigationLinkType::Occasion, Occasion::class, 'wedding'],
             ['Engagement Gifts', NavigationLinkType::Occasion, Occasion::class, 'engagement'],
-        ]);
-
-        $this->upsertSectionWithLinks($menu, 'LIFE EVENTS', 2, [
-            ['Baby Shower Gifts', NavigationLinkType::Occasion, Occasion::class, 'baby-shower'],
             ['Housewarming Gifts', NavigationLinkType::Occasion, Occasion::class, 'housewarming'],
-            ['Farewell Gifts', NavigationLinkType::Occasion, Occasion::class, 'farewell'],
-            ['Retirement Gifts', NavigationLinkType::Occasion, Occasion::class, 'retirement'],
+            ['Graduation Gifts', NavigationLinkType::Occasion, Occasion::class, 'graduation'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'FESTIVALS', 3, [
+        $this->syncSectionWithLinks($menu, 'FESTIVALS', 2, [
             ['Diwali Gifts', NavigationLinkType::Occasion, Occasion::class, 'diwali'],
-            ['Pongal Gifts', NavigationLinkType::Occasion, Occasion::class, 'pongal'],
+            ['Holi Gifts', NavigationLinkType::Occasion, Occasion::class, 'holi'],
             ['Raksha Bandhan Gifts', NavigationLinkType::Occasion, Occasion::class, 'raksha-bandhan'],
+            ['Pongal Gifts', NavigationLinkType::Occasion, Occasion::class, 'pongal'],
             ['Eid Gifts', NavigationLinkType::Occasion, Occasion::class, 'eid'],
             ['Christmas Gifts', NavigationLinkType::Occasion, Occasion::class, 'christmas'],
             ['New Year Gifts', NavigationLinkType::Occasion, Occasion::class, 'new-year'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'OTHER', 4, [
-            ['Festival Gifts', NavigationLinkType::Occasion, Occasion::class, 'festival'],
+        $this->syncSectionWithLinks($menu, 'SPECIAL DAYS', 3, [
+            ["Valentine's Day Gifts", NavigationLinkType::Occasion, Occasion::class, 'valentines-day'],
+            ["Mother's Day Gifts", NavigationLinkType::Occasion, Occasion::class, 'mothers-day'],
+            ["Father's Day Gifts", NavigationLinkType::Occasion, Occasion::class, 'fathers-day'],
+        ]);
+
+        $this->syncSectionWithLinks($menu, 'THOUGHTFUL MOMENTS', 4, [
+            ['Just Because Gifts', NavigationLinkType::Occasion, Occasion::class, 'just-because'],
+            ['Get Well Soon Gifts', NavigationLinkType::Occasion, Occasion::class, 'get-well-soon'],
+            ['Farewell Gifts', NavigationLinkType::Occasion, Occasion::class, 'farewell'],
+            ['Baby Shower Gifts', NavigationLinkType::Occasion, Occasion::class, 'baby-shower'],
         ]);
 
         $this->upsertBrowseAll($menu, 'View all occasions');
+        $this->deactivateUnlistedSections($menu, [
+            'CELEBRATIONS',
+            'FESTIVALS',
+            'SPECIAL DAYS',
+            'THOUGHTFUL MOMENTS',
+            'BROWSE ALL',
+        ]);
     }
 
     private function seedByInterest(): void
     {
         $menu = $this->upsertMenu('by-interest', 'By Interest', 3);
 
-        $this->upsertSectionWithLinks($menu, 'FOOD & DRINK', 1, [
+        $this->syncSectionWithLinks($menu, 'FOOD & DRINK', 1, [
             ['Gifts for Food Lovers', NavigationLinkType::Interest, Interest::class, 'food'],
             ['Gifts for Coffee Lovers', NavigationLinkType::Interest, Interest::class, 'coffee'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'ACTIVE', 2, [
+        $this->syncSectionWithLinks($menu, 'ACTIVE', 2, [
             ['Gifts for Fitness Lovers', NavigationLinkType::Interest, Interest::class, 'fitness'],
             ['Gifts for Travel Lovers', NavigationLinkType::Interest, Interest::class, 'travel'],
-            ['Gifts for Pet Lovers', NavigationLinkType::Interest, Interest::class, 'pets'],
+            ['Gifts for Gamers', NavigationLinkType::Interest, Interest::class, 'gaming'],
+            ['Gifts for Sports Fans', NavigationLinkType::Interest, Interest::class, 'sports-fan'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'CREATIVE', 3, [
+        $this->syncSectionWithLinks($menu, 'CREATIVE', 3, [
             ['Gifts for Book Lovers', NavigationLinkType::Interest, Interest::class, 'books'],
-            ['Gifts for Music Lovers', NavigationLinkType::Interest, Interest::class, 'music'],
             ['Gifts for Photography', NavigationLinkType::Interest, Interest::class, 'photography'],
+            ['Gifts for Art & Crafts', NavigationLinkType::Interest, Interest::class, 'art-and-crafts'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'TECH & DIGITAL', 4, [
+        $this->syncSectionWithLinks($menu, 'HOME & WELLNESS', 4, [
+            ['Self-Care & Wellness', NavigationLinkType::Interest, Interest::class, 'self-care-wellness'],
+            ['Gifts for Gardeners', NavigationLinkType::Interest, Interest::class, 'gardening'],
+            ['WFH / Desk Setup', NavigationLinkType::Interest, Interest::class, 'wfh-desk-setup'],
+            ['Eco-Conscious gifts', NavigationLinkType::Interest, Interest::class, 'eco-friendly'],
+        ]);
+
+        $this->syncSectionWithLinks($menu, 'TECH', 5, [
             ['Gifts for Tech Lovers', NavigationLinkType::Interest, Interest::class, 'technology'],
-            ['Eco-friendly gifts', NavigationLinkType::Interest, Interest::class, 'eco-friendly'],
         ]);
 
         $this->upsertBrowseAll($menu, 'View all interests');
+        $this->deactivateUnlistedSections($menu, [
+            'FOOD & DRINK',
+            'ACTIVE',
+            'CREATIVE',
+            'HOME & WELLNESS',
+            'TECH',
+            'BROWSE ALL',
+        ]);
     }
 
     private function seedByProfession(): void
@@ -159,24 +187,27 @@ class NavigationSeeder extends Seeder
         ]);
 
         $this->upsertBrowseAll($menu, 'View all professions');
+        $this->deactivateUnlistedSections($menu, ['HEALTHCARE', 'TECH', 'BUSINESS', 'EDUCATION', 'BROWSE ALL']);
     }
 
-    private function seedDigitalGifts(): void
+    private function seedGiftTypes(): void
     {
-        $menu = $this->upsertMenu('digital-gifts', 'Digital Gifts', 5);
+        $menu = $this->upsertMenu('digital-gifts', 'Gift Types', 5);
 
-        $this->upsertSectionWithLinks($menu, 'INSTANT', 1, [
+        $this->syncSectionWithLinks($menu, 'STYLES', 1, [
+            ['Personalized Gifts', NavigationLinkType::GiftType, GiftType::class, 'personalized-gifts'],
+            ['Hampers / Gift Sets', NavigationLinkType::GiftType, GiftType::class, 'hampers-gift-sets'],
+            ['Experience Gifts', NavigationLinkType::GiftType, GiftType::class, 'experience-gifts'],
+        ]);
+
+        $this->syncSectionWithLinks($menu, 'INSTANT', 2, [
             ['Gift Cards', NavigationLinkType::GiftType, GiftType::class, 'gift-cards'],
             ['Subscriptions', NavigationLinkType::GiftType, GiftType::class, 'subscriptions'],
-            ['Instant Digital Gifts', NavigationLinkType::GiftType, GiftType::class, 'digital-instant-gifts'],
+            ['Digital / Instant Gifts', NavigationLinkType::GiftType, GiftType::class, 'digital-instant-gifts'],
         ]);
 
-        $this->upsertSectionWithLinks($menu, 'LEARNING', 2, [
-            ['Online Course Gifts', NavigationLinkType::GiftType, GiftType::class, 'online-courses'],
-            ['E-books & Audiobooks', NavigationLinkType::GiftType, GiftType::class, 'ebooks-audiobooks'],
-        ]);
-
-        $this->upsertBrowseAll($menu, 'View all digital gifts');
+        $this->upsertBrowseAll($menu, 'View all gift types');
+        $this->deactivateUnlistedSections($menu, ['STYLES', 'INSTANT', 'BROWSE ALL']);
     }
 
     private function seedReturnGifts(): void
@@ -192,18 +223,17 @@ class NavigationSeeder extends Seeder
             ['Engagement return gifts', 'engagement-return-gifts'],
         ]);
 
-        $this->upsertEmptySection($menu, 'CORPORATE', 2);
-
-        $this->upsertSeoLandingPageSection($menu, 'BY BUDGET', 3, [
+        $this->upsertSeoLandingPageSection($menu, 'BY BUDGET', 2, [
             ['Return gifts under ₹500', 'return-gifts-under-500'],
         ]);
 
         $this->upsertReturnGiftsHub($menu);
+        $this->deactivateUnlistedSections($menu, ['BY EVENT', 'BY BUDGET', 'BROWSE ALL']);
     }
 
     private function deactivateObsoleteReturnGiftSections(NavigationMenu $menu): void
     {
-        $keep = ['BY EVENT', 'CORPORATE', 'BY BUDGET', 'BROWSE ALL'];
+        $keep = ['BY EVENT', 'BY BUDGET', 'BROWSE ALL'];
 
         $obsolete = $menu->sections()->whereNotIn('heading', $keep)->get();
 
@@ -337,6 +367,70 @@ class NavigationSeeder extends Seeder
     /**
      * @param  list<array{0: string, 1: NavigationLinkType, 2: class-string<Model>, 3: string}>  $definitions
      */
+    private function syncSectionWithLinks(
+        NavigationMenu $menu,
+        string $heading,
+        int $sortOrder,
+        array $definitions,
+    ): void {
+        $this->upsertSectionWithLinks($menu, $heading, $sortOrder, $definitions);
+        $this->deactivateLinksMissingFromDefinitions($menu, $heading, $definitions);
+    }
+
+    /**
+     * @param  list<array{0: string, 1: NavigationLinkType, 2: class-string<Model>, 3: string}>  $definitions
+     */
+    private function deactivateLinksMissingFromDefinitions(
+        NavigationMenu $menu,
+        string $heading,
+        array $definitions,
+    ): void {
+        $section = $menu->sections()->where('heading', $heading)->first();
+
+        if ($section === null) {
+            return;
+        }
+
+        $keep = [];
+
+        foreach ($definitions as [$label, $linkType, $modelClass, $slug]) {
+            $id = $this->activeId($modelClass, $slug);
+
+            if ($id === null) {
+                continue;
+            }
+
+            $keep[] = $linkType->value.':'.$id;
+        }
+
+        $section->links()
+            ->where('is_active', true)
+            ->get()
+            ->each(function (NavigationLink $link) use ($keep): void {
+                $key = $link->link_type->value.':'.(int) $link->linkable_id;
+
+                if (! in_array($key, $keep, true)) {
+                    $link->update(['is_active' => false]);
+                }
+            });
+    }
+
+    /**
+     * @param  list<string>  $keepHeadings
+     */
+    private function deactivateUnlistedSections(NavigationMenu $menu, array $keepHeadings): void
+    {
+        $obsolete = $menu->sections()->whereNotIn('heading', $keepHeadings)->get();
+
+        foreach ($obsolete as $section) {
+            $section->links()->update(['is_active' => false]);
+            $section->update(['is_active' => false]);
+        }
+    }
+
+    /**
+     * @param  list<array{0: string, 1: NavigationLinkType, 2: class-string<Model>, 3: string}>  $definitions
+     */
     private function upsertSectionWithLinks(
         NavigationMenu $menu,
         string $heading,
@@ -437,5 +531,63 @@ class NavigationSeeder extends Seeder
             ->value('id');
 
         return $id === null ? null : (int) $id;
+    }
+
+    private function deactivateLinksToInactiveTaxonomy(): void
+    {
+        $this->deactivateLinksFor(NavigationLinkType::Occasion, Occasion::class);
+        $this->deactivateLinksFor(NavigationLinkType::GiftType, GiftType::class);
+        $this->deactivateLinksFor(NavigationLinkType::Interest, Interest::class);
+        $this->deactivateLinksFor(NavigationLinkType::RecipientType, RecipientType::class);
+        $this->deactivateLinksFor(NavigationLinkType::Relationship, Relationship::class);
+        $this->deactivateLinksFor(NavigationLinkType::Profession, Profession::class);
+
+        $this->deactivateEmptySection('by-occasion', 'OTHER');
+        $this->deactivateEmptySection('by-occasion', 'POPULAR');
+        $this->deactivateEmptySection('by-occasion', 'LIFE EVENTS');
+        $this->deactivateEmptySection('digital-gifts', 'LEARNING');
+        $this->deactivateEmptySection('by-recipient', 'SPECIAL');
+        $this->deactivateEmptySection('return-gifts', 'CORPORATE');
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
+     */
+    private function deactivateLinksFor(NavigationLinkType $linkType, string $modelClass): void
+    {
+        $activeIds = $modelClass::query()
+            ->where('is_active', true)
+            ->pluck('id')
+            ->all();
+
+        NavigationLink::query()
+            ->where('link_type', $linkType)
+            ->whereNotNull('linkable_id')
+            ->when(
+                $activeIds !== [],
+                fn ($query) => $query->whereNotIn('linkable_id', $activeIds),
+            )
+            ->update(['is_active' => false]);
+    }
+
+    private function deactivateEmptySection(string $menuSlug, string $heading): void
+    {
+        $menu = NavigationMenu::query()->where('slug', $menuSlug)->first();
+
+        if ($menu === null) {
+            return;
+        }
+
+        $section = $menu->sections()->where('heading', $heading)->first();
+
+        if ($section === null) {
+            return;
+        }
+
+        $hasActiveLinks = $section->links()->where('is_active', true)->exists();
+
+        if (! $hasActiveLinks) {
+            $section->update(['is_active' => false]);
+        }
     }
 }

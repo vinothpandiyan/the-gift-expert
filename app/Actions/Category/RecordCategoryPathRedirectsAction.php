@@ -27,11 +27,15 @@ class RecordCategoryPathRedirectsAction
 
         CategoryPathRedirect::query()
             ->where('to_path', $fromPath)
+            ->whereNull('to_url')
             ->update(['to_path' => $toPath]);
 
         CategoryPathRedirect::query()->updateOrCreate(
             ['from_path' => $fromPath],
-            ['to_path' => $toPath],
+            [
+                'to_path' => $toPath,
+                'to_url' => null,
+            ],
         );
     }
 }

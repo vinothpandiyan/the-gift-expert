@@ -38,11 +38,11 @@ class ProductSeeder extends Seeder
             shortDescription: 'A customizable wooden photo frame gift.',
             description: 'Sample published gift with taxonomy links for local development.',
             price: '1499.00',
-            categorySlug: 'personalized-gifts',
+            categorySlug: 'home-and-living',
             occasionSlugs: ['birthday'],
             relationshipSlugs: ['husband'],
             interestSlugs: ['photography'],
-            giftTypeSlugs: ['return-gifts'],
+            giftTypeSlugs: ['personalized-gifts', 'return-gifts'],
         );
 
         $this->seedPublishedGift(
@@ -212,7 +212,7 @@ class ProductSeeder extends Seeder
         $primaryCategory = Category::query()->where('slug', $categorySlug)->whereNull('parent_id')->first();
 
         if ($primaryCategory !== null) {
-            $product->categories()->syncWithoutDetaching([
+            $product->categories()->sync([
                 $primaryCategory->id => ['is_primary' => true],
             ]);
         }
@@ -220,7 +220,7 @@ class ProductSeeder extends Seeder
         $this->syncBySlug($product, 'occasions', Occasion::class, $occasionSlugs);
         $this->syncBySlug($product, 'relationships', Relationship::class, $relationshipSlugs);
         $this->syncBySlug($product, 'interests', Interest::class, $interestSlugs);
-        $this->syncBySlug($product, 'giftTypes', GiftType::class, $giftTypeSlugs);
+        $this->syncBySlug($product, 'giftTypes', GiftType::class, $giftTypeSlugs, replace: true);
 
         if ($product->status !== ProductStatus::Published) {
             app(PublishProductAction::class)->execute($product->fresh());
@@ -231,13 +231,19 @@ class ProductSeeder extends Seeder
      * @param  class-string  $model
      * @param  list<string>  $slugs
      */
-    private function syncBySlug(Product $product, string $relation, string $model, array $slugs): void
+    private function syncBySlug(Product $product, string $relation, string $model, array $slugs, bool $replace = false): void
     {
-        if ($slugs === []) {
+        if ($slugs === [] && ! $replace) {
             return;
         }
 
         $ids = $model::query()->whereIn('slug', $slugs)->pluck('id');
+
+        if ($replace) {
+            $product->{$relation}()->sync($ids->all());
+
+            return;
+        }
 
         if ($ids->isEmpty()) {
             return;

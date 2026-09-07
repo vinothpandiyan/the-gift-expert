@@ -40,4 +40,23 @@ final class GiftCatalogTestHelpers
 
         return $product->fresh(['images', 'affiliateLinks.merchant']);
     }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, list<object>|object>  $relations
+     */
+    public static function taggedGift(array $attributes, array $relations): Product
+    {
+        $product = self::publishedGift($attributes);
+
+        foreach ($relations as $relation => $models) {
+            $ids = collect(is_array($models) ? $models : [$models])
+                ->map(fn ($model) => (int) $model->id)
+                ->all();
+
+            $product->{$relation}()->attach($ids);
+        }
+
+        return $product;
+    }
 }

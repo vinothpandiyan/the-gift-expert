@@ -66,7 +66,7 @@ class NavigationMenuResourceTest extends TestCase
             ->assertOk()
             ->assertSee('By Recipient')
             ->assertSee('By Occasion')
-            ->assertSee('Digital Gifts');
+            ->assertSee('Gift Types');
     }
 
     public function test_it_can_create_a_mega_menu_with_sections_and_links(): void

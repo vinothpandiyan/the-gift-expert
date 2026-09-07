@@ -82,6 +82,7 @@ class NavigationSeederTest extends TestCase
         $husband = Relationship::query()->where('slug', 'husband')->firstOrFail();
         $kids = RecipientType::query()->where('slug', 'kids')->firstOrFail();
         $eco = Interest::query()->where('slug', 'eco-friendly')->firstOrFail();
+        $colleagues = Relationship::query()->where('slug', 'colleagues')->firstOrFail();
 
         $husbandLink = $this->linkOnMenu('by-recipient', 'Gifts for Husband');
         $this->assertSame(NavigationLinkType::Relationship, $husbandLink->link_type);
@@ -97,9 +98,21 @@ class NavigationSeederTest extends TestCase
             $kidsLink->linkable_id,
         );
 
-        $ecoLink = $this->linkOnMenu('by-recipient', 'Eco-friendly gifts');
+        $colleaguesLink = $this->linkOnMenu('by-recipient', 'Gifts for Colleagues');
+        $this->assertSame(NavigationLinkType::Relationship, $colleaguesLink->link_type);
+        $this->assertSame($colleagues->id, $colleaguesLink->linkable_id);
+        $this->assertSame('WORK', $colleaguesLink->section->heading);
+
+        $ecoLink = $this->linkOnMenu('by-interest', 'Eco-Conscious gifts');
         $this->assertSame(NavigationLinkType::Interest, $ecoLink->link_type);
         $this->assertSame($eco->id, $ecoLink->linkable_id);
+        $this->assertSame('HOME & WELLNESS', $ecoLink->section->heading);
+        $this->assertNull(
+            NavigationLink::query()
+                ->where('label', 'Eco-friendly gifts')
+                ->where('is_active', true)
+                ->first(),
+        );
     }
 
     public function test_browse_all_uses_gift_ideas_discovery_route(): void
@@ -121,18 +134,23 @@ class NavigationSeederTest extends TestCase
         $this->seedPrerequisitesAndNavigation();
 
         $this->assertLinkSlugsMatch('by-occasion', NavigationLinkType::Occasion, Occasion::class, [
-            'birthday', 'anniversary', 'wedding', 'engagement',
-            'baby-shower', 'housewarming', 'farewell', 'retirement',
-            'diwali', 'pongal', 'raksha-bandhan', 'eid', 'christmas', 'new-year', 'festival',
+            'birthday', 'anniversary', 'wedding', 'engagement', 'housewarming', 'graduation',
+            'diwali', 'holi', 'raksha-bandhan', 'pongal', 'eid', 'christmas', 'new-year',
+            'valentines-day', 'mothers-day', 'fathers-day',
+            'just-because', 'get-well-soon', 'farewell', 'baby-shower',
         ]);
         $this->assertLinkSlugsMatch('by-interest', NavigationLinkType::Interest, Interest::class, [
-            'food', 'coffee', 'fitness', 'travel', 'pets', 'books', 'music', 'photography', 'technology', 'eco-friendly',
+            'food', 'coffee', 'fitness', 'travel', 'gaming', 'sports-fan',
+            'books', 'photography', 'art-and-crafts',
+            'self-care-wellness', 'gardening', 'wfh-desk-setup', 'eco-friendly',
+            'technology',
         ]);
         $this->assertLinkSlugsMatch('by-profession', NavigationLinkType::Profession, Profession::class, [
             'doctor', 'engineer', 'software-developer', 'designer', 'business-owner', 'ca-finance', 'content-creator', 'teacher',
         ]);
         $this->assertLinkSlugsMatch('digital-gifts', NavigationLinkType::GiftType, GiftType::class, [
-            'gift-cards', 'subscriptions', 'digital-instant-gifts', 'online-courses', 'ebooks-audiobooks',
+            'personalized-gifts', 'hampers-gift-sets', 'experience-gifts',
+            'gift-cards', 'subscriptions', 'digital-instant-gifts',
         ]);
 
         $returnGifts = GiftType::query()->where('slug', 'return-gifts')->firstOrFail();
@@ -148,8 +166,7 @@ class NavigationSeederTest extends TestCase
         $menu = NavigationMenu::query()->where('slug', 'return-gifts')->firstOrFail();
         $headings = $menu->sections()->where('is_active', true)->orderBy('sort_order')->pluck('heading')->all();
 
-        $this->assertSame(['BY EVENT', 'CORPORATE', 'BY BUDGET', 'BROWSE ALL'], $headings);
-        $this->assertSame(0, $this->sectionLinkCount($menu, 'CORPORATE'));
+        $this->assertSame(['BY EVENT', 'BY BUDGET', 'BROWSE ALL'], $headings);
         $this->assertSame(0, $this->sectionLinkCount($menu, 'BY EVENT'));
         $this->assertSame(0, $this->sectionLinkCount($menu, 'BY BUDGET'));
     }
@@ -160,10 +177,9 @@ class NavigationSeederTest extends TestCase
 
         $menu = NavigationMenu::query()->where('slug', 'return-gifts')->firstOrFail();
         $this->assertSame(
-            ['BY EVENT', 'CORPORATE', 'BY BUDGET', 'BROWSE ALL'],
+            ['BY EVENT', 'BY BUDGET', 'BROWSE ALL'],
             $menu->sections()->where('is_active', true)->orderBy('sort_order')->pluck('heading')->all(),
         );
-        $this->assertSame(0, $this->sectionLinkCount($menu, 'CORPORATE'));
         $this->assertSame(4, $this->sectionLinkCount($menu, 'BY EVENT'));
         $this->assertSame(1, $this->sectionLinkCount($menu, 'BY BUDGET'));
 
@@ -260,12 +276,17 @@ class NavigationSeederTest extends TestCase
 
         $this->assertSame(DiscoveryUrl::relationship('husband'), $this->treeHref($bySlug['by-recipient'], 'Gifts for Husband'));
         $this->assertSame(DiscoveryUrl::recipientType('kids'), $this->treeHref($bySlug['by-recipient'], 'Gifts for Kids'));
-        $this->assertSame(DiscoveryUrl::interest('eco-friendly'), $this->treeHref($bySlug['by-recipient'], 'Eco-friendly gifts'));
+        $this->assertSame(DiscoveryUrl::relationship('colleagues'), $this->treeHref($bySlug['by-recipient'], 'Gifts for Colleagues'));
+        $this->assertSame(DiscoveryUrl::interest('eco-friendly'), $this->treeHref($bySlug['by-interest'], 'Eco-Conscious gifts'));
         $this->assertSame(DiscoveryUrl::giftIdeas(), $this->treeHref($bySlug['by-recipient'], 'View all recipients'));
         $this->assertSame(DiscoveryUrl::occasion('birthday'), $this->treeHref($bySlug['by-occasion'], 'Birthday Gifts'));
+        $this->assertSame(DiscoveryUrl::occasion('holi'), $this->treeHref($bySlug['by-occasion'], 'Holi Gifts'));
+        $this->assertSame(DiscoveryUrl::occasion('valentines-day'), $this->treeHref($bySlug['by-occasion'], "Valentine's Day Gifts"));
         $this->assertSame(DiscoveryUrl::interest('coffee'), $this->treeHref($bySlug['by-interest'], 'Gifts for Coffee Lovers'));
         $this->assertSame(DiscoveryUrl::profession('doctor'), $this->treeHref($bySlug['by-profession'], 'Gifts for Doctor'));
         $this->assertSame(DiscoveryUrl::giftType('gift-cards'), $this->treeHref($bySlug['digital-gifts'], 'Gift Cards'));
+        $this->assertSame(DiscoveryUrl::giftType('personalized-gifts'), $this->treeHref($bySlug['digital-gifts'], 'Personalized Gifts'));
+        $this->assertSame('Gift Types', $bySlug['digital-gifts']['label']);
         $this->assertSame(DiscoveryUrl::giftType('return-gifts'), $this->treeHref($bySlug['return-gifts'], 'View all return gifts'));
         $this->assertFalse(collect($tree)->pluck('slug')->contains('blog'));
         $this->assertSame(['BROWSE ALL'], collect($bySlug['return-gifts']['sections'])->pluck('heading')->all());
@@ -290,12 +311,17 @@ class NavigationSeederTest extends TestCase
     {
         $this->seedPrerequisitesAndNavigation();
 
-        $labels = NavigationLink::query()->pluck('label');
+        $labels = NavigationLink::query()->where('is_active', true)->pluck('label');
 
         $this->assertFalse($labels->contains('Gifts for Nurse'));
-        $this->assertFalse($labels->contains('Gifts for Gamers'));
-        $this->assertFalse($labels->contains("Valentine's Day Gifts"));
+        $this->assertFalse($labels->contains('Festival Gifts'));
+        $this->assertFalse($labels->contains('Online Courses'));
+        $this->assertFalse($labels->contains('E-books & Audiobooks'));
         $this->assertFalse($labels->contains('Return gift calculator'));
+        $this->assertFalse($labels->contains('Eco-friendly gifts'));
+        $this->assertTrue($labels->contains("Valentine's Day Gifts"));
+        $this->assertTrue($labels->contains('Gifts for Gamers'));
+        $this->assertTrue($labels->contains('Personalized Gifts'));
     }
 
     private function seedPrerequisitesAndNavigation(): void
@@ -326,6 +352,7 @@ class NavigationSeederTest extends TestCase
         return NavigationLink::query()
             ->whereIn('navigation_section_id', $menu->sections()->pluck('id'))
             ->where('label', $label)
+            ->where('is_active', true)
             ->firstOrFail();
     }
 
@@ -343,6 +370,7 @@ class NavigationSeederTest extends TestCase
         $ids = NavigationLink::query()
             ->whereIn('navigation_section_id', $menu->sections()->pluck('id'))
             ->where('link_type', $linkType)
+            ->where('is_active', true)
             ->pluck('linkable_id');
 
         $slugs = $modelClass::query()->whereIn('id', $ids)->pluck('slug')->sort()->values();

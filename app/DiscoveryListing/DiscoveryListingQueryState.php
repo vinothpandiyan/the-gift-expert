@@ -180,6 +180,161 @@ final class DiscoveryListingQueryState
     }
 
     /**
+     * Drop user-selected values for one listing dimension so facet counts
+     * for that dimension stay disjunctive.
+     */
+    public function withoutUserDimension(string $dimension): self
+    {
+        return new self(
+            occasionSlugs: $dimension === 'occasion' ? [] : $this->occasionSlugs,
+            relationshipSlugs: $dimension === 'relationship' ? [] : $this->relationshipSlugs,
+            recipientSlugs: $dimension === 'recipient' ? [] : $this->recipientSlugs,
+            interestSlugs: $dimension === 'interest' ? [] : $this->interestSlugs,
+            professionSlugs: $dimension === 'profession' ? [] : $this->professionSlugs,
+            giftTypeSlugs: $dimension === 'gift_type' ? [] : $this->giftTypeSlugs,
+            categoryPaths: $dimension === 'category' ? [] : $this->categoryPaths,
+            budgetSlug: $dimension === 'budget' ? null : $this->budgetSlug,
+            sort: $this->sort,
+            page: $this->page,
+        );
+    }
+
+    public function withoutUserTaxonomy(): self
+    {
+        return new self(
+            budgetSlug: $this->budgetSlug,
+            sort: $this->sort,
+            page: $this->page,
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function slugsFor(string $dimension): array
+    {
+        return match ($dimension) {
+            'occasion' => $this->occasionSlugs,
+            'relationship' => $this->relationshipSlugs,
+            'recipient' => $this->recipientSlugs,
+            'interest' => $this->interestSlugs,
+            'profession' => $this->professionSlugs,
+            'gift_type' => $this->giftTypeSlugs,
+            'category' => $this->categoryPaths,
+            'budget' => $this->budgetSlug !== null ? [$this->budgetSlug] : [],
+            default => [],
+        };
+    }
+
+    /**
+     * @param  list<string>  $slugs
+     */
+    public function withSlugsFor(string $dimension, array $slugs): self
+    {
+        $slugs = self::decodeList($slugs);
+
+        return match ($dimension) {
+            'occasion' => new self(
+                occasionSlugs: $slugs,
+                relationshipSlugs: $this->relationshipSlugs,
+                recipientSlugs: $this->recipientSlugs,
+                interestSlugs: $this->interestSlugs,
+                professionSlugs: $this->professionSlugs,
+                giftTypeSlugs: $this->giftTypeSlugs,
+                categoryPaths: $this->categoryPaths,
+                budgetSlug: $this->budgetSlug,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            'relationship' => new self(
+                occasionSlugs: $this->occasionSlugs,
+                relationshipSlugs: $slugs,
+                recipientSlugs: $this->recipientSlugs,
+                interestSlugs: $this->interestSlugs,
+                professionSlugs: $this->professionSlugs,
+                giftTypeSlugs: $this->giftTypeSlugs,
+                categoryPaths: $this->categoryPaths,
+                budgetSlug: $this->budgetSlug,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            'recipient' => new self(
+                occasionSlugs: $this->occasionSlugs,
+                relationshipSlugs: $this->relationshipSlugs,
+                recipientSlugs: $slugs,
+                interestSlugs: $this->interestSlugs,
+                professionSlugs: $this->professionSlugs,
+                giftTypeSlugs: $this->giftTypeSlugs,
+                categoryPaths: $this->categoryPaths,
+                budgetSlug: $this->budgetSlug,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            'interest' => new self(
+                occasionSlugs: $this->occasionSlugs,
+                relationshipSlugs: $this->relationshipSlugs,
+                recipientSlugs: $this->recipientSlugs,
+                interestSlugs: $slugs,
+                professionSlugs: $this->professionSlugs,
+                giftTypeSlugs: $this->giftTypeSlugs,
+                categoryPaths: $this->categoryPaths,
+                budgetSlug: $this->budgetSlug,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            'profession' => new self(
+                occasionSlugs: $this->occasionSlugs,
+                relationshipSlugs: $this->relationshipSlugs,
+                recipientSlugs: $this->recipientSlugs,
+                interestSlugs: $this->interestSlugs,
+                professionSlugs: $slugs,
+                giftTypeSlugs: $this->giftTypeSlugs,
+                categoryPaths: $this->categoryPaths,
+                budgetSlug: $this->budgetSlug,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            'gift_type' => new self(
+                occasionSlugs: $this->occasionSlugs,
+                relationshipSlugs: $this->relationshipSlugs,
+                recipientSlugs: $this->recipientSlugs,
+                interestSlugs: $this->interestSlugs,
+                professionSlugs: $this->professionSlugs,
+                giftTypeSlugs: $slugs,
+                categoryPaths: $this->categoryPaths,
+                budgetSlug: $this->budgetSlug,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            'category' => new self(
+                occasionSlugs: $this->occasionSlugs,
+                relationshipSlugs: $this->relationshipSlugs,
+                recipientSlugs: $this->recipientSlugs,
+                interestSlugs: $this->interestSlugs,
+                professionSlugs: $this->professionSlugs,
+                giftTypeSlugs: $this->giftTypeSlugs,
+                categoryPaths: $slugs,
+                budgetSlug: $this->budgetSlug,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            'budget' => new self(
+                occasionSlugs: $this->occasionSlugs,
+                relationshipSlugs: $this->relationshipSlugs,
+                recipientSlugs: $this->recipientSlugs,
+                interestSlugs: $this->interestSlugs,
+                professionSlugs: $this->professionSlugs,
+                giftTypeSlugs: $this->giftTypeSlugs,
+                categoryPaths: $this->categoryPaths,
+                budgetSlug: $slugs[0] ?? null,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            default => $this,
+        };
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toProductFilters(DiscoveryListingContext $context): array

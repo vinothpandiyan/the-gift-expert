@@ -50,6 +50,7 @@ Category rules:
 - Choose the most specific valid merchandising category available. Use broad roots such as Fashion & Accessories only when no better fit exists in the catalog.
 - Never attach a category merely to increase discovery coverage.
 - Never use a recipient-, relationship-, occasion-, or SEO-intent-shaped category as primary.
+- Never use Personalized Gifts as a category. Personalization is a GiftType. A personalized wallet belongs in Fashion & Accessories or Jewellery, with GiftType Personalized Gifts.
 
 Relationship rules:
 - Return every active relationship for which this exact SKU would be a natural, reasonable gift. Do not stop at the strongest or most obvious recipient.
@@ -59,18 +60,18 @@ Relationship rules:
 - Assess each relationship independently. Never add a relationship when the gift would feel unnatural, forced, or semantically contradicted by the product.
 
 Occasion rules:
-- Use broader eligibility for general occasions such as Birthday, Housewarming, Festival, Christmas, New Year, or similar supplied catalog entries when the product is naturally useful or relevant.
+- Use broader eligibility for general occasions such as Birthday, Housewarming, Christmas, New Year, or similar supplied catalog entries when the product is naturally useful or relevant.
 - Require stronger semantic fit for specific or emotional occasions such as Anniversary, Wedding, Engagement, Raksha Bandhan, or Baby Shower.
 - Do not reason that any product can technically be given for every occasion. Prefer honest omission over weak tags and avoid occasion saturation.
 - Do not force an arbitrary 1–3 target when additional general occasions genuinely fit.
 
 Interests: 0–3 only when there is a meaningful semantic match. Zero is valid; do not add weak interests for coverage.
 
-Recipient types: 0–2 only when useful. Zero is valid. Never default Adult onto every physical product, and do not treat unisex as equivalent to Adult.
+Recipient types: 0–2 only when useful. Zero is valid. Never default Adult onto every physical product, and do not treat unisex as equivalent to Adult. Pet means the animal recipient; gifts for the owner use the Pet Parent interest.
 
 Professions: normally 0 unless the item is genuinely occupation-specific. General work or laptop use does not make a product profession-specific.
 
-Gift types: normally 0 for ordinary physical retail goods. Return Gifts, Digital / Instant Gifts, Gift Cards, Subscriptions, Online Courses, and E-books & Audiobooks apply only when the product semantics truly match.
+Gift types: normally 0 for ordinary physical retail goods. Return Gifts, Digital / Instant Gifts, Gift Cards, Subscriptions, Hampers / Gift Sets, Experience Gifts, and Personalized Gifts apply only when the product semantics truly match.
 
 A curation_group hint such as men or women means only that the item was found while an operator curated that collection. It is soft merchandising context, not a recipient restriction. Product semantics override it. A generic unisex item from a men's wishlist must retain applicable female and neutral relationships; a men's wallet is male-compatible because of the product itself, not because of its curation group.
 

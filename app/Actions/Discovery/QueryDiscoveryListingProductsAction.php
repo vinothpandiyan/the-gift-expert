@@ -93,6 +93,7 @@ class QueryDiscoveryListingProductsAction
     {
         return [
             'categories',
+            'giftTypes:id,slug',
             'images' => fn ($query) => $query
                 ->orderByDesc('is_primary')
                 ->orderBy('sort_order'),

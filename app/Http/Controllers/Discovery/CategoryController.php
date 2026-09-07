@@ -24,11 +24,16 @@ class CategoryController extends Controller
         QueryDiscoverableSeoLandingPagesAction $queryLandingPages,
         QueryDiscoveryListingProductsAction $queryListing,
     ): RedirectResponse|View {
-        $path = $this->resolvedCategoryPath($full_path);
+        $resolved = $this->resolvedCategoryDestination($full_path);
+
+        if ($resolved instanceof RedirectResponse) {
+            return $resolved;
+        }
+
+        $path = $resolved;
 
         $category = Category::query()
             ->where('full_path', $path)
-            ->where('is_active', true)
             ->with(['parent', 'canonicalSeoLandingPage'])
             ->first();
 
@@ -40,6 +45,10 @@ class CategoryController extends Controller
 
         if ($landingPage !== null) {
             return redirect(DiscoveryUrl::seoLandingPage($landingPage->slug), 301);
+        }
+
+        if (! $category->is_active) {
+            abort(404);
         }
 
         if ($path !== $full_path) {
@@ -78,7 +87,7 @@ class CategoryController extends Controller
         ]);
     }
 
-    private function resolvedCategoryPath(string $fullPath): string
+    private function resolvedCategoryDestination(string $fullPath): RedirectResponse|string
     {
         $path = $fullPath;
 
@@ -91,7 +100,11 @@ class CategoryController extends Controller
                 break;
             }
 
-            if ($redirect->to_path === $path) {
+            if (filled($redirect->to_url)) {
+                return redirect($redirect->to_url, 301);
+            }
+
+            if (! is_string($redirect->to_path) || $redirect->to_path === '' || $redirect->to_path === $path) {
                 break;
             }
 

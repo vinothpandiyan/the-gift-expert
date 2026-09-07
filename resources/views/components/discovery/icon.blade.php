@@ -16,6 +16,9 @@
     @case('anniversary')
     @case('wedding')
     @case('engagement')
+    @case('valentines-day')
+    @case('mothers-day')
+    @case('fathers-day')
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" {{ $attributes->merge(['class' => $class]) }} aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-6.5-4.35-9-8.5C1.5 9.5 3 6 6.5 6 8.7 6 10.2 7.2 12 9c1.8-1.8 3.3-3 5.5-3C21 6 22.5 9.5 21 12.5 18.5 16.65 12 21 12 21Z" />
         </svg>
@@ -27,6 +30,12 @@
         @break
     @case('diwali')
     @case('festival')
+    @case('holi')
+    @case('raksha-bandhan')
+    @case('pongal')
+    @case('eid')
+    @case('christmas')
+    @case('new-year')
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" {{ $attributes->merge(['class' => $class]) }} aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c.8 3 3 5.2 3 8.2A3 3 0 1 1 9 11.2C9 8.2 11.2 6 12 3Zm-6.5 14.5c2.2-1 4.2-1.5 6.5-1.5s4.3.5 6.5 1.5M8 20c1.3-.4 2.6-.6 4-.6s2.7.2 4 .6" />
         </svg>

@@ -48,6 +48,16 @@ class CategorySeoLandingPageConsolidationTest extends TestCase
             ->assertRedirect(DiscoveryUrl::seoLandingPage($page->slug));
     }
 
+    public function test_inactive_mapped_category_url_still_redirects_to_published_landing_page(): void
+    {
+        [$category, $page] = $this->mappedCompositeCategory();
+        $category->update(['is_active' => false]);
+
+        $this->get(DiscoveryUrl::giftIdeasCategory($category->full_path))
+            ->assertStatus(301)
+            ->assertRedirect(DiscoveryUrl::seoLandingPage($page->slug));
+    }
+
     public function test_historical_category_path_redirects_directly_to_landing_page(): void
     {
         [$category, $page] = $this->mappedCompositeCategory();

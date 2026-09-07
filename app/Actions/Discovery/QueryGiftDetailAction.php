@@ -116,11 +116,7 @@ class QueryGiftDetailAction
             return 'Featured';
         }
 
-        $isPersonalized = $product->categories->contains(
-            fn (Category $category): bool => $category->slug === 'personalized-gifts',
-        );
-
-        return $isPersonalized ? 'Personalized' : null;
+        return $product->isPersonalized() ? 'Personalized' : null;
     }
 
     /**

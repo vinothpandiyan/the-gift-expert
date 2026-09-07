@@ -161,6 +161,8 @@ class ValidateProductTaxonomyClassificationActionTest extends TestCase
         ]);
 
         $this->assertSame($home->id, $mappedResult->primaryCategoryId);
+        $this->assertSame([$home->id], $mappedResult->categoryIds);
+        $this->assertContains($mapped->id, $mappedResult->rejectedIds);
 
         $birthdayResult = $validator->execute([
             'primary_category_id' => $birthdayGifts->id,
@@ -174,6 +176,7 @@ class ValidateProductTaxonomyClassificationActionTest extends TestCase
         ]);
 
         $this->assertNull($birthdayResult->primaryCategoryId);
+        $this->assertSame([], $birthdayResult->categoryIds);
         $this->assertContains('missing_primary_category', $birthdayResult->exceptionCodes);
 
         $himResult = $validator->execute([
@@ -188,6 +191,7 @@ class ValidateProductTaxonomyClassificationActionTest extends TestCase
         ]);
 
         $this->assertNull($himResult->primaryCategoryId);
+        $this->assertSame([], $himResult->categoryIds);
     }
 
     public function test_it_keeps_valid_profession_and_gift_type_ids_without_keyword_rules(): void

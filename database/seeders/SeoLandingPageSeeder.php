@@ -65,7 +65,7 @@ class SeoLandingPageSeeder extends Seeder
 
         $category->update([
             'canonical_seo_landing_page_id' => $page->id,
-            'is_active' => true,
+            'is_active' => false,
         ]);
     }
 

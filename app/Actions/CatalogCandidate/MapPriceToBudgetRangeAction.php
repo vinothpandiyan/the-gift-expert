@@ -18,7 +18,7 @@ class MapPriceToBudgetRangeAction
             return null;
         }
 
-        $amount = (float) $priceAmount;
+        $amount = (string) $priceAmount;
 
         $ranges = BudgetRange::query()
             ->where('is_active', true)
@@ -28,15 +28,9 @@ class MapPriceToBudgetRangeAction
             ->get();
 
         foreach ($ranges as $range) {
-            if ($range->min_amount !== null && $amount < (float) $range->min_amount) {
-                continue;
+            if ($range->containsAmount($amount)) {
+                return $range;
             }
-
-            if ($range->max_amount !== null && $amount > (float) $range->max_amount) {
-                continue;
-            }
-
-            return $range;
         }
 
         return null;

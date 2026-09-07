@@ -14,8 +14,7 @@
         context: is_string($context) && $context !== '' ? $context : null,
     );
     $price = \App\Support\Money::around($product->price_amount, $product->price_currency);
-    $isPersonalized = $product->relationLoaded('categories')
-        && $product->categories->contains(fn ($category) => $category->slug === 'personalized-gifts');
+    $isPersonalized = $product->isPersonalized();
     $badge = $greatMatch
         ? 'Great Match'
         : ($product->is_featured ? 'Featured' : ($isPersonalized ? 'Personalized' : null));

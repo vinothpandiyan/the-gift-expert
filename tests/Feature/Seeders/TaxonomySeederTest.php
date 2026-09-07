@@ -52,13 +52,13 @@ class TaxonomySeederTest extends TestCase
         $this->seed($this->taxonomySeeders);
 
         $this->assertSame(6, BudgetRange::query()->count());
-        $this->assertSame(15, Occasion::query()->count());
+        $this->assertSame(26, Occasion::query()->count());
         $this->assertSame(16, Relationship::query()->count());
         $this->assertSame(6, RecipientType::query()->count());
-        $this->assertSame(10, Interest::query()->count());
+        $this->assertSame(17, Interest::query()->count());
         $this->assertSame(8, Profession::query()->count());
-        $this->assertSame(6, GiftType::query()->count());
-        $this->assertSame(13, Category::query()->count());
+        $this->assertSame(9, GiftType::query()->count());
+        $this->assertSame(18, Category::query()->count());
         $this->assertSame(
             'gifts-for-him/gifts-for-husband',
             Category::query()->where('slug', 'gifts-for-husband')->value('full_path'),
@@ -150,7 +150,7 @@ class TaxonomySeederTest extends TestCase
             ->first();
 
         $this->assertNotNull($category);
-        $this->assertTrue($category->is_active);
+        $this->assertFalse($category->is_active);
         $this->assertSame(0, $category->products()->count());
         $this->assertSame(
             1,
@@ -205,7 +205,54 @@ class TaxonomySeederTest extends TestCase
             ->assertSee('Birthday', false);
 
         $this->get('/gift-ideas/birthday-gifts')
-            ->assertOk()
-            ->assertDontSee('href="/gift-ideas/birthday-gifts/birthday-gifts-for-husband"', false);
+            ->assertStatus(301)
+            ->assertRedirect('/occasions/birthday');
+    }
+
+    public function test_seeded_taxonomy_active_inactive_and_renames(): void
+    {
+        $this->seed($this->taxonomySeeders);
+
+        $this->assertSame(['festival'], Occasion::query()->where('is_active', false)->orderBy('slug')->pluck('slug')->all());
+        $this->assertTrue(Occasion::query()->where('slug', 'holi')->where('is_active', true)->exists());
+        $this->assertTrue(Occasion::query()->where('slug', 'valentines-day')->where('is_active', true)->exists());
+        $this->assertTrue(Occasion::query()->where('slug', 'just-because')->where('is_active', true)->exists());
+
+        $this->assertFalse(RecipientType::query()->where('slug', 'adult')->value('is_active'));
+        $this->assertTrue(RecipientType::query()->where('slug', 'kids')->value('is_active'));
+
+        $this->assertSame('Home Chef / Foodie', Interest::query()->where('slug', 'food')->value('name'));
+        $this->assertSame('Tech & Gadgets', Interest::query()->where('slug', 'technology')->value('name'));
+        $this->assertSame('Pet Parent', Interest::query()->where('slug', 'pets')->value('name'));
+        $this->assertTrue(Interest::query()->where('slug', 'gaming')->where('is_active', true)->exists());
+
+        $this->assertTrue(GiftType::query()->where('slug', 'personalized-gifts')->where('is_active', true)->exists());
+        $this->assertTrue(GiftType::query()->where('slug', 'hampers-gift-sets')->where('is_active', true)->exists());
+        $this->assertTrue(GiftType::query()->where('slug', 'experience-gifts')->where('is_active', true)->exists());
+        $this->assertFalse(GiftType::query()->where('slug', 'online-courses')->value('is_active'));
+        $this->assertFalse(GiftType::query()->where('slug', 'ebooks-audiobooks')->value('is_active'));
+
+        $inactiveCategories = Category::query()->where('is_active', false)->orderBy('slug')->pluck('slug')->all();
+        $this->assertSame([
+            'birthday-gifts',
+            'birthday-gifts-for-husband',
+            'gifts-for-him',
+            'gifts-for-husband',
+            'personalized-gifts',
+        ], $inactiveCategories);
+
+        $this->assertTrue(Category::query()->where('slug', 'jewellery')->where('is_active', true)->exists());
+        $this->assertTrue(Category::query()->where('slug', 'kitchen-and-dining')->where('is_active', true)->exists());
+        $this->assertSame(
+            'fashion-and-accessories/jewellery',
+            Category::query()->where('slug', 'jewellery')->value('full_path'),
+        );
+        $this->assertSame(
+            'home-and-living/kitchen-and-dining',
+            Category::query()->where('slug', 'kitchen-and-dining')->value('full_path'),
+        );
+        $this->assertNull(Category::query()->where('slug', 'stationery-and-office')->value('parent_id'));
+        $this->assertNull(Category::query()->where('slug', 'spiritual-and-pooja')->value('parent_id'));
+        $this->assertNull(Category::query()->where('slug', 'sports-and-outdoors')->value('parent_id'));
     }
 }

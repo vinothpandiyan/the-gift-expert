@@ -87,6 +87,7 @@ class GiftFinderResults extends Component
                                 ->with('merchant')
                                 ->orderByDesc('is_primary'),
                             'categories:id,slug',
+                            'giftTypes:id,slug',
                         ]);
                 },
             ])

@@ -67,7 +67,7 @@
             <div class="pt-6">
                 <div
                     wire:loading
-                    wire:target="toggleFilter, removeFilter, clearFilters, nextPage, sort"
+                    wire:target="toggleFilter, setFilter, removeFilter, clearFilters, nextPage, sort"
                     aria-busy="true"
                     aria-live="polite"
                 >
@@ -76,7 +76,7 @@
 
                 <div
                     wire:loading.remove
-                    wire:target="toggleFilter, removeFilter, clearFilters, nextPage, sort"
+                    wire:target="toggleFilter, setFilter, removeFilter, clearFilters, nextPage, sort"
                     class="motion-safe:transition-opacity"
                 >
                     @if ($products->isEmpty())

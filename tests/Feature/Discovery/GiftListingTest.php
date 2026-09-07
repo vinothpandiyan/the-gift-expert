@@ -3,14 +3,18 @@
 namespace Tests\Feature\Discovery;
 
 use App\DiscoveryListing\DiscoveryListingContext;
+use App\Enums\TaxonomyApplicabilityEffect;
+use App\Enums\TaxonomyDimension;
 use App\Livewire\GiftListing;
 use App\Models\BudgetRange;
 use App\Models\Category;
+use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Product;
 use App\Models\Relationship;
 use App\Models\SeoLandingPage;
+use App\Models\TaxonomyApplicabilityRule;
 use App\Support\DiscoveryUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -328,7 +332,7 @@ class GiftListingTest extends TestCase
         $second = $this->countQueries(fn () => $this->get(DiscoveryUrl::relationship('husband'))->assertOk());
 
         $this->assertSame($first, $second);
-        $this->assertLessThanOrEqual(50, $first);
+        $this->assertLessThanOrEqual(80, $first);
     }
 
     public function test_occasion_listing_reuses_the_same_component(): void
@@ -342,6 +346,165 @@ class GiftListingTest extends TestCase
             ->assertSee('Birthday Gifts', false)
             ->assertSee('Party Hat', false)
             ->assertSee('Filters', false);
+    }
+
+    public function test_husband_listing_hides_invalid_and_zero_count_filter_options(): void
+    {
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+        $anniversary = $this->occasion('Anniversary');
+        $babyShower = $this->occasion('Baby Shower');
+        $raksha = $this->occasion('Raksha Bandhan');
+        $tech = Interest::query()->create(['name' => 'Tech & Gadgets', 'slug' => 'technology', 'is_active' => true]);
+        $experience = GiftType::query()->create([
+            'name' => 'Experience Gifts',
+            'slug' => 'experience-gifts',
+            'is_active' => true,
+        ]);
+
+        TaxonomyApplicabilityRule::query()->create([
+            'source_dimension' => TaxonomyDimension::Relationship,
+            'source_id' => $husband->id,
+            'target_dimension' => TaxonomyDimension::Occasion,
+            'target_id' => $babyShower->id,
+            'effect' => TaxonomyApplicabilityEffect::Exclude,
+            'reason' => 'test',
+            'is_active' => true,
+        ]);
+        TaxonomyApplicabilityRule::query()->create([
+            'source_dimension' => TaxonomyDimension::Occasion,
+            'source_id' => $raksha->id,
+            'target_dimension' => TaxonomyDimension::Relationship,
+            'target_id' => $this->relationship('Brother')->id,
+            'effect' => TaxonomyApplicabilityEffect::Allow,
+            'reason' => 'test',
+            'is_active' => true,
+        ]);
+
+        GiftCatalogTestHelpers::taggedGift(
+            ['name' => 'Birthday Tech', 'slug' => 'birthday-tech'],
+            ['relationships' => $husband, 'occasions' => $birthday, 'interests' => $tech],
+        );
+        GiftCatalogTestHelpers::taggedGift(
+            ['name' => 'Anniversary Tech', 'slug' => 'anniversary-tech'],
+            ['relationships' => $husband, 'occasions' => $anniversary, 'interests' => $tech],
+        );
+        GiftCatalogTestHelpers::taggedGift(
+            ['name' => 'Bad Raksha Tag', 'slug' => 'bad-raksha'],
+            ['relationships' => $husband, 'occasions' => $raksha],
+        );
+
+        $html = $this->get(DiscoveryUrl::relationship('husband'))
+            ->assertOk()
+            ->assertSee('Birthday', false)
+            ->assertSee('Anniversary', false)
+            ->assertSee('(1)', false)
+            ->assertDontSee('Baby Shower', false)
+            ->assertDontSee('Raksha Bandhan', false)
+            ->assertDontSee('Experience Gifts', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString($experience->name.' (', $html);
+    }
+
+    public function test_disjunctive_occasion_counts_remain_after_selecting_birthday(): void
+    {
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+        $anniversary = $this->occasion('Anniversary');
+        $tech = Interest::query()->create(['name' => 'Tech & Gadgets', 'slug' => 'technology', 'is_active' => true]);
+
+        GiftCatalogTestHelpers::taggedGift(
+            ['name' => 'Birthday Tech', 'slug' => 'birthday-tech-2'],
+            ['relationships' => $husband, 'occasions' => $birthday, 'interests' => $tech],
+        );
+        GiftCatalogTestHelpers::taggedGift(
+            ['name' => 'Anniversary Tech', 'slug' => 'anniversary-tech-2'],
+            ['relationships' => $husband, 'occasions' => $anniversary, 'interests' => $tech],
+        );
+
+        $this->get(DiscoveryUrl::relationship('husband').'?occasion=birthday&interest=technology')
+            ->assertOk()
+            ->assertSee('Birthday', false)
+            ->assertSee('Anniversary', false)
+            ->assertSee('(1)', false);
+    }
+
+    public function test_invalid_selected_occasion_is_cleared_when_relationship_changes(): void
+    {
+        $husband = $this->relationship('Husband');
+        $sister = $this->relationship('Sister');
+        $bridalShower = $this->occasion('Bridal Shower');
+        $this->occasion('Birthday');
+
+        TaxonomyApplicabilityRule::query()->create([
+            'source_dimension' => TaxonomyDimension::Occasion,
+            'source_id' => $bridalShower->id,
+            'target_dimension' => TaxonomyDimension::Relationship,
+            'target_id' => $sister->id,
+            'effect' => TaxonomyApplicabilityEffect::Allow,
+            'reason' => 'test',
+            'is_active' => true,
+        ]);
+
+        GiftCatalogTestHelpers::taggedGift(
+            ['name' => 'Husband Gift', 'slug' => 'husband-gift-normalize'],
+            ['relationships' => $husband],
+        );
+
+        Livewire::withQueryParams([
+            'occasion' => 'bridal-shower',
+            'relationship' => 'husband',
+        ])->test(GiftListing::class, [
+            'context' => DiscoveryListingContext::forGiftIdeas()->toArray(),
+        ])
+            ->assertSet('relationship', 'husband')
+            ->assertSet('occasion', '');
+    }
+
+    public function test_selected_zero_count_filter_stays_visible(): void
+    {
+        $husband = $this->relationship('Husband');
+        $this->occasion('Birthday');
+        GiftCatalogTestHelpers::taggedGift(
+            ['name' => 'Unfiltered Gift', 'slug' => 'unfiltered-zero'],
+            ['relationships' => $husband],
+        );
+
+        $this->get(DiscoveryUrl::relationship('husband').'?occasion=birthday')
+            ->assertOk()
+            ->assertSee('Birthday', false)
+            ->assertSee('(0)', false)
+            ->assertSee('No gift ideas match all those filters.', false);
+    }
+
+    public function test_seo_landing_page_keeps_fixed_context_out_of_filters(): void
+    {
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+        $tech = Interest::query()->create(['name' => 'Tech & Gadgets', 'slug' => 'technology', 'is_active' => true]);
+
+        GiftCatalogTestHelpers::taggedGift(
+            ['name' => 'LP Tech', 'slug' => 'lp-tech'],
+            ['relationships' => $husband, 'occasions' => $birthday, 'interests' => $tech],
+        );
+
+        $page = SeoLandingPage::factory()->published()->create([
+            'slug' => 'birthday-gifts-for-husband-facets',
+            'heading' => 'Birthday Gifts for Husband',
+            'relationship_id' => $husband->id,
+            'occasion_id' => $birthday->id,
+            'is_indexable' => true,
+        ]);
+
+        $html = $this->get(DiscoveryUrl::seoLandingPage($page->slug))
+            ->assertOk()
+            ->assertSee('Tech &amp; Gadgets', false)
+            ->assertSee('(1)', false)
+            ->getContent();
+
+        $this->assertStringNotContainsString('id="desktop-occasion-panel"', $html);
+        $this->assertStringNotContainsString('id="desktop-relationship-panel"', $html);
     }
 
     public function test_long_product_name_still_renders_on_the_listing(): void

@@ -40,7 +40,7 @@ class LoadActiveTaxonomyCatalogAction
 
     /**
      * @param  class-string  $model
-     * @return list<array{id: int, name: string, slug: string}>
+     * @return list<array{id: int, name: string, slug: string, description: ?string}>
      */
     private function dimension(string $model): array
     {
@@ -48,11 +48,12 @@ class LoadActiveTaxonomyCatalogAction
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get(['id', 'name', 'slug'])
+            ->get(['id', 'name', 'slug', 'description'])
             ->map(fn ($row): array => [
                 'id' => $row->id,
                 'name' => $row->name,
                 'slug' => $row->slug,
+                'description' => $row->description,
             ])
             ->all();
     }

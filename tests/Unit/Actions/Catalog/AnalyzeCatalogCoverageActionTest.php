@@ -72,7 +72,7 @@ class AnalyzeCatalogCoverageActionTest extends TestCase
         $this->assertSame(2, $report->totalProducts);
     }
 
-    public function test_budget_mapping_uses_existing_boundary_tie_break_semantics(): void
+    public function test_budget_mapping_assigns_each_boundary_price_to_exactly_one_range(): void
     {
         Product::factory()->published()->create([
             'slug' => 'under-500',
@@ -100,8 +100,9 @@ class AnalyzeCatalogCoverageActionTest extends TestCase
         $bySlug = collect($report->budgetCoverage)->keyBy('slug');
 
         $this->assertSame(1, $bySlug['under-500']->productCount);
-        $this->assertSame(2, $bySlug['500-1000']->productCount);
-        $this->assertSame(1, $bySlug['5000-10000']->productCount);
+        $this->assertSame(1, $bySlug['500-1000']->productCount);
+        $this->assertSame(1, $bySlug['1000-2500']->productCount);
+        $this->assertSame(1, $bySlug['10000-plus']->productCount);
     }
 
     public function test_unpriced_products_are_counted_separately_and_excluded_from_budget_buckets(): void

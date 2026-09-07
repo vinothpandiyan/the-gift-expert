@@ -64,9 +64,9 @@ class FrontendAccessibilityTest extends TestCase
             'slug' => 'birthday',
             'is_active' => true,
         ]);
-        GiftCatalogTestHelpers::publishedGift(['name' => 'Filter Gift', 'slug' => 'filter-gift'])
-            ->relationships()
-            ->attach($husband);
+        $gift = GiftCatalogTestHelpers::publishedGift(['name' => 'Filter Gift', 'slug' => 'filter-gift']);
+        $gift->relationships()->attach($husband);
+        $gift->occasions()->attach(Occasion::query()->where('slug', 'birthday')->first());
 
         $html = $this->get(DiscoveryUrl::relationship('husband'))->assertOk()->getContent();
 
@@ -77,6 +77,10 @@ class FrontendAccessibilityTest extends TestCase
         $this->assertStringContainsString('aria-label="Close filters"', $html);
         $this->assertStringContainsString('aria-controls="desktop-occasion-panel"', $html);
         $this->assertStringContainsString('id="desktop-occasion-panel"', $html);
+        $this->assertStringContainsString('id="desktop-occasion-heading"', $html);
+        $this->assertStringContainsString('for="desktop-occasion-birthday"', $html);
+        $this->assertStringContainsString('form-control-checkbox', $html);
+        $this->assertStringContainsString('Birthday, 1 gift idea', $html);
         $this->assertStringContainsString('aria-busy="true"', $html);
     }
 

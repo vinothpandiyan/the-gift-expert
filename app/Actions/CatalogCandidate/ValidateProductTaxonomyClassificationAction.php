@@ -124,6 +124,12 @@ class ValidateProductTaxonomyClassificationAction
                 continue;
             }
 
+            if ($model === Category::class && ! $this->isAcceptableMerchandisingCategory($id)) {
+                $rejected[] = $id;
+
+                continue;
+            }
+
             if (count($accepted) >= $cap) {
                 $rejected[] = $id;
 
@@ -143,7 +149,7 @@ class ValidateProductTaxonomyClassificationAction
     private function resolvePrimary(?int $primary, array &$categoryIds, array &$rejected): ?int
     {
         if ($primary !== null) {
-            if ($this->isAcceptablePrimary($primary)) {
+            if ($this->isAcceptableMerchandisingCategory($primary)) {
                 return $primary;
             }
 
@@ -151,7 +157,7 @@ class ValidateProductTaxonomyClassificationAction
         }
 
         foreach ($categoryIds as $id) {
-            if ($this->isAcceptablePrimary($id)) {
+            if ($this->isAcceptableMerchandisingCategory($id)) {
                 return $id;
             }
         }
@@ -159,7 +165,7 @@ class ValidateProductTaxonomyClassificationAction
         return null;
     }
 
-    private function isAcceptablePrimary(int $categoryId): bool
+    private function isAcceptableMerchandisingCategory(int $categoryId): bool
     {
         $category = Category::query()->whereKey($categoryId)->first();
 
@@ -193,7 +199,7 @@ class ValidateProductTaxonomyClassificationAction
 
         $slug = $category->slug;
 
-        if (str_starts_with($slug, 'gifts-for-')) {
+        if ($slug === 'personalized-gifts' || str_starts_with($slug, 'gifts-for-')) {
             return false;
         }
 

@@ -13,9 +13,12 @@ use App\Models\Occasion;
 use App\Models\Profession;
 use App\Models\RecipientType;
 use App\Models\Relationship;
+use App\Models\TaxonomySlugRedirect;
+use App\Support\DiscoveryUrl;
 use App\Support\PageMeta;
 use App\Support\Terminology;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use InvalidArgumentException;
 
@@ -50,7 +53,7 @@ class TaxonomyController extends Controller
         string $taxonomy,
         QueryDiscoverableSeoLandingPagesAction $queryLandingPages,
         QueryDiscoveryListingProductsAction $queryListing,
-    ): View {
+    ): RedirectResponse|View {
         $modelClass = self::MODELS[$taxonomy] ?? null;
 
         if ($modelClass === null) {
@@ -63,7 +66,7 @@ class TaxonomyController extends Controller
             ->first();
 
         if ($record === null) {
-            abort(404);
+            return $this->redirectFromLegacySlug($taxonomy, $slug);
         }
 
         $listingContext = DiscoveryListingContext::forTaxonomy($taxonomy, $record);
@@ -133,5 +136,43 @@ class TaxonomyController extends Controller
             'interest' => ['interest_id' => $id],
             default => [],
         };
+    }
+
+    private function redirectFromLegacySlug(string $taxonomy, string $slug): RedirectResponse
+    {
+        $redirect = TaxonomySlugRedirect::query()
+            ->where('taxonomy', $taxonomy)
+            ->where('from_slug', $slug)
+            ->first();
+
+        if ($redirect === null) {
+            abort(404);
+        }
+
+        $href = match ($taxonomy) {
+            'occasion' => DiscoveryUrl::occasion($redirect->to_slug),
+            'relationship' => DiscoveryUrl::relationship($redirect->to_slug),
+            'recipient_type' => DiscoveryUrl::recipientType($redirect->to_slug),
+            'interest' => DiscoveryUrl::interest($redirect->to_slug),
+            'profession' => DiscoveryUrl::profession($redirect->to_slug),
+            'gift_type' => DiscoveryUrl::giftType($redirect->to_slug),
+            default => null,
+        };
+
+        if ($href === null) {
+            abort(404);
+        }
+
+        $modelClass = self::MODELS[$taxonomy];
+        $targetActive = $modelClass::query()
+            ->where('slug', $redirect->to_slug)
+            ->where('is_active', true)
+            ->exists();
+
+        if (! $targetActive) {
+            abort(404);
+        }
+
+        return redirect($href, 301);
     }
 }

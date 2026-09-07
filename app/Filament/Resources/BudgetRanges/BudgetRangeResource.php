@@ -63,10 +63,12 @@ class BudgetRangeResource extends Resource
                             ->unique(ignoreRecord: true),
                         TextInput::make('min_amount')
                             ->numeric()
-                            ->step(0.01),
+                            ->step(0.01)
+                            ->helperText('Inclusive lower bound. Leave empty for no minimum.'),
                         TextInput::make('max_amount')
                             ->numeric()
-                            ->step(0.01),
+                            ->step(0.01)
+                            ->helperText('Exclusive upper bound. A price equal to this value belongs to the next range.'),
                         TextInput::make('currency')
                             ->required()
                             ->length(3)

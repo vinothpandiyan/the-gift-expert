@@ -31,10 +31,11 @@ class GiftIdeasNavigationTest extends TestCase
         $coffee = Interest::query()->create(['name' => 'Coffee', 'slug' => 'coffee', 'is_active' => true]);
         $doctor = Profession::query()->create(['name' => 'Doctor', 'slug' => 'doctor', 'is_active' => true]);
         $giftCards = GiftType::query()->create(['name' => 'Gift Cards', 'slug' => 'gift-cards', 'is_active' => true]);
-        $category = Category::query()->create(['name' => 'Personalized Gifts', 'slug' => 'personalized-gifts', 'is_active' => true]);
+        GiftType::query()->create(['name' => 'Personalized Gifts', 'slug' => 'personalized-gifts', 'is_active' => true]);
+        $category = Category::query()->create(['name' => 'Home & Living', 'slug' => 'home-and-living', 'is_active' => true]);
         $child = Category::query()->create([
-            'name' => 'Photo Frames',
-            'slug' => 'photo-frames',
+            'name' => 'Kitchen & Dining',
+            'slug' => 'kitchen-and-dining',
             'parent_id' => $category->id,
             'is_active' => true,
         ]);
@@ -56,18 +57,18 @@ class GiftIdeasNavigationTest extends TestCase
             ->assertSee('href="'.DiscoveryUrl::relationship($husband->slug).'"', false)
             ->assertSee('href="'.DiscoveryUrl::occasion($birthday->slug).'"', false)
             ->assertSee('href="'.DiscoveryUrl::interest($coffee->slug).'"', false)
-            ->assertSee('href="'.DiscoveryUrl::profession($doctor->slug).'"', false)
             ->assertSee('href="'.DiscoveryUrl::giftType($giftCards->slug).'"', false)
+            ->assertSee('href="'.DiscoveryUrl::giftType('personalized-gifts').'"', false)
             ->assertSee('href="'.DiscoveryUrl::giftIdeasCategory($category->fresh()->full_path).'"', false)
             ->assertDontSee('href="'.DiscoveryUrl::giftIdeasCategory($child->fresh()->full_path).'"', false)
-            ->assertSee('By recipient', false)
-            ->assertSee('By occasion', false)
-            ->assertSee('By interest', false)
-            ->assertSee('By profession', false)
-            ->assertSee('By gift type', false)
-            ->assertSee('Categories', false)
-            ->assertSee('Doctor', false)
+            ->assertSee('Shop by recipient', false)
+            ->assertSee('Shop by occasion', false)
+            ->assertSee('Shop by interest', false)
+            ->assertSee('Shop by gift type', false)
+            ->assertSee('Shop by category', false)
             ->assertSee('Gift Cards', false)
+            ->assertDontSee('href="'.DiscoveryUrl::profession($doctor->slug).'"', false)
+            ->assertDontSee('Shop by profession', false)
             ->assertDontSee('href="'.DiscoveryUrl::seoLandingPage($page->slug).'"', false)
             ->assertDontSee('calculator', false)
             ->assertDontSee('/budget', false)
@@ -88,8 +89,8 @@ class GiftIdeasNavigationTest extends TestCase
 
         $this->get(DiscoveryUrl::giftIdeas())
             ->assertOk()
-            ->assertSee('href="'.DiscoveryUrl::profession($activeProfession->slug).'"', false)
             ->assertSee('href="'.DiscoveryUrl::giftType($activeGiftType->slug).'"', false)
+            ->assertDontSee('href="'.DiscoveryUrl::profession($activeProfession->slug).'"', false)
             ->assertDontSee('href="'.DiscoveryUrl::profession($inactiveProfession->slug).'"', false)
             ->assertDontSee('href="'.DiscoveryUrl::profession($deletedProfession->slug).'"', false)
             ->assertDontSee('href="'.DiscoveryUrl::giftType($inactiveGiftType->slug).'"', false)
@@ -129,7 +130,7 @@ class GiftIdeasNavigationTest extends TestCase
 
         $this->get(DiscoveryUrl::giftIdeas())
             ->assertOk()
-            ->assertSee('By recipient', false)
+            ->assertSee('Shop by recipient', false)
             ->assertDontSee('Narrow it down', false)
             ->assertDontSee('Catalog Dump Gift', false)
             ->assertSee('<meta name="robots" content="index, follow">', false);
@@ -162,7 +163,7 @@ class GiftIdeasNavigationTest extends TestCase
             ->assertSee('Narrow it down', false)
             ->assertSee('Mid Wallet', false)
             ->assertDontSee('Luxury Watch', false)
-            ->assertDontSee('By recipient', false)
+            ->assertDontSee('Shop by recipient', false)
             ->assertSee('<meta name="robots" content="noindex, follow">', false)
             ->assertSee('<link rel="canonical" href="'.DiscoveryUrl::giftIdeas(absolute: true).'">', false)
             ->assertDontSee('href="'.DiscoveryUrl::affiliateOut($inRange->affiliateLinks->first()->uuid).'"', false);
@@ -174,7 +175,7 @@ class GiftIdeasNavigationTest extends TestCase
 
         $this->get(DiscoveryUrl::giftIdeas().'?budget=not-a-real-budget')
             ->assertOk()
-            ->assertSee('By recipient', false)
+            ->assertSee('Shop by recipient', false)
             ->assertDontSee('Narrow it down', false)
             ->assertSee('<meta name="robots" content="noindex, follow">', false)
             ->assertSee('<link rel="canonical" href="'.DiscoveryUrl::giftIdeas(absolute: true).'">', false);

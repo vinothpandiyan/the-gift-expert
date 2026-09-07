@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             ProfessionSeeder::class,
             GiftTypeSeeder::class,
             CategorySeeder::class,
+            TaxonomyApplicabilityRuleSeeder::class,
             ProductSeeder::class,
             SeoLandingPageSeeder::class,
             NavigationSeeder::class,

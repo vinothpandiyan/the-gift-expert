@@ -7,13 +7,7 @@ use App\DiscoveryListing\DiscoveryListingContext;
 use App\DiscoveryListing\DiscoveryListingQueryState;
 use App\Http\Controllers\Controller;
 use App\Models\BudgetRange;
-use App\Models\Category;
-use App\Models\GiftType;
-use App\Models\Interest;
-use App\Models\Occasion;
-use App\Models\Profession;
-use App\Models\RecipientType;
-use App\Models\Relationship;
+use App\Support\GiftIdeasHub;
 use App\Support\PageMeta;
 use Illuminate\View\View;
 
@@ -40,26 +34,19 @@ class GiftIdeasController extends Controller
             ]);
         }
 
-        $active = fn ($query) => $query->where('is_active', true)->orderBy('sort_order')->orderBy('name');
+        $hub = GiftIdeasHub::resolve();
         $seo = $this->hubSeo();
 
         return view('discovery.gift-ideas.index', [
             'mode' => 'hub',
             'listingContext' => null,
             'budgetRange' => null,
-            'recipientTypes' => RecipientType::query()->tap($active)->get(),
-            'relationships' => Relationship::query()->tap($active)->get(),
-            'occasions' => Occasion::query()->tap($active)->get(),
-            'interests' => Interest::query()->tap($active)->get(),
-            'professions' => Profession::query()->tap($active)->get(),
-            'giftTypes' => GiftType::query()->tap($active)->get(),
-            'budgetRanges' => BudgetRange::query()->tap($active)->get(),
-            'categories' => Category::query()
-                ->whereNull('parent_id')
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(),
+            'recipients' => $hub['recipients'],
+            'occasions' => $hub['occasions'],
+            'interests' => $hub['interests'],
+            'giftTypes' => $hub['giftTypes'],
+            'categories' => $hub['categories'],
+            'budgetRanges' => $hub['budgetRanges'],
             'featuredGifts' => $queryFeaturedGifts->execute(),
             'seoTitle' => PageMeta::giftIdeasTitle(),
             'seoDescription' => PageMeta::giftIdeasDescription(),
