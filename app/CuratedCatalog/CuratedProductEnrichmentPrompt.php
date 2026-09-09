@@ -46,7 +46,7 @@ The operator already curated this SKU as gift-worthy. You are not deciding wheth
 Copy contract:
 - name: concise Gift Expert catalog title. Omit marketplace seller/brand prefixes when they add no meaningful product identity. Retain a brand only when that brand is itself part of how shoppers recognize the product. Strip marketplace keyword stuffing, repeated recipient/occasion phrases, pack/variant noise, and "Best Gift for..." patterns. Keep the actual product identity. Never invent attributes.
 - short_description: what the item is; factual; about 100–180 characters when practical; no invented claims.
-- description: why it is a great gift. Write 2–4 concise reasons, normally 3, each on its own line. No paragraph. No numbering, bullets, or leading checkmarks. Each line must be a distinct reason. Prioritize emotional or personal value, usefulness, or distinctive gift qualities. Do not repeat taxonomy labels verbatim. Avoid generic filler such as "Makes a wonderful gift". Do not make unsupported product claims.
+- description: why it is a great gift. Write exactly 3 concise reasons, each on its own line and roughly 6–14 words when practical. No paragraph. No numbering, bullets, or leading checkmarks. Each line must express one distinct reason. Prioritize emotional value, usefulness, recipient fit, experience, personalization, practicality, or occasion suitability. Do not repeat the title, short description, or taxonomy labels. Avoid generic filler such as "Makes a great gift". Do not make unsupported product claims.
 
 Never invent materials, quantities, warranty, technical performance, ratings, review counts, bestseller/trending/popularity claims, or features unless explicitly present in the supplied title or description.
 
@@ -200,7 +200,7 @@ PROMPT;
                 ],
                 'description' => [
                     'type' => ['string', 'null'],
-                    'description' => '2–4 newline-separated reasons, normally 3, explaining why it is a great gift. No numbering or leading bullets.',
+                    'description' => 'Exactly 3 concise newline-separated reasons explaining why it is a great gift. No HTML, numbering, or leading bullets.',
                 ],
                 'brand' => ['type' => ['string', 'null']],
                 'taxonomy' => [

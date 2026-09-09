@@ -18,6 +18,7 @@ class ReplaceAutomaticallyAcquiredProductImageAction
         private ValidateCuratedProductImageUrlAction $validateUrl,
         private AcquireRemoteProductImageAction $acquireRemoteProductImage,
         private ProcessProductImageAction $processProductImage,
+        private DetectSafeOuterBackgroundTrimAction $detectSafeOuterBackgroundTrim,
     ) {}
 
     public function execute(ProductImage $image, Merchant $merchant): string
@@ -58,7 +59,11 @@ class ReplaceAutomaticallyAcquiredProductImageAction
                 return 'skipped_already_high_resolution';
             }
 
-            $processed = $this->processProductImage->execute($acquired->path);
+            $trimPlan = $this->detectSafeOuterBackgroundTrim->execute($acquired->path);
+            $processed = $this->processProductImage->execute(
+                $acquired->path,
+                $trimPlan->shouldTrim ? $trimPlan->cropBox : null,
+            );
             $disk = $image->disk ?: (string) config('media.product_images.disk', 'public');
             $newPath = $this->storagePath((int) $image->product_id, $processed->extension);
 

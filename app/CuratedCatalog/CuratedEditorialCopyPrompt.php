@@ -37,7 +37,7 @@ The merchant source title is marketplace truth and must be left unchanged in you
 Copy contract:
 - name: concise Gift Expert catalog title. Omit marketplace seller/brand prefixes when they add no meaningful product identity. Retain a brand only when that brand is itself part of how shoppers recognize the product. Strip marketplace keyword stuffing, repeated recipient/occasion phrases, pack/variant noise, and "Best Gift for..." patterns. Keep the actual product identity. Never invent attributes. Do not remove the first word merely because it looks like a brand.
 - short_description: what the item is; factual; about 100–180 characters when practical; no invented claims.
-- description: why it is a great gift. Write 2–4 concise reasons, normally 3, each on its own line. No paragraph. No numbering, bullets, or leading checkmarks. Each line must be a distinct reason. Prioritize emotional or personal value, usefulness, or distinctive gift qualities. Do not repeat taxonomy labels verbatim. Avoid generic filler such as "Makes a wonderful gift". Do not make unsupported product claims.
+- description: why it is a great gift. Write exactly 3 concise reasons, each on its own line and roughly 6–14 words when practical. No paragraph. No numbering, bullets, or leading checkmarks. Each line must express one distinct reason. Prioritize emotional value, usefulness, recipient fit, experience, personalization, practicality, or occasion suitability. Do not repeat the title, short description, or taxonomy labels. Avoid generic filler such as "Makes a great gift". Do not make unsupported product claims.
 
 Example:
 SOURCE: Giftplease Personalized Best Friend Acrylic Night Light - Custom Photo Friendship Lamp with Wooden Base, Personalized for Besties, Birthday, Friendship, Moving Away, Christmas Graduation
@@ -92,7 +92,7 @@ PROMPT;
                 ],
                 'description' => [
                     'type' => ['string', 'null'],
-                    'description' => '2–4 newline-separated reasons, normally 3, explaining why it is a great gift.',
+                    'description' => 'Exactly 3 concise newline-separated reasons explaining why it is a great gift. No HTML, numbering, or leading bullets.',
                 ],
             ],
             'required' => ['name', 'short_description', 'description'],

@@ -32,6 +32,18 @@ return [
             'canonical_long_edge' => 1200,
             'min_acceptable_long_edge' => 1000,
             'max_long_edge' => 1500,
+            'content_trim' => [
+                'enabled' => true,
+                'square_ratio_tolerance' => 0.02,
+                'corner_color_tolerance' => 10,
+                'background_color_tolerance' => 18,
+                'minimum_uniform_border_ratio' => 0.98,
+                'content_scan_step' => 3,
+                'safety_margin_ratio' => 0.06,
+                'minimum_safety_margin' => 12,
+                'minimum_canvas_edge' => 600,
+                'maximum_canvas_ratio' => 0.94,
+            ],
             'hosts' => [
                 'm.media-amazon.com',
                 'images-na.ssl-images-amazon.com',

@@ -46,7 +46,8 @@ class AcquireCuratedProductImageAction
         try {
             $this->validateUrl->execute($sourceImageUrl, $allowedHosts, httpsOnly: true);
 
-            $downloadUrl = $this->normalizeAmazonProductImageUrl->execute($sourceImageUrl, $merchant)->url;
+            $normalized = $this->normalizeAmazonProductImageUrl->execute($sourceImageUrl, $merchant);
+            $downloadUrl = $normalized->url;
 
             if ($downloadUrl !== $sourceImageUrl) {
                 $this->validateUrl->execute($downloadUrl, $allowedHosts, httpsOnly: true);
@@ -72,6 +73,7 @@ class AcquireCuratedProductImageAction
                 [$acquired->path],
                 altText: $product->name,
                 preferPrimary: true,
+                trimSafeOuterBackground: $normalized->isAmazon,
             );
 
             $image = $stored->first();

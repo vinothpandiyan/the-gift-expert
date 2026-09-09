@@ -17,6 +17,7 @@ class StoreProductImageAction
     public function __construct(
         private ProcessProductImageAction $processProductImage,
         private SetPrimaryProductImageAction $setPrimaryProductImage,
+        private DetectSafeOuterBackgroundTrimAction $detectSafeOuterBackgroundTrim,
     ) {}
 
     /**
@@ -28,6 +29,7 @@ class StoreProductImageAction
         array $sources,
         ?string $altText = null,
         bool $preferPrimary = false,
+        bool $trimSafeOuterBackground = false,
     ): Collection {
         $sources = array_values($sources);
 
@@ -59,12 +61,18 @@ class StoreProductImageAction
         $created = collect();
 
         try {
-            return DB::transaction(function () use ($product, $sources, $altText, $preferPrimary, $disk, &$written, $created): Collection {
+            return DB::transaction(function () use ($product, $sources, $altText, $preferPrimary, $trimSafeOuterBackground, $disk, &$written, $created): Collection {
                 $nextSort = (int) $product->images()->max('sort_order');
                 $hadPrimary = $product->images()->where('is_primary', true)->exists();
 
                 foreach ($sources as $index => $source) {
-                    $processed = $this->processProductImage->execute($source);
+                    $trimPlan = $trimSafeOuterBackground
+                        ? $this->detectSafeOuterBackgroundTrim->execute($source)
+                        : null;
+                    $processed = $this->processProductImage->execute(
+                        $source,
+                        $trimPlan?->shouldTrim === true ? $trimPlan->cropBox : null,
+                    );
                     $path = $this->storagePath($product->id, $processed->extension);
 
                     if (! Storage::disk($disk)->put($path, $processed->contents)) {

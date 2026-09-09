@@ -68,6 +68,8 @@ class GiftListingFilterUxTest extends TestCase
         $this->assertStringContainsString('rounded-xl border border-line bg-surface px-3', $html);
         $this->assertStringContainsString('mt-0.5 flex flex-col', $html);
         $this->assertStringContainsString('min-h-11', $html);
+        $this->assertStringContainsString('hidden w-[264px] shrink-0 lg:block', $html);
+        $this->assertStringContainsString('class="lg:hidden"', $html);
     }
 
     public function test_selected_zero_count_option_can_be_cleared(): void

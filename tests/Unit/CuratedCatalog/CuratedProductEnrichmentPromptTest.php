@@ -28,7 +28,8 @@ class CuratedProductEnrichmentPromptTest extends TestCase
         $this->assertStringContainsString('short_description', $system);
         $this->assertStringContainsString('why it is a great gift', $system);
         $this->assertStringContainsString('Omit marketplace seller/brand prefixes', $system);
-        $this->assertStringContainsString('normally 3', $system);
+        $this->assertStringContainsString('exactly 3', $system);
+        $this->assertStringContainsString('roughly 6–14 words', $system);
         $this->assertStringContainsString('Product identity', $system);
         $this->assertStringContainsString('Gift eligibility', $system);
         $this->assertStringContainsString('Intrinsic or specialized relevance', $system);

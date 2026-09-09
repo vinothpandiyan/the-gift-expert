@@ -36,7 +36,8 @@ class StoreImportedProductImagesAction
             $acquiredPath = null;
 
             try {
-                $downloadUrl = $this->normalizeAmazonProductImageUrl->execute($url)->url;
+                $normalized = $this->normalizeAmazonProductImageUrl->execute($url);
+                $downloadUrl = $normalized->url;
                 $acquired = $this->acquireRemoteProductImage->execute($downloadUrl);
                 $acquiredPath = $acquired->path;
 
@@ -54,6 +55,7 @@ class StoreImportedProductImagesAction
                     [$acquired->path],
                     altText: $product->name,
                     preferPrimary: false,
+                    trimSafeOuterBackground: $normalized->isAmazon,
                 );
 
                 $image = $stored->first();

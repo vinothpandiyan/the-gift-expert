@@ -1,6 +1,6 @@
 <div x-data="filterDrawer" x-effect="sync($wire.filtersOpen)">
     <div class="flex gap-8 lg:gap-10">
-        <aside class="hidden w-[240px] shrink-0 md:block lg:w-[264px]" aria-label="Filters">
+        <aside class="hidden w-[264px] shrink-0 lg:block" aria-label="Filters">
             <div class="sticky top-24" wire:loading.class="pointer-events-none opacity-60">
                 <div class="flex items-center justify-between pb-2">
                     <h2 class="text-[13px] font-semibold uppercase tracking-[0.12em] text-ink-muted">Narrow it down</h2>
@@ -23,11 +23,11 @@
                     gift {{ $products->total() === 1 ? 'idea' : 'ideas' }}
                 </h2>
 
-                <div class="hidden md:block">
+                <div class="hidden lg:block">
                     @include('livewire.partials.gift-listing-sort', ['id' => 'gift-listing-sort', 'showLabel' => true])
                 </div>
 
-                <div class="flex items-center gap-2 md:hidden">
+                <div class="flex items-center gap-2 lg:hidden">
                     <button
                         type="button"
                         class="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-plum/30 bg-surface px-4 text-sm font-semibold text-plum hover:border-plum hover:bg-plum-light"
@@ -118,7 +118,7 @@
     <x-finder.promo :finder-url="$finderUrl" class="mt-14" />
 
     <div
-        class="md:hidden"
+        class="lg:hidden"
         @keydown.escape.window="$wire.filtersOpen && $wire.set('filtersOpen', false)"
         @keydown.tab="if ($wire.filtersOpen) trap($event)"
     >

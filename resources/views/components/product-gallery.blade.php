@@ -10,7 +10,7 @@
     $imageHeight = (int) config('media.product_images.canonical_height');
 @endphp
 
-<div @if ($hasGallery) x-data="{ active: 0 }" @endif>
+<div class="mx-auto w-full max-w-[640px]" @if ($hasGallery) x-data="{ active: 0 }" @endif>
     <div class="rounded-xl border border-line bg-surface p-3">
         <div class="aspect-square overflow-hidden rounded-md bg-surface-sunken p-3">
             @if ($images->isEmpty())

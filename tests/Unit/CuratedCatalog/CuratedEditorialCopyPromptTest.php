@@ -17,7 +17,9 @@ class CuratedEditorialCopyPromptTest extends TestCase
         $this->assertStringContainsString('Do not remove the first word merely because it looks like a brand', $system);
         $this->assertStringContainsString('Giftplease Personalized Best Friend Acrylic Night Light', $system);
         $this->assertStringContainsString('Personalized Best Friend Acrylic Night Light', $system);
-        $this->assertStringContainsString('normally 3', $system);
+        $this->assertStringContainsString('exactly 3', $system);
+        $this->assertStringContainsString('roughly 6–14 words', $system);
+        $this->assertStringContainsString('No HTML', (string) $schema);
         $this->assertStringContainsString('You do not classify taxonomy', $system);
         $this->assertStringNotContainsString('affiliate', (string) $schema);
         $this->assertStringNotContainsString('taxonomy', (string) $schema);
