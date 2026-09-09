@@ -11,7 +11,7 @@
             : $dimensionOptions->map(fn ($option) => ['option' => $option, 'children' => []])->all();
     @endphp
 
-    <fieldset class="border-b border-line py-4 last:border-b-0" x-data="{ open: true }">
+    <fieldset class="border-b border-line py-2 last:border-b-0" x-data="{ open: true }">
         <legend class="w-full">
             <button
                 type="button"
@@ -34,7 +34,7 @@
             </button>
         </legend>
 
-        <div id="{{ $panelId }}" x-show="open" role="group" aria-labelledby="{{ $headingId }}" class="mt-1.5 flex flex-col">
+        <div id="{{ $panelId }}" x-show="open" role="group" aria-labelledby="{{ $headingId }}" class="mt-0.5 flex flex-col">
             @foreach ($rows as $row)
                 @include('livewire.partials.gift-listing-filter-option', [
                     'dimension' => $dimension,

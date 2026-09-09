@@ -46,7 +46,7 @@ class ParseCuratedMerchantProductsActionTest extends TestCase
         $this->expectException(CuratedProductIntakeParseException::class);
 
         app(ParseCuratedMerchantProductsAction::class)->execute($this->curatedPayload([
-            'version' => 2,
+            'version' => 99,
         ]));
     }
 
@@ -201,5 +201,49 @@ class ParseCuratedMerchantProductsActionTest extends TestCase
         $this->assertInstanceOf(CuratedMerchantProductInput::class, $rows[0]);
         $this->assertSame('https://m.media-amazon.com/images/I/example.jpg', $rows[0]->sourceImageUrl);
         $this->assertSame('https://m.media-amazon.com/images/I/example.jpg', $rows[0]->sourcePayload['source_image_url']);
+    }
+
+    public function test_v1_payloads_remain_valid_without_source_list_context(): void
+    {
+        $rows = app(ParseCuratedMerchantProductsAction::class)->execute($this->curatedPayload());
+
+        $this->assertInstanceOf(CuratedMerchantProductInput::class, $rows[0]);
+        $this->assertNull($rows[0]->sourceListContext);
+    }
+
+    public function test_v2_parses_source_list_metadata(): void
+    {
+        $rows = app(ParseCuratedMerchantProductsAction::class)->execute($this->curatedWishlistPayload(
+            'Gifts for Husband',
+            [$this->curatedWishlistItem('B0ABCDEFGH')],
+            [
+                'source_list_id' => '3ABCDEFGHIJKL',
+                'source_list_url' => 'https://www.amazon.in/hz/wishlist/ls/3ABCDEFGHIJKL',
+                'list_kind' => 'recipient_hint',
+            ],
+        ));
+
+        $this->assertInstanceOf(CuratedMerchantProductInput::class, $rows[0]);
+        $this->assertSame('Gifts for Husband', $rows[0]->sourceListContext?->name);
+        $this->assertSame('3ABCDEFGHIJKL', $rows[0]->sourceListContext?->externalListId);
+        $this->assertSame('https://www.amazon.in/hz/wishlist/ls/3ABCDEFGHIJKL', $rows[0]->sourceListContext?->sourceUrl);
+        $this->assertSame('recipient_hint', $rows[0]->sourceListContext?->clientListKind);
+        $this->assertFalse($rows[0]->sourceListContext?->malformed);
+    }
+
+    public function test_malformed_list_metadata_is_isolated(): void
+    {
+        $rows = app(ParseCuratedMerchantProductsAction::class)->execute($this->curatedWishlistPayload(
+            'Gifts for Husband',
+            [$this->curatedWishlistItem('B0ABCDEFGH')],
+            [
+                'source_list_id' => ['not-a-string'],
+            ],
+        ));
+
+        $this->assertInstanceOf(CuratedMerchantProductInput::class, $rows[0]);
+        $this->assertTrue($rows[0]->sourceListContext?->malformed);
+        $this->assertSame('Gifts for Husband', $rows[0]->sourceListContext?->name);
+        $this->assertNull($rows[0]->sourceListContext?->externalListId);
     }
 }

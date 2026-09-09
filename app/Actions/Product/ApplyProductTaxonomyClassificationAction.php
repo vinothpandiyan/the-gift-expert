@@ -8,9 +8,16 @@ use App\Models\Product;
 
 class ApplyProductTaxonomyClassificationAction
 {
-    public function execute(Product $product, ValidatedProductTaxonomyClassification $classification): bool
-    {
-        if ($product->status !== ProductStatus::Draft) {
+    public function execute(
+        Product $product,
+        ValidatedProductTaxonomyClassification $classification,
+        bool $allowPublished = false,
+    ): bool {
+        if ($product->status === ProductStatus::Archived) {
+            return false;
+        }
+
+        if ($product->status !== ProductStatus::Draft && ! $allowPublished) {
             return false;
         }
 

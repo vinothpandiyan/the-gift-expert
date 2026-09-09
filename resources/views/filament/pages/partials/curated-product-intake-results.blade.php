@@ -15,6 +15,9 @@
         'trashed_identity',
         'archived_product',
         'merchant_not_active',
+        'commercial_conflicts',
+        'needs_source_mapping',
+        'malformed_source_list',
         CuratedImageAcquisitionOutcome::STATUS_MISSING_SOURCE,
         CuratedImageAcquisitionOutcome::STATUS_FAILED,
     ];
@@ -22,6 +25,8 @@
     $informationalCodes = [
         'missing_interests',
         'missing_recipient_types',
+        'merged_occurrences',
+        'classification_deferred',
         CuratedImageAcquisitionOutcome::STATUS_ACQUIRED,
         CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT,
     ];
@@ -42,6 +47,11 @@
         'trashed_identity' => 'Trashed identity',
         'archived_product' => 'Archived gift',
         'merchant_not_active' => 'Merchant not active',
+        'merged_occurrences' => 'Merged occurrences',
+        'commercial_conflicts' => 'Commercial field conflicts',
+        'needs_source_mapping' => 'Needs source mapping',
+        'malformed_source_list' => 'Malformed source list',
+        'classification_deferred' => 'Classification deferred',
         CuratedImageAcquisitionOutcome::STATUS_MISSING_SOURCE => 'Missing image source',
         CuratedImageAcquisitionOutcome::STATUS_FAILED => 'Image acquisition failed',
         CuratedImageAcquisitionOutcome::STATUS_ACQUIRED => 'Image acquired',
@@ -92,12 +102,29 @@
         };
     };
 
+    $classificationLinkLabel = static function (?string $status): string {
+        return match ($status) {
+            'review' => 'Review Required →',
+            'failed' => 'Failed →',
+            default => 'Edit Gift →',
+        };
+    };
+
+    $classificationTone = static function (?string $status): string {
+        return match ($status) {
+            'review' => 'warning',
+            'failed' => 'danger',
+            'ai_accepted' => 'success',
+            default => 'default',
+        };
+    };
+
     $summaryCards = $previewSummary ? [
         ['label' => 'Total', 'value' => $previewSummary['items_total'] ?? 0, 'accent' => '#6b7280'],
+        ['label' => 'Unique', 'value' => $previewSummary['unique_products'] ?? $previewSummary['items_total'] ?? 0, 'accent' => '#0284c7'],
         ['label' => 'New', 'value' => $previewSummary['items_new'] ?? 0, 'accent' => '#0284c7'],
         ['label' => 'Existing', 'value' => $previewSummary['items_existing'] ?? 0, 'accent' => '#6b7280'],
         ['label' => 'Invalid', 'value' => $previewSummary['items_invalid'] ?? 0, 'accent' => '#dc2626'],
-        ['label' => 'Warnings', 'value' => $previewSummary['items_with_warnings'] ?? 0, 'accent' => '#d97706'],
         ['label' => 'Ready to Sync', 'value' => $previewSummary['items_actionable'] ?? 0, 'accent' => '#16a34a'],
     ] : [];
 @endphp
@@ -266,6 +293,17 @@
                                     <td class="border-b border-gray-100 px-4 py-4 dark:border-gray-800">
                                         <p class="mt-1 line-clamp-2 text-sm font-medium leading-snug text-gray-950 dark:text-white">{{ $row['title'] ?? '—' }}</p>
                                         <p class="mt-1 font-mono text-[11px] text-gray-500">{{ $row['asin'] ?? '—' }}</p>
+                                        @if (! empty($row['source_list_names']))
+                                            <p class="mt-1 text-[11px] text-gray-500">
+                                                {{ count($row['source_list_names']) }} source list{{ count($row['source_list_names']) === 1 ? '' : 's' }}:
+                                                {{ implode(', ', $row['source_list_names']) }}
+                                            </p>
+                                        @endif
+                                        @if (! empty($row['relationship_hint_names']))
+                                            <p class="mt-1 text-[11px] text-gray-500">
+                                                Relationship hints: {{ implode(', ', $row['relationship_hint_names']) }}
+                                            </p>
+                                        @endif
                                     </td>
                                     <td class="border-b border-gray-100 px-4 py-4 font-medium whitespace-nowrap text-gray-900 dark:border-gray-800 dark:text-gray-100">
                                         {{ $row['price_display'] ?? '—' }}
@@ -409,12 +447,26 @@
                                     <div class="space-y-1">
                                         <p class="font-medium text-gray-950 dark:text-white">{{ $item['product_name'] ?? $item['title'] ?? 'Created gift' }}</p>
                                         <p class="text-xs text-gray-500">ASIN: {{ $item['external_product_id'] ?? '—' }}</p>
+                                        @if (! empty($item['source_list_names']))
+                                            <p class="text-xs text-gray-500">
+                                                {{ count($item['source_list_names']) }} source list{{ count($item['source_list_names']) === 1 ? '' : 's' }}:
+                                                {{ implode(', ', $item['source_list_names']) }}
+                                            </p>
+                                        @endif
                                         <p class="text-xs text-gray-500">
                                             Affiliate: {{ ($item['affiliate_ready'] ?? false) ? 'Ready' : 'Not ready' }}
                                         </p>
                                         @if (! empty($item['image_status']))
                                             <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $badgeClass($imageBadgeTone($item['image_status'])) }}">
                                                 {{ $imageStatusLabels[$item['image_status']] ?? $item['image_status'] }}
+                                            </span>
+                                        @endif
+                                        @if (! empty($item['classification_label']))
+                                            <span
+                                                class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $badgeClass($classificationTone($item['classification_status'] ?? null)) }}"
+                                                data-classification-status="{{ $item['classification_status'] }}"
+                                            >
+                                                {{ $item['classification_label'] }}
                                             </span>
                                         @endif
                                     </div>
@@ -424,7 +476,7 @@
                                             class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
                                             data-edit-gift-link
                                         >
-                                            Edit Gift →
+                                            {{ $classificationLinkLabel($item['classification_status'] ?? null) }}
                                         </a>
                                     @endif
                                 </div>
@@ -466,6 +518,14 @@
                                                 {{ $imageStatusLabels[$item['image_status']] ?? $item['image_status'] }}
                                             </span>
                                         @endif
+                                        @if (! empty($item['classification_label']))
+                                            <span
+                                                class="ml-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset {{ $badgeClass($classificationTone($item['classification_status'] ?? null)) }}"
+                                                data-classification-status="{{ $item['classification_status'] }}"
+                                            >
+                                                {{ $item['classification_label'] }}
+                                            </span>
+                                        @endif
                                     </div>
                                     @if (! empty($item['product_id']))
                                         <a
@@ -473,7 +533,7 @@
                                             class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
                                             data-edit-gift-link
                                         >
-                                            Edit Gift →
+                                            {{ $classificationLinkLabel($item['classification_status'] ?? null) }}
                                         </a>
                                     @endif
                                 </div>

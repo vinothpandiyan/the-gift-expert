@@ -6,6 +6,10 @@ readonly class CuratedProductIntakePreviewItem
 {
     /**
      * @param  list<string>  $warnings
+     * @param  list<CuratedSourceListContext>  $sourceLists
+     * @param  list<string>  $sourceListNames
+     * @param  list<string>  $relationshipHintNames
+     * @param  list<string>  $commercialConflicts
      */
     public function __construct(
         public int $itemIndex,
@@ -18,6 +22,12 @@ readonly class CuratedProductIntakePreviewItem
         public ?string $affiliateReasonCode,
         public ?int $productId,
         public ?int $affiliateLinkId,
+        public array $sourceLists = [],
+        public array $sourceListNames = [],
+        public array $relationshipHintNames = [],
+        public array $commercialConflicts = [],
+        public int $occurrencesMerged = 1,
+        public ?MergedCuratedMerchantProduct $merged = null,
     ) {}
 
     public function externalProductId(): ?string
@@ -43,5 +53,10 @@ readonly class CuratedProductIntakePreviewItem
     public function availability(): ?string
     {
         return $this->input?->availability;
+    }
+
+    public function sourceListCount(): int
+    {
+        return count($this->sourceLists);
     }
 }

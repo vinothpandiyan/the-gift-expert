@@ -27,7 +27,7 @@
 @endphp
 
 <article {{ $attributes->merge(['class' => 'group relative flex h-full flex-col rounded-xl border border-line bg-surface p-3 transition-shadow hover:shadow-[0_8px_24px_-16px_rgba(38,35,38,0.35)]']) }}>
-    <div class="relative aspect-4/3 overflow-hidden rounded-md bg-surface-sunken p-4">
+    <div class="relative aspect-square overflow-hidden rounded-md bg-surface-sunken p-1.5">
         @if ($primaryImage)
             <img
                 src="{{ $primaryImage->url() }}"

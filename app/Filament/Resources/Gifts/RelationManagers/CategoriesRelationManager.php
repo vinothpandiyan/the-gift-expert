@@ -22,6 +22,11 @@ class CategoriesRelationManager extends RelationManager
 
     protected static ?string $title = 'Categories';
 
+    public function isReadOnly(): bool
+    {
+        return true;
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -48,7 +53,7 @@ class CategoriesRelationManager extends RelationManager
             ->headerActions([
                 AttachAction::make()
                     ->preloadRecordSelect()
-                    ->recordSelectOptionsQuery(fn ($query) => $query->orderBy('full_path'))
+                    ->recordSelectOptionsQuery(fn ($query) => $query->where('is_active', true)->orderBy('full_path'))
                     ->recordTitle(fn (Category $record): string => $record->full_path)
                     ->form(fn (AttachAction $action): array => [
                         $action->getRecordSelect(),

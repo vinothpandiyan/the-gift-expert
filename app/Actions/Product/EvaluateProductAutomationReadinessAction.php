@@ -55,6 +55,8 @@ class EvaluateProductAutomationReadinessAction
         'taxonomy_too_broad',
         'name_overlap',
         'incomplete_copy',
+        'classification_not_publishable',
+        'invalid_primary_category',
     ];
 
     /** @var list<string> */

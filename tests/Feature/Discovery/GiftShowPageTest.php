@@ -64,13 +64,14 @@ class GiftShowPageTest extends TestCase
             ->assertSee('A lovely mug for daily coffee.', false)
             ->assertSee('Around ₹499', false)
             ->assertSee('at Example Merchant', false)
-            ->assertSee('Check price at Example Merchant', false)
+            ->assertSee('View deal on Example Merchant', false)
             ->assertSee(DiscoveryUrl::affiliateOut($link->uuid), false)
             ->assertDontSee('href="'.$link->url.'"', false)
             ->assertSee('Price and availability may change on the merchant website.', false)
             ->assertSee("Why it's a great gift", false)
             ->assertSee('A simple gift for coffee drinkers', false)
             ->assertSee('It feels considered without being fussy.', false)
+            ->assertSee('<ul', false)
             ->assertSee('Best for', false)
             ->assertSee('Recipients', false)
             ->assertSee('Occasions', false)
@@ -148,6 +149,72 @@ class GiftShowPageTest extends TestCase
         $this->assertStringContainsString('fetchpriority="high"', $html);
     }
 
+    public function test_amazon_india_cta_omits_india_and_keeps_outbound_tracking(): void
+    {
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'slug' => 'amazon-cta-gift',
+            'name' => 'Amazon CTA Gift',
+        ]);
+        $link = $product->affiliateLinks->first();
+        $amazon = Merchant::query()->create([
+            'name' => 'Amazon India',
+            'slug' => 'amazon-in',
+            'affiliate_network' => 'amazon_associates',
+            'is_active' => true,
+        ]);
+        $link->update(['merchant_id' => $amazon->id]);
+
+        $html = $this->get(DiscoveryUrl::gift($product->slug))
+            ->assertOk()
+            ->assertSee('View deal on Amazon', false)
+            ->assertSee('at Amazon India', false)
+            ->assertSee('Price and availability may change on the merchant website.', false)
+            ->assertSee(DiscoveryUrl::affiliateOut($link->uuid), false)
+            ->assertDontSee('Check price', false)
+            ->assertDontSee('View deal on Amazon India', false)
+            ->getContent();
+
+        $this->assertGreaterThanOrEqual(2, substr_count($html, 'View deal on Amazon'));
+        $this->assertStringNotContainsString($link->url, $html);
+    }
+
+    public function test_single_paragraph_why_does_not_render_as_a_list(): void
+    {
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'slug' => 'paragraph-why-gift',
+            'name' => 'Paragraph Why Gift',
+            'description' => 'A thoughtful way to turn a shared photo into a lasting friendship keepsake.',
+        ]);
+
+        $html = $this->get(DiscoveryUrl::gift($product->slug))
+            ->assertOk()
+            ->assertSee("Why it's a great gift", false)
+            ->getContent();
+
+        $this->assertStringContainsString('A thoughtful way to turn a shared photo', $html);
+        $this->assertStringNotContainsString('<ul class="mt-3 space-y-2.5">', $html);
+    }
+
+    public function test_multiline_why_renders_as_a_scannable_list(): void
+    {
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'slug' => 'list-why-gift',
+            'name' => 'List Why Gift',
+            'description' => "Turns a favorite photo into a lasting keepsake\nPersonal and meaningful without feeling generic\nGreat for birthdays, farewells and graduation",
+        ]);
+
+        $html = $this->get(DiscoveryUrl::gift($product->slug))
+            ->assertOk()
+            ->assertSee("Why it's a great gift", false)
+            ->getContent();
+
+        $this->assertStringContainsString('<ul class="mt-3 space-y-2.5">', $html);
+        $this->assertStringContainsString('Turns a favorite photo into a lasting keepsake', $html);
+        $this->assertStringContainsString('Personal and meaningful without feeling generic', $html);
+        $this->assertStringContainsString('Great for birthdays, farewells and graduation', $html);
+        $this->assertStringNotContainsString('whitespace-pre-line', $html);
+    }
+
     public function test_affiliate_cta_uses_outbound_route(): void
     {
         $product = GiftCatalogTestHelpers::publishedGift([
@@ -207,7 +274,7 @@ class GiftShowPageTest extends TestCase
 
         $html = $this->get(DiscoveryUrl::gift($product->slug))
             ->assertOk()
-            ->assertSee('Check price at Example Merchant', false)
+            ->assertSee('View deal on Example Merchant', false)
             ->assertSee('Flipkart', false)
             ->assertSee(DiscoveryUrl::affiliateOut($amazon->uuid), false)
             ->assertSee(DiscoveryUrl::affiliateOut($flipkartLink->uuid), false)
@@ -215,7 +282,7 @@ class GiftShowPageTest extends TestCase
 
         $this->assertStringNotContainsString('https://www.flipkart.com/multi-merchant-gift', $html);
         $this->assertStringNotContainsString($amazon->url, $html);
-        $this->assertSame(2, substr_count($html, 'View deal'));
+        $this->assertSame(4, substr_count($html, 'View deal'));
     }
 
     public function test_duplicate_merchant_offers_collapse_to_one_row(): void
@@ -240,7 +307,7 @@ class GiftShowPageTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertSame(1, substr_count($html, 'View deal'));
+        $this->assertSame(3, substr_count($html, 'View deal'));
         $this->assertStringNotContainsString('https://example.com/duplicate-alt', $html);
     }
 
@@ -456,7 +523,7 @@ class GiftShowPageTest extends TestCase
             ->assertOk()
             ->assertSee($name, false)
             ->assertSee('A thoughtful short description that keeps going.', false)
-            ->assertSee('Check price at', false);
+            ->assertSee('View deal on Example Merchant', false);
     }
 
     private function fullyTaggedGift(

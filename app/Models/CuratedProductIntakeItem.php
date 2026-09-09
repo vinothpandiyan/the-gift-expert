@@ -18,6 +18,8 @@ class CuratedProductIntakeItem extends Model
         'source_payload',
         'warnings',
         'error',
+        'source_list_ids',
+        'occurrences_merged',
     ];
 
     protected function casts(): array
@@ -26,7 +28,9 @@ class CuratedProductIntakeItem extends Model
             'outcome' => CuratedProductIntakeItemOutcome::class,
             'source_payload' => 'array',
             'warnings' => 'array',
+            'source_list_ids' => 'array',
             'item_index' => 'integer',
+            'occurrences_merged' => 'integer',
         ];
     }
 

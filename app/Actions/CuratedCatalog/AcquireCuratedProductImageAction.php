@@ -3,6 +3,7 @@
 namespace App\Actions\CuratedCatalog;
 
 use App\Actions\Import\AcquireRemoteProductImageAction;
+use App\Actions\ProductImage\NormalizeAmazonProductImageUrlAction;
 use App\Actions\ProductImage\StoreProductImageAction;
 use App\CuratedCatalog\CuratedImageAcquisitionOutcome;
 use App\Models\Merchant;
@@ -18,6 +19,7 @@ class AcquireCuratedProductImageAction
         private ValidateCuratedProductImageUrlAction $validateUrl,
         private AcquireRemoteProductImageAction $acquireRemoteProductImage,
         private StoreProductImageAction $storeProductImage,
+        private NormalizeAmazonProductImageUrlAction $normalizeAmazonProductImageUrl,
     ) {}
 
     public function execute(Merchant $merchant, Product $product, ?string $sourceImageUrl): CuratedImageAcquisitionOutcome
@@ -44,8 +46,14 @@ class AcquireCuratedProductImageAction
         try {
             $this->validateUrl->execute($sourceImageUrl, $allowedHosts, httpsOnly: true);
 
+            $downloadUrl = $this->normalizeAmazonProductImageUrl->execute($sourceImageUrl, $merchant)->url;
+
+            if ($downloadUrl !== $sourceImageUrl) {
+                $this->validateUrl->execute($downloadUrl, $allowedHosts, httpsOnly: true);
+            }
+
             $acquired = $this->acquireRemoteProductImage->execute(
-                $sourceImageUrl,
+                $downloadUrl,
                 fn (string $url): mixed => $this->validateUrl->execute($url, $allowedHosts, httpsOnly: true),
             );
             $acquiredPath = $acquired->path;
@@ -69,7 +77,7 @@ class AcquireCuratedProductImageAction
             $image = $stored->first();
 
             if ($image instanceof ProductImage) {
-                $image->source_url = $sourceImageUrl;
+                $image->source_url = $downloadUrl;
                 $image->content_hash = $acquired->contentHash;
                 $image->acquired_at = now();
                 $image->save();

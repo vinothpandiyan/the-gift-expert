@@ -162,7 +162,7 @@ class CuratedProductIntakePageTest extends TestCase
                     ],
                 ]),
             ),
-            'https://m.media-amazon.com/images/I/example.jpg' => Http::response(
+            'https://m.media-amazon.com/images/*' => Http::response(
                 $imageBody,
                 200,
                 ['Content-Type' => 'image/jpeg'],
@@ -195,6 +195,8 @@ class CuratedProductIntakePageTest extends TestCase
         $this->assertSame($product->id, $processed['product_id']);
         $this->assertSame($product->name, $processed['product_name']);
         $this->assertTrue($processed['affiliate_ready']);
+        $this->assertSame('ai_accepted', $processed['classification_status']);
+        $this->assertSame('AI accepted', $processed['classification_label']);
         $this->assertContains('missing_relationships', $processed['warnings']);
         $this->assertContains('missing_occasions', $processed['warnings']);
 
@@ -208,6 +210,7 @@ class CuratedProductIntakePageTest extends TestCase
         $this->assertStringContainsString('data-result-summary', $html);
         $this->assertStringContainsString('data-result-card="created"', $html);
         $this->assertStringContainsString('Sync result', $html);
+        $this->assertStringContainsString('AI accepted', $html);
         $this->assertSame(1, substr_count($html, 'data-edit-gift-link'));
 
         $this->assertSame(1, Product::query()->count());

@@ -6,6 +6,7 @@ use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\CatalogCandidateSourcingItemStatus;
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Filament\Resources\Gifts\Pages\CreateGift;
 use App\Filament\Resources\Gifts\Pages\EditGift;
 use App\Filament\Resources\Gifts\Pages\ListGifts;
@@ -147,6 +148,20 @@ class GiftResourceTest extends TestCase
         $this->assertSame(ProductStatus::Draft, $blocked->fresh()->status);
     }
 
+    public function test_list_shows_taxonomy_classification_status(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $product = Product::factory()->create([
+            'name' => 'Needs Taxonomy Review',
+            'taxonomy_classification_status' => TaxonomyClassificationStatus::Review,
+        ]);
+
+        Livewire::test(ListGifts::class)
+            ->assertCanSeeTableRecords([$product])
+            ->assertSee('Needs review');
+    }
+
     private function readyPromotedDraft(
         Merchant $merchant,
         Category $category,
@@ -160,6 +175,7 @@ class GiftResourceTest extends TestCase
             'short_description' => 'Short copy',
             'price_amount' => '500.00',
             'status' => ProductStatus::Draft,
+            'taxonomy_classification_status' => TaxonomyClassificationStatus::AiAccepted,
         ]);
 
         $product->categories()->attach($category->id, ['is_primary' => true]);
@@ -213,7 +229,15 @@ class GiftResourceTest extends TestCase
         $product = Product::factory()->create([
             'status' => ProductStatus::Draft,
             'price_amount' => '999.00',
+            'taxonomy_classification_status' => TaxonomyClassificationStatus::AiAccepted,
         ]);
+
+        $category = Category::query()->create([
+            'name' => 'Home',
+            'slug' => 'home-publishable',
+            'is_active' => true,
+        ]);
+        $product->categories()->attach($category->id, ['is_primary' => true]);
 
         ProductImage::query()->create([
             'product_id' => $product->id,

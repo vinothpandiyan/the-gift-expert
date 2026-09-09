@@ -8,7 +8,7 @@
     for="{{ $inputId }}"
     wire:key="{{ $idPrefix }}-{{ $dimension }}-{{ $value }}"
     @class([
-        'flex min-h-11 cursor-pointer items-start gap-3 rounded-sm px-1 py-1 text-[14px] text-ink hover:text-plum',
+        'flex min-h-11 cursor-pointer items-start gap-2 rounded-sm px-1 py-1 text-[14px] text-ink hover:text-plum',
         'pl-7' => $indent,
     ])
 >

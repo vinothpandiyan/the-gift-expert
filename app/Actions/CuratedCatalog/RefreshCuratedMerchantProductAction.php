@@ -115,6 +115,8 @@ class RefreshCuratedMerchantProductAction
                 }
 
                 $link->last_verified_at = $this->resolveVerifiedAt($input->capturedAt);
+                $link->availability = $input->availability ?? $link->availability;
+                $link->last_seen_at = $this->resolveVerifiedAt($input->capturedAt);
                 $link->save();
             });
         } catch (Throwable $exception) {

@@ -2,6 +2,7 @@
 
 namespace App\Actions\CatalogCandidate;
 
+use App\Actions\Category\IsAcceptableMerchandisingCategoryAction;
 use App\CommercialSourcing\ValidatedProductTaxonomyClassification;
 use App\Models\Category;
 use App\Models\GiftType;
@@ -14,6 +15,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class ValidateProductTaxonomyClassificationAction
 {
+    public function __construct(
+        private IsAcceptableMerchandisingCategoryAction $isAcceptableMerchandisingCategory,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $taxonomy
      * @param  array<string, int>  $capOverrides
@@ -124,7 +129,7 @@ class ValidateProductTaxonomyClassificationAction
                 continue;
             }
 
-            if ($model === Category::class && ! $this->isAcceptableMerchandisingCategory($id)) {
+            if ($model === Category::class && ! $this->isAcceptableMerchandisingCategory->execute($id)) {
                 $rejected[] = $id;
 
                 continue;
@@ -149,7 +154,7 @@ class ValidateProductTaxonomyClassificationAction
     private function resolvePrimary(?int $primary, array &$categoryIds, array &$rejected): ?int
     {
         if ($primary !== null) {
-            if ($this->isAcceptableMerchandisingCategory($primary)) {
+            if ($this->isAcceptableMerchandisingCategory->execute($primary)) {
                 return $primary;
             }
 
@@ -157,65 +162,12 @@ class ValidateProductTaxonomyClassificationAction
         }
 
         foreach ($categoryIds as $id) {
-            if ($this->isAcceptableMerchandisingCategory($id)) {
+            if ($this->isAcceptableMerchandisingCategory->execute($id)) {
                 return $id;
             }
         }
 
         return null;
-    }
-
-    private function isAcceptableMerchandisingCategory(int $categoryId): bool
-    {
-        $category = Category::query()->whereKey($categoryId)->first();
-
-        if (! $category instanceof Category || $category->is_active !== true) {
-            return false;
-        }
-
-        if (! is_string($category->full_path) || trim($category->full_path) === '') {
-            return false;
-        }
-
-        if ($category->canonical_seo_landing_page_id !== null) {
-            return false;
-        }
-
-        $current = $category;
-
-        while ($current->parent_id !== null) {
-            $parent = Category::withTrashed()->find($current->parent_id);
-
-            if (! $parent instanceof Category) {
-                break;
-            }
-
-            if ($parent->canonical_seo_landing_page_id !== null) {
-                return false;
-            }
-
-            $current = $parent;
-        }
-
-        $slug = $category->slug;
-
-        if ($slug === 'personalized-gifts' || str_starts_with($slug, 'gifts-for-')) {
-            return false;
-        }
-
-        $occasionSlugs = Occasion::query()->where('is_active', true)->pluck('slug')->all();
-
-        foreach ($occasionSlugs as $occasionSlug) {
-            if (is_string($occasionSlug) && $slug === $occasionSlug.'-gifts') {
-                return false;
-            }
-        }
-
-        $intentSlugs = Relationship::query()->where('is_active', true)->pluck('slug')
-            ->merge(RecipientType::query()->where('is_active', true)->pluck('slug'))
-            ->all();
-
-        return ! in_array($slug, $intentSlugs, true);
     }
 
     /**

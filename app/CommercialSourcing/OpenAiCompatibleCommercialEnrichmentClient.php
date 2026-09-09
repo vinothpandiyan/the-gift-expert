@@ -14,7 +14,7 @@ class OpenAiCompatibleCommercialEnrichmentClient
      * @param  array<string, mixed>  $schema
      * @return array<string, mixed>
      */
-    public function complete(string $system, string $user, array $schema): array
+    public function complete(string $system, string $user, array $schema, bool $requireTaxonomy = true): array
     {
         $apiKey = $this->apiKey();
         $model = $this->model();
@@ -85,7 +85,11 @@ class OpenAiCompatibleCommercialEnrichmentClient
 
         $payload = json_decode($content, true);
 
-        if (! is_array($payload) || array_is_list($payload) || ! isset($payload['taxonomy']) || ! is_array($payload['taxonomy'])) {
+        if (! is_array($payload) || array_is_list($payload)) {
+            throw new CommercialEnrichmentException('The commercial enrichment response was malformed.');
+        }
+
+        if ($requireTaxonomy && (! isset($payload['taxonomy']) || ! is_array($payload['taxonomy']))) {
             throw new CommercialEnrichmentException('The commercial enrichment response was malformed.');
         }
 

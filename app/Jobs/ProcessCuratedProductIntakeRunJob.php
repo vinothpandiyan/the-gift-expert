@@ -26,6 +26,7 @@ class ProcessCuratedProductIntakeRunJob implements ShouldQueue
         public string $json,
         public ?string $formMerchantSlug = null,
         public ?string $formCurationGroup = null,
+        public bool $deferClassification = false,
     ) {}
 
     public function handle(ProcessCuratedProductIntakeAction $processCuratedProductIntake): void
@@ -35,6 +36,7 @@ class ProcessCuratedProductIntakeRunJob implements ShouldQueue
             $this->json,
             $this->formMerchantSlug,
             $this->formCurationGroup,
+            $this->deferClassification,
         );
     }
 

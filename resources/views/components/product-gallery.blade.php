@@ -12,7 +12,7 @@
 
 <div @if ($hasGallery) x-data="{ active: 0 }" @endif>
     <div class="rounded-xl border border-line bg-surface p-3">
-        <div class="aspect-square overflow-hidden rounded-md bg-surface-sunken p-6">
+        <div class="aspect-square overflow-hidden rounded-md bg-surface-sunken p-3">
             @if ($images->isEmpty())
                 <x-gift-image-placeholder class="h-full bg-transparent" />
             @elseif (! $hasGallery)

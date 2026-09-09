@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Models\Merchant;
+use App\Models\Relationship;
 
 trait ConfiguresCuratedCatalog
 {
@@ -90,5 +91,60 @@ trait ConfiguresCuratedCatalog
         $payload = array_replace_recursive($payload, $overrides);
 
         return json_encode($payload, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @param  array<string, mixed>  $context
+     */
+    protected function curatedWishlistPayload(
+        string $listName,
+        array $items,
+        array $context = [],
+        array $overrides = [],
+    ): string {
+        $payload = [
+            'version' => 2,
+            'merchant' => 'amazon-in',
+            'captured_at' => '2026-09-08T10:00:00+05:30',
+            'context' => array_merge([
+                'source_list_name' => $listName,
+            ], $context),
+            'items' => $items,
+        ];
+
+        $payload = array_replace_recursive($payload, $overrides);
+
+        return json_encode($payload, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function curatedWishlistItem(string $asin, array $overrides = []): array
+    {
+        return array_merge([
+            'external_product_id' => $asin,
+            'source_url' => 'https://www.amazon.in/dp/'.$asin,
+            'title' => 'Gift '.$asin,
+            'price_amount' => '1299.00',
+            'price_currency' => 'INR',
+            'source_image_url' => 'https://m.media-amazon.com/images/I/'.$asin.'._SS1200_.jpg',
+            'availability' => 'in_stock',
+        ], $overrides);
+    }
+
+    protected function seedCuratedRelationships(): void
+    {
+        foreach (['Husband', 'Boyfriend', 'Brother', 'Father'] as $sortOrder => $name) {
+            Relationship::query()->updateOrCreate(
+                ['slug' => str($name)->slug()->toString()],
+                [
+                    'name' => $name,
+                    'sort_order' => $sortOrder + 1,
+                    'is_active' => true,
+                ],
+            );
+        }
     }
 }

@@ -64,6 +64,10 @@ class GiftListingFilterUxTest extends TestCase
         $this->assertStringContainsString('filter-option-count', $html);
         $this->assertStringContainsString('<fieldset', $html);
         $this->assertStringContainsString('id="desktop-occasion-heading"', $html);
+        $this->assertStringContainsString('border-b border-line py-2', $html);
+        $this->assertStringContainsString('rounded-xl border border-line bg-surface px-3', $html);
+        $this->assertStringContainsString('mt-0.5 flex flex-col', $html);
+        $this->assertStringContainsString('min-h-11', $html);
     }
 
     public function test_selected_zero_count_option_can_be_cleared(): void

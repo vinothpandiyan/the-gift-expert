@@ -6,6 +6,7 @@ use App\CommercialSourcing\CommercialSourcingMerchants;
 use App\CommercialSourcing\ExtractCommercialExternalProductId;
 use App\CuratedCatalog\CuratedMerchantProductInput;
 use App\CuratedCatalog\CuratedProductInputError;
+use App\CuratedCatalog\CuratedSourceListContext;
 use App\Support\CatalogCandidateSourceUrl;
 
 class CuratedProductIntakeFields
@@ -50,6 +51,7 @@ class CuratedProductIntakeFields
         ?string $formCurationGroup,
         CommercialSourcingMerchants $merchants,
         ExtractCommercialExternalProductId $extractExternalId,
+        ?CuratedSourceListContext $sourceListContext = null,
     ): CuratedMerchantProductInput|CuratedProductInputError {
         $allowedItemKeys = [
             'external_product_id',
@@ -205,6 +207,9 @@ class CuratedProductIntakeFields
             'availability' => $availability,
             'captured_at' => $rootCapturedAt,
             'curation_group' => $curationGroup,
+            'source_list_name' => $sourceListContext?->name,
+            'source_list_id' => $sourceListContext?->externalListId,
+            'source_list_url' => $sourceListContext?->sourceUrl,
         ];
 
         return new CuratedMerchantProductInput(
@@ -220,7 +225,65 @@ class CuratedProductIntakeFields
             capturedAt: $rootCapturedAt,
             curationGroup: $curationGroup,
             sourcePayload: $sourcePayload,
+            sourceListContext: $sourceListContext,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public static function sourceListContextFromRow(array $context, int $version): ?CuratedSourceListContext
+    {
+        if ($version < 2) {
+            return null;
+        }
+
+        $malformed = false;
+        $malformedReason = null;
+
+        $name = self::optionalContextString($context['source_list_name'] ?? null, 'source_list_name', $malformed, $malformedReason);
+        $externalListId = self::optionalContextString($context['source_list_id'] ?? null, 'source_list_id', $malformed, $malformedReason);
+        $sourceUrl = self::optionalContextString($context['source_list_url'] ?? null, 'source_list_url', $malformed, $malformedReason);
+        $listKind = self::optionalContextString($context['list_kind'] ?? null, 'list_kind', $malformed, $malformedReason);
+
+        if ($name === null && $externalListId === null && $sourceUrl === null && $listKind === null && ! $malformed) {
+            return null;
+        }
+
+        return new CuratedSourceListContext(
+            name: $name,
+            externalListId: $externalListId,
+            sourceUrl: $sourceUrl,
+            clientListKind: $listKind,
+            malformed: $malformed,
+            malformedReason: $malformedReason,
+        );
+    }
+
+    private static function optionalContextString(
+        mixed $value,
+        string $field,
+        bool &$malformed,
+        ?string &$malformedReason,
+    ): ?string {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            $value = (string) $value;
+        }
+
+        if (! is_string($value)) {
+            $malformed = true;
+            $malformedReason ??= $field.' is malformed.';
+
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     public static function resolveCurationGroup(?string $formCurationGroup, ?string $rootCurationGroup): ?string

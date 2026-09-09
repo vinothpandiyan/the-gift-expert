@@ -7,15 +7,21 @@ use App\CuratedCatalog\CuratedMerchantProductInput;
 use App\CuratedCatalog\CuratedProductInputError;
 use App\CuratedCatalog\CuratedProductIntakePreview;
 use App\CuratedCatalog\CuratedProductIntakePreviewItem;
+use App\CuratedCatalog\CuratedSourceListContext;
+use App\CuratedCatalog\MergedCuratedMerchantProduct;
+use App\Enums\CatalogSourceListKind;
 use App\Enums\ProductStatus;
 use App\Models\AffiliateLink;
 use App\Models\Merchant;
+use App\Models\Relationship;
 
 class PreviewCuratedProductIntakeAction
 {
     public function __construct(
         private ParseCuratedMerchantProductsAction $parse,
+        private MergeCuratedMerchantProductOccurrencesAction $merge,
         private BuildCuratedAffiliateUrlAction $buildAffiliateUrl,
+        private ResolveCatalogSourceListMappingAction $mapping,
     ) {}
 
     public function execute(
@@ -26,25 +32,35 @@ class PreviewCuratedProductIntakeAction
         $parsed = $this->parse->execute($json, $formMerchantSlug, $formCurationGroup);
         $merchantSlug = $formMerchantSlug ?? $this->resolveMerchantSlug($json);
 
+        return $this->fromParsed($parsed, (string) $merchantSlug);
+    }
+
+    /**
+     * @param  list<CuratedMerchantProductInput|CuratedProductInputError>  $parsed
+     */
+    public function fromParsed(array $parsed, string $merchantSlug): CuratedProductIntakePreview
+    {
         $merchant = Merchant::query()
             ->where('slug', $merchantSlug)
             ->where('is_active', true)
             ->first();
 
         $validInputs = [];
-        $seenAsins = [];
+        $errors = [];
 
         foreach ($parsed as $row) {
             if ($row instanceof CuratedMerchantProductInput) {
                 $validInputs[] = $row;
+            } else {
+                $errors[] = $row;
             }
         }
 
+        $mergedProducts = $this->merge->execute($validInputs);
         $identityMap = $this->resolveIdentities($merchant, $validInputs);
-        $previewItems = [];
 
         $counts = [
-            'valid' => 0,
+            'valid' => count($validInputs),
             'invalid' => 0,
             'new' => 0,
             'existing' => 0,
@@ -55,145 +71,52 @@ class PreviewCuratedProductIntakeAction
             'unavailable' => 0,
             'affiliate_not_ready' => 0,
             'actionable' => 0,
+            'multi_list' => 0,
         ];
 
-        foreach ($parsed as $row) {
-            if ($row instanceof CuratedProductInputError) {
-                $previewItems[] = new CuratedProductIntakePreviewItem(
-                    itemIndex: $row->itemIndex,
-                    input: null,
-                    error: $row,
-                    disposition: 'invalid',
-                    proposedAction: 'FAIL',
-                    warnings: [],
-                    affiliateReady: false,
-                    affiliateReasonCode: null,
-                    productId: null,
-                    affiliateLinkId: null,
-                );
-                $counts['invalid']++;
+        $previewItems = [];
 
-                continue;
-            }
-
-            $warnings = [];
-            $disposition = 'new';
-            $proposedAction = 'CREATE';
-            $affiliateReady = false;
-            $affiliateReasonCode = null;
-            $productId = null;
-            $affiliateLinkId = null;
-
-            if (isset($seenAsins[$row->externalProductId])) {
-                $disposition = 'duplicate';
-                $proposedAction = 'SKIP';
-                $warnings[] = 'duplicate_in_payload';
-                $counts['duplicate']++;
-                $counts['valid']++;
-                $previewItems[] = new CuratedProductIntakePreviewItem(
-                    itemIndex: $row->itemIndex,
-                    input: $row,
-                    error: null,
-                    disposition: $disposition,
-                    proposedAction: $proposedAction,
-                    warnings: $warnings,
-                    affiliateReady: false,
-                    affiliateReasonCode: null,
-                    productId: null,
-                    affiliateLinkId: null,
-                );
-
-                continue;
-            }
-
-            $seenAsins[$row->externalProductId] = true;
-            $counts['valid']++;
-
-            if ($row->priceAmount === null) {
-                $warnings[] = 'missing_price';
-                $counts['missing_price']++;
-            }
-
-            if ($row->sourceImageUrl === null) {
-                $warnings[] = 'missing_image_url';
-                $counts['missing_image']++;
-            }
-
-            if (in_array($row->availability, ['out_of_stock', 'unavailable'], true)) {
-                $warnings[] = 'availability_unavailable';
-                $counts['unavailable']++;
-            }
-
-            $identity = $identityMap[$row->externalProductId] ?? null;
-
-            if ($identity !== null) {
-                if ($identity['trashed']) {
-                    $disposition = 'trashed';
-                    $proposedAction = 'SKIP';
-                    $warnings[] = 'trashed_identity';
-                    $counts['trashed']++;
-                } else {
-                    $disposition = 'existing';
-                    $proposedAction = 'UPDATE';
-                    $productId = $identity['product_id'];
-                    $affiliateLinkId = $identity['affiliate_link_id'];
-                    $counts['existing']++;
-
-                    $productStatus = $identity['product_status'];
-
-                    if ($productStatus === ProductStatus::Archived->value) {
-                        $proposedAction = 'SKIP';
-                        $warnings[] = 'archived_product';
-                    }
-                }
-            } else {
-                $counts['new']++;
-            }
-
-            if ($merchant instanceof Merchant && in_array($proposedAction, ['CREATE', 'UPDATE'], true)) {
-                $affiliate = $this->buildAffiliateUrl->execute($merchant, $row);
-                $affiliateReady = $affiliate->ready;
-                $affiliateReasonCode = $affiliate->reasonCode;
-
-                if (! $affiliateReady) {
-                    $warnings[] = 'affiliate_not_ready';
-                    $counts['affiliate_not_ready']++;
-
-                    if ($proposedAction === 'CREATE') {
-                        $proposedAction = 'FAIL';
-                    }
-                }
-            } elseif ($proposedAction === 'CREATE') {
-                $warnings[] = 'merchant_not_active';
-                $proposedAction = 'FAIL';
-            }
-
-            if (in_array($proposedAction, ['CREATE', 'UPDATE'], true)) {
-                $counts['actionable']++;
-            }
-
+        foreach ($errors as $error) {
             $previewItems[] = new CuratedProductIntakePreviewItem(
-                itemIndex: $row->itemIndex,
-                input: $row,
-                error: null,
-                disposition: $disposition,
-                proposedAction: $proposedAction,
-                warnings: $warnings,
-                affiliateReady: $affiliateReady,
-                affiliateReasonCode: $affiliateReasonCode,
-                productId: $productId,
-                affiliateLinkId: $affiliateLinkId,
+                itemIndex: $error->itemIndex,
+                input: null,
+                error: $error,
+                disposition: 'invalid',
+                proposedAction: 'FAIL',
+                warnings: [],
+                affiliateReady: false,
+                affiliateReasonCode: null,
+                productId: null,
+                affiliateLinkId: null,
+            );
+            $counts['invalid']++;
+        }
+
+        foreach ($mergedProducts as $merged) {
+            $previewItems[] = $this->previewMergedProduct(
+                $merged,
+                $merchant,
+                $identityMap,
+                $counts,
             );
         }
 
+        usort(
+            $previewItems,
+            fn (CuratedProductIntakePreviewItem $left, CuratedProductIntakePreviewItem $right): int => $left->itemIndex <=> $right->itemIndex,
+        );
+
+        $uniqueProducts = count($mergedProducts);
+        $mergedOccurrences = max($counts['valid'] - $uniqueProducts, 0);
+
         return new CuratedProductIntakePreview(
-            merchantSlug: (string) $merchantSlug,
-            itemsTotal: count($parsed),
+            merchantSlug: $merchantSlug,
+            itemsTotal: count($previewItems),
             itemsValid: $counts['valid'],
             itemsInvalid: $counts['invalid'],
             itemsNew: $counts['new'],
             itemsExisting: $counts['existing'],
-            itemsDuplicate: $counts['duplicate'],
+            itemsDuplicate: $mergedOccurrences,
             itemsTrashed: $counts['trashed'],
             itemsMissingPrice: $counts['missing_price'],
             itemsMissingImage: $counts['missing_image'],
@@ -201,7 +124,165 @@ class PreviewCuratedProductIntakeAction
             itemsAffiliateNotReady: $counts['affiliate_not_ready'],
             itemsActionable: $counts['actionable'],
             items: $previewItems,
+            rawOccurrences: $counts['valid'],
+            uniqueProducts: $uniqueProducts,
+            mergedOccurrences: $mergedOccurrences,
+            multiListProducts: $counts['multi_list'],
         );
+    }
+
+    /**
+     * @param  array<string, int>  $counts
+     * @param  array<string, array{trashed: bool, product_id: ?int, affiliate_link_id: ?int, product_status: ?string}>  $identityMap
+     */
+    private function previewMergedProduct(
+        MergedCuratedMerchantProduct $merged,
+        ?Merchant $merchant,
+        array $identityMap,
+        array &$counts,
+    ): CuratedProductIntakePreviewItem {
+        $row = $merged->input;
+        $warnings = [];
+        $disposition = 'new';
+        $proposedAction = 'CREATE';
+        $affiliateReady = false;
+        $affiliateReasonCode = null;
+        $productId = null;
+        $affiliateLinkId = null;
+
+        if ($merged->mergedOccurrenceCount() > 0) {
+            $warnings[] = 'merged_occurrences';
+        }
+
+        if ($merged->conflicts !== []) {
+            $warnings[] = 'commercial_conflicts';
+        }
+
+        if ($row->priceAmount === null) {
+            $warnings[] = 'missing_price';
+            $counts['missing_price']++;
+        }
+
+        if ($row->sourceImageUrl === null) {
+            $warnings[] = 'missing_image_url';
+            $counts['missing_image']++;
+        }
+
+        if (in_array($row->availability, ['out_of_stock', 'unavailable'], true)) {
+            $warnings[] = 'availability_unavailable';
+            $counts['unavailable']++;
+        }
+
+        $identity = $identityMap[$row->externalProductId] ?? null;
+
+        if ($identity !== null) {
+            if ($identity['trashed']) {
+                $disposition = 'trashed';
+                $proposedAction = 'SKIP';
+                $warnings[] = 'trashed_identity';
+                $counts['trashed']++;
+            } else {
+                $disposition = 'existing';
+                $proposedAction = 'UPDATE';
+                $productId = $identity['product_id'];
+                $affiliateLinkId = $identity['affiliate_link_id'];
+                $counts['existing']++;
+
+                $productStatus = $identity['product_status'];
+
+                if ($productStatus === ProductStatus::Archived->value) {
+                    $proposedAction = 'SKIP';
+                    $warnings[] = 'archived_product';
+                }
+            }
+        } else {
+            $counts['new']++;
+        }
+
+        if ($merchant instanceof Merchant && in_array($proposedAction, ['CREATE', 'UPDATE'], true)) {
+            $affiliate = $this->buildAffiliateUrl->execute($merchant, $row);
+            $affiliateReady = $affiliate->ready;
+            $affiliateReasonCode = $affiliate->reasonCode;
+
+            if (! $affiliateReady) {
+                $warnings[] = 'affiliate_not_ready';
+                $counts['affiliate_not_ready']++;
+
+                if ($proposedAction === 'CREATE') {
+                    $proposedAction = 'FAIL';
+                }
+            }
+        } elseif ($proposedAction === 'CREATE') {
+            $warnings[] = 'merchant_not_active';
+            $proposedAction = 'FAIL';
+        }
+
+        foreach ($merged->sourceLists as $sourceList) {
+            if ($sourceList->malformed) {
+                $warnings[] = 'malformed_source_list';
+            }
+
+            $mapping = $this->mapping->execute($row->merchantSlug, $sourceList);
+
+            if (! $mapping->isMapped) {
+                $warnings[] = 'needs_source_mapping';
+            }
+        }
+
+        if (in_array($proposedAction, ['CREATE', 'UPDATE'], true)) {
+            $counts['actionable']++;
+        }
+
+        if ($merged->isMultiList()) {
+            $counts['multi_list']++;
+        }
+
+        return new CuratedProductIntakePreviewItem(
+            itemIndex: $row->itemIndex,
+            input: $row,
+            error: null,
+            disposition: $disposition,
+            proposedAction: $proposedAction,
+            warnings: array_values(array_unique($warnings)),
+            affiliateReady: $affiliateReady,
+            affiliateReasonCode: $affiliateReasonCode,
+            productId: $productId,
+            affiliateLinkId: $affiliateLinkId,
+            sourceLists: $merged->sourceLists,
+            sourceListNames: $merged->sourceListNames(),
+            relationshipHintNames: $this->relationshipHintNames($row->merchantSlug, $merged->sourceLists),
+            commercialConflicts: $merged->conflicts,
+            occurrencesMerged: $merged->occurrenceCount(),
+            merged: $merged,
+        );
+    }
+
+    /**
+     * @param  list<CuratedSourceListContext>  $sourceLists
+     * @return list<string>
+     */
+    private function relationshipHintNames(string $merchantSlug, array $sourceLists): array
+    {
+        $names = [];
+
+        foreach ($sourceLists as $sourceList) {
+            $mapping = $this->mapping->execute($merchantSlug, $sourceList);
+
+            if ($mapping->kind !== CatalogSourceListKind::RecipientHint->value || $mapping->relationshipSlug === null) {
+                continue;
+            }
+
+            $relationship = Relationship::query()
+                ->where('slug', $mapping->relationshipSlug)
+                ->where('is_active', true)
+                ->first();
+
+            if ($relationship instanceof Relationship) {
+                $names[] = $relationship->name;
+            }
+        }
+
+        return array_values(array_unique($names));
     }
 
     /**

@@ -7,19 +7,17 @@ use App\Actions\Product\PublishProductAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\ProductAutomationReadiness;
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
+use App\Enums\TaxonomyClassificationWarningCode;
 use App\Filament\Resources\Gifts\Pages\CreateGift;
 use App\Filament\Resources\Gifts\Pages\EditGift;
 use App\Filament\Resources\Gifts\Pages\ListGifts;
 use App\Filament\Resources\Gifts\RelationManagers\AffiliateLinksRelationManager;
-use App\Filament\Resources\Gifts\RelationManagers\CategoriesRelationManager;
-use App\Filament\Resources\Gifts\RelationManagers\GiftTypesRelationManager;
 use App\Filament\Resources\Gifts\RelationManagers\ImagesRelationManager;
-use App\Filament\Resources\Gifts\RelationManagers\InterestsRelationManager;
-use App\Filament\Resources\Gifts\RelationManagers\OccasionsRelationManager;
-use App\Filament\Resources\Gifts\RelationManagers\ProfessionsRelationManager;
-use App\Filament\Resources\Gifts\RelationManagers\RecipientTypesRelationManager;
-use App\Filament\Resources\Gifts\RelationManagers\RelationshipsRelationManager;
+use App\Filament\Resources\Gifts\Schemas\GiftClassificationSchema;
+use App\Models\Merchant;
 use App\Models\Product;
+use App\Models\Relationship;
 use App\Support\Terminology;
 use BackedEnum;
 use Filament\Actions\BulkAction;
@@ -41,6 +39,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -81,6 +80,7 @@ class GiftResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
+            ->columns(2)
             ->components([
                 Section::make('Details')
                     ->schema([
@@ -111,7 +111,8 @@ class GiftResource extends Resource
                             ->rows(5)
                             ->columnSpanFull(),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+                    ->columnSpan(1),
                 Section::make('Pricing & status')
                     ->schema([
                         Select::make('status')
@@ -141,7 +142,10 @@ class GiftResource extends Resource
                                 : null)
                             ->visibleOn('edit'),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+                    ->columnSpan(1),
+                GiftClassificationSchema::reviewSection(),
+                GiftClassificationSchema::taxonomySection(),
                 Section::make('Automation readiness')
                     ->schema([
                         Placeholder::make('automation_readiness_summary')
@@ -173,6 +177,7 @@ class GiftResource extends Resource
                             }),
                     ])
                     ->visibleOn('edit')
+                    ->columnSpanFull()
                     ->collapsed(),
                 Section::make('SEO')
                     ->schema([
@@ -187,6 +192,7 @@ class GiftResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->columns(2)
+                    ->columnSpanFull()
                     ->collapsed(),
             ]);
     }
@@ -194,17 +200,75 @@ class GiftResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('latestPromotedSourcingItem'))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
+                'latestPromotedSourcingItem',
+                'images',
+                'affiliateLinks.merchant',
+            ]))
             ->recordTitleAttribute('name')
             ->columns([
+                ImageColumn::make('primary_image')
+                    ->label('Image')
+                    ->getStateUsing(fn (Product $record): ?string => ($record->images->firstWhere('is_primary', true) ?? $record->images->first())?->url())
+                    ->toggleable(),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('external_product_id')
+                    ->label('External ID')
+                    ->getStateUsing(fn (Product $record): ?string => ($record->affiliateLinks->firstWhere('is_primary', true) ?? $record->affiliateLinks->first())?->external_product_id)
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->orWhereHas(
+                            'affiliateLinks',
+                            fn (Builder $linkQuery): Builder => $linkQuery->where('external_product_id', 'like', '%'.$search.'%'),
+                        );
+                    })
+                    ->toggleable(),
+                TextColumn::make('merchant_name')
+                    ->label('Merchant')
+                    ->getStateUsing(fn (Product $record): ?string => ($record->affiliateLinks->firstWhere('is_primary', true) ?? $record->affiliateLinks->first())?->merchant?->name)
+                    ->toggleable(),
                 TextColumn::make('slug')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
+                TextColumn::make('taxonomy_classification_status')
+                    ->label('Classification')
+                    ->badge()
+                    ->sortable()
+                    ->toggleable(),
+                TextColumn::make('taxonomy_review_reasons')
+                    ->label('Review reasons')
+                    ->badge()
+                    ->separator(',')
+                    ->formatStateUsing(function (mixed $state): mixed {
+                        if (! is_string($state) || $state === '') {
+                            return $state;
+                        }
+
+                        return TaxonomyClassificationWarningCode::labelFor($state);
+                    })
+                    ->toggleable(),
+                TextColumn::make('primary_category_confidence')
+                    ->label('Category confidence')
+                    ->getStateUsing(function (Product $record): ?string {
+                        $score = data_get($record->taxonomy_classification_proposal, 'confidence.primary_category');
+
+                        if (! is_numeric($score)) {
+                            return null;
+                        }
+
+                        return ((string) (int) round(((float) $score) * 100)).'%';
+                    })
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
+                        return $query->orderByRaw(
+                            'CAST(JSON_UNQUOTE(JSON_EXTRACT(taxonomy_classification_proposal, \'$.confidence.primary_category\')) AS DECIMAL(6,4)) '.$direction,
+                        );
+                    })
+                    ->toggleable(),
                 TextColumn::make('latestPromotedSourcingItem.readiness')
                     ->label('Readiness')
                     ->badge()
@@ -239,6 +303,62 @@ class GiftResource extends Resource
                     ->options(collect(ProductStatus::cases())->mapWithKeys(
                         fn (ProductStatus $status): array => [$status->value => ucfirst($status->value)],
                     )),
+                SelectFilter::make('taxonomy_classification_status')
+                    ->label('Classification')
+                    ->options(collect(TaxonomyClassificationStatus::cases())->mapWithKeys(
+                        fn (TaxonomyClassificationStatus $status): array => [
+                            $status->value => $status->getLabel() ?? $status->value,
+                        ],
+                    )),
+                SelectFilter::make('merchant_id')
+                    ->label('Merchant')
+                    ->options(fn (): array => Merchant::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if ($value === null || $value === '') {
+                            return $query;
+                        }
+
+                        return $query->whereHas(
+                            'affiliateLinks',
+                            fn (Builder $linkQuery): Builder => $linkQuery->where('merchant_id', $value),
+                        );
+                    }),
+                SelectFilter::make('taxonomy_review_reason')
+                    ->label('Review reason')
+                    ->options(TaxonomyClassificationWarningCode::filterOptions())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! is_string($value) || $value === '') {
+                            return $query;
+                        }
+
+                        return $query->whereJsonContains('taxonomy_review_reasons', $value);
+                    }),
+                SelectFilter::make('source_relationship_id')
+                    ->label('Source relationship hint')
+                    ->options(fn (): array => Relationship::query()
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if ($value === null || $value === '') {
+                            return $query;
+                        }
+
+                        return $query->whereHas(
+                            'affiliateLinks.catalogProductSources.sourceList',
+                            fn (Builder $listQuery): Builder => $listQuery->where('relationship_id', $value),
+                        );
+                    }),
+                Filter::make('taxonomy_proposal_pending')
+                    ->label('Pending AI proposal')
+                    ->query(fn (Builder $query): Builder => $query->where('taxonomy_proposal_pending', true)),
                 SelectFilter::make('readiness')
                     ->label('Automation readiness')
                     ->options(collect(ProductAutomationReadiness::cases())->mapWithKeys(
@@ -279,6 +399,11 @@ class GiftResource extends Resource
                     ->label('Ready for publish')
                     ->query(fn (Builder $query): Builder => $query
                         ->where('status', ProductStatus::Draft)
+                        ->whereIn('taxonomy_classification_status', [
+                            TaxonomyClassificationStatus::AiAccepted,
+                            TaxonomyClassificationStatus::HumanApproved,
+                            TaxonomyClassificationStatus::HumanOverridden,
+                        ])
                         ->whereHas(
                             'latestPromotedSourcingItem',
                             fn (Builder $itemQuery): Builder => $itemQuery->where('readiness', ProductAutomationReadiness::Ready),
@@ -356,13 +481,6 @@ class GiftResource extends Resource
         return [
             ImagesRelationManager::class,
             AffiliateLinksRelationManager::class,
-            CategoriesRelationManager::class,
-            OccasionsRelationManager::class,
-            RelationshipsRelationManager::class,
-            RecipientTypesRelationManager::class,
-            InterestsRelationManager::class,
-            ProfessionsRelationManager::class,
-            GiftTypesRelationManager::class,
         ];
     }
 
@@ -378,7 +496,11 @@ class GiftResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with('latestPromotedSourcingItem');
+            ->with([
+                'latestPromotedSourcingItem',
+                'images',
+                'affiliateLinks.merchant',
+            ]);
     }
 
     public static function getRecordRouteBindingEloquentQuery(): Builder

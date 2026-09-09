@@ -2,9 +2,11 @@
 
 return [
 
-    'schema_version' => 1,
+    'schema_version' => 2,
 
-    'max_items' => 200,
+    'allowed_schema_versions' => [1, 2],
+
+    'max_items' => 250,
 
     'image_acquisition' => [
 
@@ -16,6 +18,27 @@ return [
                 ],
             ],
 
+        ],
+
+        /*
+         | Merchant-aware Amazon CDN normalization. Host matching is
+         | conservative: Flipkart/Etsy/other merchant URLs are never rewritten.
+         | Canonical long-edge is a source fetch target; local 1:1 processing
+         | still applies after download.
+         */
+        'amazon' => [
+            'canonical_host' => 'm.media-amazon.com',
+            'canonical_token' => 'SS',
+            'canonical_long_edge' => 1200,
+            'min_acceptable_long_edge' => 1000,
+            'max_long_edge' => 1500,
+            'hosts' => [
+                'm.media-amazon.com',
+                'images-na.ssl-images-amazon.com',
+                'images-eu.ssl-images-amazon.com',
+                'images-fe.ssl-images-amazon.com',
+                'images-amazon.com',
+            ],
         ],
 
     ],
@@ -55,6 +78,63 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Wishlist / source-list mappings
+    |--------------------------------------------------------------------------
+    |
+    | Maps merchant wishlists and collections to operational kinds.
+    | This is not taxonomy. Relationship slugs are classification hints only.
+    | Prefer by_external_list_id when the Amazon (or other) list ID is known.
+    |
+    */
+
+    'source_lists' => [
+
+        'amazon-in' => [
+
+            'by_external_list_id' => [
+                // Populate when Amazon list IDs are known. Preferred over name matching.
+            ],
+
+            'by_normalized_name' => [
+                'gifts-for-husband' => ['kind' => 'recipient_hint', 'relationship' => 'husband'],
+                'gifts-for-boyfriend' => ['kind' => 'recipient_hint', 'relationship' => 'boyfriend'],
+                'gifts-for-father' => ['kind' => 'recipient_hint', 'relationship' => 'father'],
+                'gifts-for-brother' => ['kind' => 'recipient_hint', 'relationship' => 'brother'],
+                'gifts-for-son' => ['kind' => 'recipient_hint', 'relationship' => 'son'],
+                'gifts-for-wife' => ['kind' => 'recipient_hint', 'relationship' => 'wife'],
+                'gifts-for-girlfriend' => ['kind' => 'recipient_hint', 'relationship' => 'girlfriend'],
+                'gifts-for-mother' => ['kind' => 'recipient_hint', 'relationship' => 'mother'],
+                'gifts-for-sister' => ['kind' => 'recipient_hint', 'relationship' => 'sister'],
+                'gifts-for-daughter' => ['kind' => 'recipient_hint', 'relationship' => 'daughter'],
+                'gifts-for-friends' => ['kind' => 'recipient_hint', 'relationship' => 'friends'],
+                'gifts-for-parents' => ['kind' => 'recipient_hint', 'relationship' => 'parents'],
+                'gifts-for-colleagues' => ['kind' => 'recipient_hint', 'relationship' => 'colleagues'],
+                'gifts-for-boss' => ['kind' => 'recipient_hint', 'relationship' => 'boss'],
+                'gifts-for-newlyweds' => ['kind' => 'recipient_hint', 'relationship' => 'newlyweds'],
+                'gifts-for-grandparents' => ['kind' => 'recipient_hint', 'relationship' => 'grandparents'],
+                '00-unclassified-gift-ideas' => ['kind' => 'unclassified_inbox'],
+                'unclassified-gift-ideas' => ['kind' => 'unclassified_inbox'],
+                '01-gift-ideas-q1-2026' => ['kind' => 'quarterly_archive'],
+                'gift-ideas-q1-2026' => ['kind' => 'quarterly_archive'],
+                '02-gift-ideas-q2-2026' => ['kind' => 'quarterly_archive'],
+                'gift-ideas-q2-2026' => ['kind' => 'quarterly_archive'],
+                '03-gift-ideas-q3-2026' => ['kind' => 'quarterly_archive'],
+                'gift-ideas-q3-2026' => ['kind' => 'quarterly_archive'],
+                '04-gift-ideas-q4-2026' => ['kind' => 'quarterly_archive'],
+                'gift-ideas-q4-2026' => ['kind' => 'quarterly_archive'],
+            ],
+
+            'normalized_name_patterns' => [
+                '/^(?:\d+-)?unclassified-gift-ideas$/' => ['kind' => 'unclassified_inbox'],
+                '/^(?:\d+-)?gift-ideas-q[1-4]-\d{4}$/' => ['kind' => 'quarterly_archive'],
+            ],
+
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Enrichment
     |--------------------------------------------------------------------------
     |
@@ -65,6 +145,57 @@ return [
 
     'enrichment' => [
         'max_prompt_chars' => 24000,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Taxonomy classification
+    |--------------------------------------------------------------------------
+    |
+    | Version is an intentional policy/prompt/taxonomy generation. Bumping it
+    | marks AI-managed drafts as eligible for reclassification. It is not a
+    | timestamp. Thresholds are review-quality signals, not mathematical truth.
+    |
+    */
+
+    'taxonomy_classification' => [
+        'version' => 1,
+        'thresholds' => [
+            'primary_category_auto_accept' => 0.85,
+            'gift_type_auto_accept' => 0.80,
+            'optional_keep_min' => 0.60,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Classification execution
+    |--------------------------------------------------------------------------
+    |
+    | Bulk classification is sequential per artisan process / queue worker.
+    | Raise queue worker count instead of building a custom pool. Values
+    | greater than 1 are documentation for --queue worker sizing.
+    |
+    */
+
+    'classification' => [
+        'max_concurrency' => (int) env('CURATED_CLASSIFICATION_MAX_CONCURRENCY', 1),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Initial bulk intake
+    |--------------------------------------------------------------------------
+    |
+    | Directory commits refuse when malformed ASINs exceed these bounds.
+    | Isolated per-product ASIN errors below the absolute cap may still ingest.
+    |
+    */
+
+    'bulk_intake' => [
+        'max_malformed_external_ids' => 5,
+        'max_malformed_external_id_ratio' => 0.05,
+        'min_occurrences_for_malformed_ratio' => 20,
     ],
 
     /*

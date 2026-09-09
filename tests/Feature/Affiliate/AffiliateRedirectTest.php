@@ -109,7 +109,7 @@ class AffiliateRedirectTest extends TestCase
             ->assertOk()
             ->assertSee('href="'.$outUrl.'"', false)
             ->assertDontSee('href="'.$link->url.'"', false)
-            ->assertSee('Check price at Example Merchant', false);
+            ->assertSee('View deal on Example Merchant', false);
     }
 
     public function test_gift_card_cta_links_to_gift_detail_not_affiliate_out(): void

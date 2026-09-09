@@ -5,7 +5,9 @@ namespace Tests\Unit\Actions;
 use App\Actions\Product\PublishProductAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Models\AffiliateLink;
+use App\Models\Category;
 use App\Models\Merchant;
 use App\Models\Product;
 use App\Models\ProductImage;
@@ -44,6 +46,7 @@ class PublishProductActionTest extends TestCase
 
         $this->assertSame(ProductStatus::Published, $product->fresh()->status);
         $this->assertContains('This gift has no price amount set.', $result['warnings']);
+        $this->assertSame(TaxonomyClassificationStatus::AiAccepted, $product->fresh()->taxonomy_classification_status);
     }
 
     public function test_it_publishes_when_requirements_are_met(): void
@@ -58,19 +61,73 @@ class PublishProductActionTest extends TestCase
         $this->assertNotNull($product->published_at);
     }
 
-    private function publishableProduct(?string $priceAmount): Product
+    public function test_it_normalizes_category_ancestors_on_publish(): void
     {
+        $fashion = Category::query()->create([
+            'name' => 'Fashion & Accessories',
+            'slug' => 'fashion-and-accessories',
+            'is_active' => true,
+        ]);
+        $jewellery = Category::query()->create([
+            'parent_id' => $fashion->id,
+            'name' => 'Jewellery',
+            'slug' => 'jewellery',
+            'is_active' => true,
+        ]);
+
+        $product = $this->publishableProduct(priceAmount: '999.00', category: $jewellery);
+
+        app(PublishProductAction::class)->execute($product->fresh());
+
+        $this->assertEqualsCanonicalizing(
+            [$jewellery->id, $fashion->id],
+            $product->fresh()->categories()->pluck('categories.id')->all(),
+        );
+    }
+
+    public function test_it_blocks_review_and_failed_classification(): void
+    {
+        foreach ([TaxonomyClassificationStatus::Review, TaxonomyClassificationStatus::Failed] as $status) {
+            $product = $this->publishableProduct(priceAmount: '999.00', status: $status);
+
+            try {
+                app(PublishProductAction::class)->execute($product->fresh());
+                $this->fail('Expected ValidationException for '.$status->value);
+            } catch (ValidationException $exception) {
+                $this->assertNotSame([], $exception->errors()['status'] ?? []);
+            }
+
+            $this->assertSame(ProductStatus::Draft, $product->fresh()->status);
+        }
+    }
+
+    private function publishableProduct(
+        ?string $priceAmount,
+        ?Category $category = null,
+        TaxonomyClassificationStatus $status = TaxonomyClassificationStatus::AiAccepted,
+    ): Product {
         $merchant = Merchant::query()->create([
             'name' => 'Example Merchant',
-            'slug' => 'example-merchant',
+            'slug' => 'example-merchant-'.uniqid(),
             'affiliate_network' => 'example',
+        ]);
+
+        $category ??= Category::query()->create([
+            'name' => 'Home',
+            'slug' => 'home-'.uniqid(),
+            'is_active' => true,
         ]);
 
         $product = Product::query()->create([
             'name' => 'Gift',
-            'slug' => 'gift',
+            'slug' => 'gift-'.uniqid(),
             'status' => ProductStatus::Draft,
             'price_amount' => $priceAmount,
+            'taxonomy_classification_status' => $status,
+        ]);
+
+        $product->categories()->sync([
+            $category->id => ['is_primary' => true],
         ]);
 
         ProductImage::query()->create([

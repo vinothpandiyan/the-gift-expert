@@ -10,7 +10,7 @@
                         </button>
                     @endif
                 </div>
-                <div class="rounded-xl border border-line bg-surface px-4">
+                <div class="rounded-xl border border-line bg-surface px-3">
                     @include('livewire.partials.gift-listing-filters', ['idPrefix' => 'desktop'])
                 </div>
             </div>

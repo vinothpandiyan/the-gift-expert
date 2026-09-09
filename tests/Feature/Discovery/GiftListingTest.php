@@ -250,7 +250,30 @@ class GiftListingTest extends TestCase
         $this->assertStringContainsString('Bare Gift', $html);
         $this->assertStringContainsString('Image coming soon', $html);
         $this->assertStringContainsString('View gift', $html);
+        $this->assertStringContainsString('aspect-square', $html);
+        $this->assertStringContainsString('p-1.5', $html);
+        $this->assertStringNotContainsString('object-cover', $html);
+        $this->assertStringNotContainsString('aspect-4/3', $html);
         $this->assertStringNotContainsString('Around ₹', $html);
+    }
+
+    public function test_gift_card_image_uses_contain_without_cover_cropping(): void
+    {
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'name' => 'Framed Print',
+            'slug' => 'framed-print',
+        ]);
+
+        $html = $this->blade(
+            '<x-gift-card :product="$product" />',
+            ['product' => $product->fresh(['images', 'affiliateLinks.merchant', 'categories'])],
+        );
+
+        $this->assertStringContainsString('aspect-square', $html);
+        $this->assertStringContainsString('object-contain', $html);
+        $this->assertStringContainsString('p-1.5', $html);
+        $this->assertStringNotContainsString('object-cover', $html);
+        $this->assertStringContainsString('View gift', $html);
     }
 
     public function test_personalized_badge_uses_existing_category(): void

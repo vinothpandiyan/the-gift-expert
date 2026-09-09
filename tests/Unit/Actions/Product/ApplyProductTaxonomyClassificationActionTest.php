@@ -99,6 +99,44 @@ class ApplyProductTaxonomyClassificationActionTest extends TestCase
         $this->assertSame(1, $product->categories()->count());
     }
 
+    public function test_it_can_mutate_published_product_taxonomy_when_allowed(): void
+    {
+        $product = Product::factory()->create(['status' => ProductStatus::Published]);
+        $existing = Category::query()->create([
+            'name' => 'Existing',
+            'slug' => 'existing-published-allowed',
+            'is_active' => true,
+        ]);
+        $replacement = Category::query()->create([
+            'name' => 'Replacement',
+            'slug' => 'replacement-published-allowed',
+            'is_active' => true,
+        ]);
+        $product->categories()->sync([
+            $existing->id => ['is_primary' => true],
+        ]);
+
+        $applied = app(ApplyProductTaxonomyClassificationAction::class)->execute(
+            $product,
+            new ValidatedProductTaxonomyClassification(
+                primaryCategoryId: $replacement->id,
+                categoryIds: [$replacement->id],
+                occasionIds: [],
+                relationshipIds: [],
+                recipientTypeIds: [],
+                interestIds: [],
+                professionIds: [],
+                giftTypeIds: [],
+                exceptionCodes: [],
+                rejectedIds: [],
+            ),
+            allowPublished: true,
+        );
+
+        $this->assertTrue($applied);
+        $this->assertSame([$replacement->id], $product->fresh()->categories()->pluck('categories.id')->all());
+    }
+
     public function test_it_does_not_mutate_published_product_taxonomy(): void
     {
         $product = Product::factory()->create(['status' => ProductStatus::Published]);

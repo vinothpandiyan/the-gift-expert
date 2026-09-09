@@ -2,6 +2,7 @@
 
 namespace App\Actions\Import;
 
+use App\Actions\ProductImage\NormalizeAmazonProductImageUrlAction;
 use App\Actions\ProductImage\StoreProductImageAction;
 use App\Import\ProviderImagePolicy;
 use App\Models\Product;
@@ -13,6 +14,7 @@ class StoreImportedProductImagesAction
     public function __construct(
         private AcquireRemoteProductImageAction $acquireRemoteProductImage,
         private StoreProductImageAction $storeProductImage,
+        private NormalizeAmazonProductImageUrlAction $normalizeAmazonProductImageUrl,
     ) {}
 
     /**
@@ -34,7 +36,8 @@ class StoreImportedProductImagesAction
             $acquiredPath = null;
 
             try {
-                $acquired = $this->acquireRemoteProductImage->execute($url);
+                $downloadUrl = $this->normalizeAmazonProductImageUrl->execute($url)->url;
+                $acquired = $this->acquireRemoteProductImage->execute($downloadUrl);
                 $acquiredPath = $acquired->path;
 
                 $duplicate = ProductImage::query()
@@ -56,7 +59,7 @@ class StoreImportedProductImagesAction
                 $image = $stored->first();
 
                 if ($image instanceof ProductImage) {
-                    $image->source_url = $url;
+                    $image->source_url = $downloadUrl;
                     $image->content_hash = $acquired->contentHash;
                     $image->acquired_at = now();
                     $image->save();

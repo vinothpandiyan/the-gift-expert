@@ -4,7 +4,6 @@ namespace Tests\Feature\CuratedCatalog;
 
 use App\Actions\Category\RebuildCategoryPathsAction;
 use App\Actions\CuratedCatalog\EnrichCuratedMerchantProductAction;
-use App\CommercialSourcing\CommercialEnrichmentException;
 use App\CuratedCatalog\CuratedMerchantProductInput;
 use App\Models\Category;
 use App\Models\Merchant;
@@ -295,7 +294,7 @@ class EnrichCuratedMerchantProductActionTest extends TestCase
         $this->assertContains('missing_recipient_types', $result->warnings);
     }
 
-    public function test_missing_primary_category_still_fails(): void
+    public function test_missing_primary_category_returns_validated_result_without_throwing(): void
     {
         Http::fake([
             'https://api.openai.com/v1/chat/completions' => Http::response(
@@ -304,14 +303,30 @@ class EnrichCuratedMerchantProductActionTest extends TestCase
                         'primary_category_id' => null,
                         'category_ids' => [],
                     ],
+                    'confidence' => [
+                        'primary_category' => 0.22,
+                    ],
+                    'reasoning_summary' => [
+                        'primary_category' => 'Title does not identify a merchandising product family.',
+                    ],
+                    'taxonomy_gap' => [
+                        'detected' => true,
+                        'severity' => 'blocking',
+                        'suggested_concept' => null,
+                        'explanation' => 'Product identity is too ambiguous.',
+                    ],
                 ]),
             ),
         ]);
 
-        $this->expectException(CommercialEnrichmentException::class);
-        $this->expectExceptionMessage('valid primary category');
+        $result = $this->enrich($this->laptopSleeveInput());
 
-        $this->enrich($this->laptopSleeveInput());
+        $this->assertNull($result->taxonomy->primaryCategoryId);
+        $this->assertContains('missing_primary_category', $result->warnings);
+        $this->assertSame(0.22, $result->confidence->primaryCategory);
+        $this->assertTrue($result->taxonomyGap->detected);
+        $this->assertTrue($result->taxonomyGap->isBlocking());
+        $this->assertSame('Title does not identify a merchandising product family.', $result->reasoningSummary['primary_category']);
     }
 
     private function enrich(CuratedMerchantProductInput $input)

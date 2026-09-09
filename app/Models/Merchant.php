@@ -39,4 +39,9 @@ class Merchant extends Model
     {
         return $this->hasMany(CatalogCandidateSourcingItem::class);
     }
+
+    public function catalogSourceLists(): HasMany
+    {
+        return $this->hasMany(CatalogSourceList::class);
+    }
 }

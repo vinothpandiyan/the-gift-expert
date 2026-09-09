@@ -3,7 +3,6 @@
 namespace Tests\Feature\Filament;
 
 use App\Filament\Resources\Gifts\Pages\EditGift;
-use App\Filament\Resources\Gifts\RelationManagers\CategoriesRelationManager;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
@@ -15,78 +14,42 @@ class GiftPrimaryCategoryTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_only_one_primary_category_remains_after_attach(): void
+    public function test_saving_primary_category_normalizes_ancestors_and_keeps_a_single_primary(): void
     {
         $this->actingAs(User::factory()->create());
 
+        $fashion = Category::query()->create([
+            'name' => 'Fashion & Accessories',
+            'slug' => 'fashion-and-accessories',
+            'is_active' => true,
+        ]);
+        $jewellery = Category::query()->create([
+            'parent_id' => $fashion->id,
+            'name' => 'Jewellery',
+            'slug' => 'jewellery',
+            'is_active' => true,
+        ]);
+
         $product = Product::factory()->create();
 
-        $first = Category::query()->create([
-            'name' => 'First',
-            'slug' => 'first',
-            'full_path' => 'first',
-        ]);
-
-        $second = Category::query()->create([
-            'name' => 'Second',
-            'slug' => 'second',
-            'full_path' => 'second',
-        ]);
-
-        $product->categories()->attach($first->id, ['is_primary' => true]);
-
-        Livewire::test(CategoriesRelationManager::class, [
-            'ownerRecord' => $product,
-            'pageClass' => EditGift::class,
+        Livewire::test(EditGift::class, [
+            'record' => $product->getRouteKey(),
         ])
-            ->callTableAction('attach', data: [
-                'recordId' => $second->id,
-                'is_primary' => true,
+            ->fillForm([
+                'name' => $product->name,
+                'slug' => $product->slug,
+                'primary_category_id' => $jewellery->id,
             ])
-            ->assertHasNoTableActionErrors();
+            ->call('save')
+            ->assertHasNoFormErrors();
 
         $primaries = $product->categories()->wherePivot('is_primary', true)->pluck('categories.id');
 
         $this->assertCount(1, $primaries);
-        $this->assertTrue($primaries->contains($second->id));
-    }
-
-    public function test_editing_primary_category_does_not_write_updated_at(): void
-    {
-        $this->actingAs(User::factory()->create());
-
-        $product = Product::factory()->create();
-
-        $first = Category::query()->create([
-            'name' => 'First',
-            'slug' => 'first',
-            'full_path' => 'first',
-        ]);
-
-        $second = Category::query()->create([
-            'name' => 'Second',
-            'slug' => 'second',
-            'full_path' => 'second',
-        ]);
-
-        $product->categories()->attach($first->id, ['is_primary' => true]);
-        $product->categories()->attach($second->id, ['is_primary' => false]);
-
-        Livewire::test(CategoriesRelationManager::class, [
-            'ownerRecord' => $product,
-            'pageClass' => EditGift::class,
-        ])
-            ->callTableAction('edit', $second, data: [
-                'is_primary' => true,
-            ])
-            ->assertHasNoTableActionErrors();
-
-        $primaries = $product->categories()->wherePivot('is_primary', true)->pluck('categories.id');
-
-        $this->assertCount(1, $primaries);
-        $this->assertTrue($primaries->contains($second->id));
+        $this->assertTrue($primaries->contains($jewellery->id));
+        $this->assertTrue($product->categories()->where('categories.id', $fashion->id)->exists());
         $this->assertFalse(
-            (bool) $product->categories()->where('categories.id', $first->id)->first()?->pivot->is_primary
+            (bool) $product->categories()->where('categories.id', $fashion->id)->first()?->pivot->is_primary,
         );
     }
 }

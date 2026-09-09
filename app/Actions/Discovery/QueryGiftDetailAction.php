@@ -131,6 +131,11 @@ class QueryGiftDetailAction
         $lines = preg_split("/\r\n|\r|\n/", $description) ?: [];
 
         return collect($lines)
+            ->map(function (string $line): string {
+                $line = trim($line);
+
+                return (string) preg_replace('/^(?:[\x{2713}\x{2714}\x{2022}\-*\x{00B7}]\s+|\d+[.)]\s+)/u', '', $line);
+            })
             ->map(fn (string $line): string => trim($line))
             ->filter(fn (string $line): bool => $line !== '')
             ->values()

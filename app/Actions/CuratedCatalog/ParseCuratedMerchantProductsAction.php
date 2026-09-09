@@ -24,6 +24,7 @@ class ParseCuratedMerchantProductsAction
         string $json,
         ?string $formMerchantSlug = null,
         ?string $formCurationGroup = null,
+        int $itemIndexOffset = 0,
     ): array {
         $contents = CuratedProductIntakeFields::assertUtf8(trim($json));
 
@@ -51,8 +52,9 @@ class ParseCuratedMerchantProductsAction
         }
 
         $version = $decoded['version'] ?? null;
+        $allowedVersions = config('curated_catalog.allowed_schema_versions', [1]);
 
-        if ((int) $version !== (int) config('curated_catalog.schema_version', 1)) {
+        if (! is_array($allowedVersions) || ! in_array((int) $version, array_map('intval', $allowedVersions), true)) {
             throw new CuratedProductIntakeParseException('Unsupported JSON schema version.');
         }
 
@@ -85,9 +87,22 @@ class ParseCuratedMerchantProductsAction
 
         $rootCapturedAt = CuratedProductIntakeFields::nullableString($decoded['captured_at'] ?? null);
         $rootCurationGroup = null;
+        $sourceListContext = null;
 
         if (is_array($decoded['context'] ?? null)) {
-            $contextUnknown = CuratedProductIntakeFields::unknownKeys($decoded['context'], ['curation_group']);
+            $allowedContextKeys = ['curation_group'];
+
+            if ((int) $version >= 2) {
+                $allowedContextKeys = [
+                    'curation_group',
+                    'source_list_name',
+                    'source_list_id',
+                    'source_list_url',
+                    'list_kind',
+                ];
+            }
+
+            $contextUnknown = CuratedProductIntakeFields::unknownKeys($decoded['context'], $allowedContextKeys);
 
             if ($contextUnknown !== []) {
                 throw new CuratedProductIntakeParseException(
@@ -96,12 +111,16 @@ class ParseCuratedMerchantProductsAction
             }
 
             $rootCurationGroup = CuratedProductIntakeFields::nullableString($decoded['context']['curation_group'] ?? null);
+            $sourceListContext = CuratedProductIntakeFields::sourceListContextFromRow(
+                $decoded['context'],
+                (int) $version,
+            );
         }
 
         $results = [];
 
         foreach ($decoded['items'] as $offset => $item) {
-            $itemIndex = $offset + 1;
+            $itemIndex = $itemIndexOffset + $offset + 1;
 
             if (! is_array($item) || array_is_list($item)) {
                 $results[] = new CuratedProductInputError($itemIndex, 'invalid_item', 'Each item must be an object.');
@@ -118,6 +137,7 @@ class ParseCuratedMerchantProductsAction
                 formCurationGroup: $formCurationGroup,
                 merchants: $this->merchants,
                 extractExternalId: $this->extractExternalId,
+                sourceListContext: $sourceListContext,
             );
         }
 

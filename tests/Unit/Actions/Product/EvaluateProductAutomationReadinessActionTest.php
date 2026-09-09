@@ -8,6 +8,7 @@ use App\Enums\AffiliateLinkStatus;
 use App\Enums\CatalogCandidateSourcingItemStatus;
 use App\Enums\ProductAutomationReadiness;
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Models\AffiliateLink;
 use App\Models\CatalogCandidate;
 use App\Models\CatalogCandidateSourcingItem;
@@ -205,6 +206,9 @@ class EvaluateProductAutomationReadinessActionTest extends TestCase
             'price_amount' => $priceAmount,
             'price_currency' => 'INR',
             'status' => ProductStatus::Draft,
+            'taxonomy_classification_status' => $withPrimaryCategory
+                ? TaxonomyClassificationStatus::AiAccepted
+                : TaxonomyClassificationStatus::None,
         ]);
 
         if ($withPrimaryCategory) {

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -26,6 +27,7 @@ class ProductFactory extends Factory
             'price_amount' => fake()->randomFloat(2, 500, 10000),
             'price_currency' => 'INR',
             'is_featured' => false,
+            'taxonomy_classification_status' => TaxonomyClassificationStatus::None,
         ];
     }
 

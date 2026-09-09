@@ -7,6 +7,7 @@ use App\Actions\CuratedCatalog\PreviewCuratedProductIntakeAction;
 use App\Actions\CuratedCatalog\RefreshCuratedMerchantProductAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Models\AffiliateLink;
 use App\Models\CatalogCandidate;
 use App\Models\CatalogCandidateIngestionRun;
@@ -166,7 +167,7 @@ class CuratedProductIntakeFlowTest extends TestCase
                     ],
                 ]),
             ),
-            'https://m.media-amazon.com/images/I/example.jpg' => Http::response(
+            'https://m.media-amazon.com/images/*' => Http::response(
                 (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg')),
                 200,
                 ['Content-Type' => 'image/jpeg'],
@@ -188,6 +189,10 @@ class CuratedProductIntakeFlowTest extends TestCase
         $this->assertStringContainsString('tag=test-tag-20', $link->url);
         $this->assertTrue($product->categories()->where('categories.id', $home->id)->exists());
         $this->assertSame(1, ProductImage::query()->count());
+        $this->assertSame(
+            'https://m.media-amazon.com/images/I/example._SS1200_.jpg',
+            ProductImage::query()->first()->source_url,
+        );
         Http::assertSentCount(2);
     }
 
@@ -226,7 +231,7 @@ class CuratedProductIntakeFlowTest extends TestCase
         $this->assertNotContains('taxonomy_ids_rejected', $result->warnings);
     }
 
-    public function test_create_fails_before_product_write_when_primary_category_missing(): void
+    public function test_create_persists_failed_classification_without_invalid_pivots_when_primary_is_missing(): void
     {
         Http::fake([
             'https://api.openai.com/v1/chat/completions' => Http::response(
@@ -237,13 +242,24 @@ class CuratedProductIntakeFlowTest extends TestCase
                     ],
                 ]),
             ),
+            'https://m.media-amazon.com/images/*' => Http::response(
+                (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg')),
+                200,
+                ['Content-Type' => 'image/jpeg'],
+            ),
         ]);
+        Storage::fake('public');
 
         $input = app(PreviewCuratedProductIntakeAction::class)->execute($this->curatedPayload())->items[0]->input;
         $result = app(CreateCuratedMerchantProductAction::class)->execute($this->merchant, $input);
 
-        $this->assertFalse($result->success);
-        $this->assertSame(0, Product::query()->count());
+        $this->assertTrue($result->success);
+        $product = Product::query()->first();
+        $this->assertNotNull($product);
+        $this->assertSame(ProductStatus::Draft, $product->status);
+        $this->assertSame(TaxonomyClassificationStatus::Failed, $product->taxonomy_classification_status);
+        $this->assertSame(0, $product->categories()->count());
+        $this->assertContains('classification_failed', $result->warnings);
     }
 
     public function test_create_allows_rejected_optional_taxonomy_ids_with_warning(): void

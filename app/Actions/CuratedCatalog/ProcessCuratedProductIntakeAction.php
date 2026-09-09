@@ -5,12 +5,16 @@ namespace App\Actions\CuratedCatalog;
 use App\CuratedCatalog\CuratedImageAcquisitionOutcome;
 use App\CuratedCatalog\CuratedProductIntakeCommitResult;
 use App\CuratedCatalog\CuratedProductIntakeItemResult;
+use App\CuratedCatalog\CuratedProductIntakePreview;
 use App\CuratedCatalog\CuratedProductIntakePreviewItem;
 use App\CuratedCatalog\CuratedProductIntakeStartedResult;
 use App\Enums\CuratedProductIntakeItemOutcome;
 use App\Enums\CuratedProductIntakeRunStatus;
 use App\Enums\CuratedProductIntakeSourceType;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Jobs\ProcessCuratedProductIntakeRunJob;
+use App\Models\AffiliateLink;
+use App\Models\CatalogSourceList;
 use App\Models\CuratedProductIntakeItem;
 use App\Models\CuratedProductIntakeRun;
 use App\Models\Merchant;
@@ -24,6 +28,9 @@ class ProcessCuratedProductIntakeAction
         private PreviewCuratedProductIntakeAction $preview,
         private CreateCuratedMerchantProductAction $create,
         private RefreshCuratedMerchantProductAction $refresh,
+        private UpsertCatalogProductSourceAction $upsertSource,
+        private ClassifyCuratedMerchantProductAction $classify,
+        private ShouldReclassifyCuratedMerchantProductAction $shouldReclassify,
     ) {}
 
     public function start(
@@ -31,6 +38,7 @@ class ProcessCuratedProductIntakeAction
         ?string $formMerchantSlug = null,
         ?string $formCurationGroup = null,
         ?int $createdByUserId = null,
+        bool $deferClassification = false,
     ): CuratedProductIntakeStartedResult {
         $preview = $this->preview->execute($json, $formMerchantSlug, $formCurationGroup);
         $merchant = Merchant::query()
@@ -44,6 +52,9 @@ class ProcessCuratedProductIntakeAction
             'status' => CuratedProductIntakeRunStatus::Processing,
             'started_at' => now(),
             'items_total' => count($preview->items),
+            'raw_occurrences' => $preview->rawOccurrences,
+            'unique_products' => $preview->uniqueProducts,
+            'merged_occurrences' => $preview->mergedOccurrences,
             'created_by_user_id' => $createdByUserId,
         ]);
 
@@ -52,6 +63,7 @@ class ProcessCuratedProductIntakeAction
             $json,
             $formMerchantSlug,
             $formCurationGroup,
+            $deferClassification,
         );
 
         return new CuratedProductIntakeStartedResult(
@@ -66,6 +78,7 @@ class ProcessCuratedProductIntakeAction
         string $json,
         ?string $formMerchantSlug = null,
         ?string $formCurationGroup = null,
+        bool $deferClassification = false,
     ): void {
         $run = CuratedProductIntakeRun::query()->findOrFail($runId);
 
@@ -90,36 +103,7 @@ class ProcessCuratedProductIntakeAction
                 ->where('is_active', true)
                 ->firstOrFail();
 
-            foreach ($preview->items as $previewItem) {
-                if ($this->intakeItemAlreadyRecorded($run, $previewItem->itemIndex)) {
-                    continue;
-                }
-
-                if (in_array($previewItem->proposedAction, ['CREATE', 'UPDATE'], true)) {
-                    $result = $this->processPreviewItem($merchant, $previewItem);
-                } else {
-                    $result = $this->resultFromPreviewOnly($previewItem);
-                }
-
-                $this->persistIntakeItem($run, $previewItem, $result);
-            }
-
-            $created = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Created)->count();
-            $updated = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Updated)->count();
-            $skipped = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Skipped)->count();
-            $failed = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Failed)->count();
-
-            $run->update([
-                'status' => $failed > 0
-                    ? CuratedProductIntakeRunStatus::CompletedWithErrors
-                    : CuratedProductIntakeRunStatus::Completed,
-                'finished_at' => now(),
-                'items_total' => count($preview->items),
-                'items_created' => $created,
-                'items_updated' => $updated,
-                'items_skipped' => $skipped,
-                'items_failed' => $failed,
-            ]);
+            $this->processAssembled($run, $merchant, $preview, $deferClassification);
         } catch (Throwable $exception) {
             $run->update([
                 'status' => CuratedProductIntakeRunStatus::Failed,
@@ -131,15 +115,78 @@ class ProcessCuratedProductIntakeAction
         }
     }
 
+    public function processAssembled(
+        CuratedProductIntakeRun $run,
+        Merchant $merchant,
+        CuratedProductIntakePreview $preview,
+        bool $deferClassification = false,
+    ): void {
+        foreach ($preview->items as $previewItem) {
+            if ($this->intakeItemAlreadyRecorded($run, $previewItem->itemIndex)) {
+                continue;
+            }
+
+            if (in_array($previewItem->proposedAction, ['CREATE', 'UPDATE'], true)) {
+                $result = $this->processPreviewItem($merchant, $previewItem, deferClassification: true);
+            } else {
+                $result = $this->resultFromPreviewOnly($previewItem);
+            }
+
+            $sourceListIds = $this->recordProvenance($run, $merchant, $previewItem, $result);
+
+            if ($result->success && $result->productId !== null && ! $deferClassification) {
+                $result = $this->classifyAfterProvenance($result);
+            }
+
+            $this->persistIntakeItem($run, $previewItem, $result, $sourceListIds);
+        }
+
+        $created = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Created)->count();
+        $updated = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Updated)->count();
+        $skipped = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Skipped)->count();
+        $failed = $run->items()->where('outcome', CuratedProductIntakeItemOutcome::Failed)->count();
+
+        $run->update([
+            'status' => $failed > 0
+                ? CuratedProductIntakeRunStatus::CompletedWithErrors
+                : CuratedProductIntakeRunStatus::Completed,
+            'finished_at' => now(),
+            'items_total' => count($preview->items),
+            'items_created' => $created,
+            'items_updated' => $updated,
+            'items_skipped' => $skipped,
+            'items_failed' => $failed,
+            'raw_occurrences' => $preview->rawOccurrences,
+            'unique_products' => $preview->uniqueProducts,
+            'merged_occurrences' => $preview->mergedOccurrences,
+        ]);
+    }
+
     public function resultFromRun(CuratedProductIntakeRun $run): CuratedProductIntakeCommitResult
     {
         $run->load(['items' => fn ($query) => $query->orderBy('item_index')]);
+
+        $productIds = $run->items
+            ->pluck('product_id')
+            ->filter(fn (mixed $id): bool => is_int($id) || (is_string($id) && ctype_digit($id)))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        $products = $productIds->isEmpty()
+            ? collect()
+            : Product::query()
+                ->whereIn('id', $productIds)
+                ->get(['id', 'name', 'taxonomy_classification_status'])
+                ->keyBy('id');
 
         $processed = [];
 
         foreach ($run->items as $item) {
             $warnings = is_array($item->warnings) ? $item->warnings : [];
             [$imageStatus] = $this->resolveImagePresentation($warnings);
+            $product = $products->get($item->product_id);
+            $classification = $product?->taxonomy_classification_status;
 
             $processed[] = [
                 'item_index' => $item->item_index,
@@ -147,11 +194,20 @@ class ProcessCuratedProductIntakeAction
                 'title' => $this->titleFromPayload($item->source_payload),
                 'outcome' => $item->outcome->value,
                 'product_id' => $item->product_id,
-                'product_name' => $this->productName($item->product_id),
+                'product_name' => $product?->name ?? $this->productName($item->product_id),
                 'affiliate_ready' => $item->affiliate_link_id !== null,
                 'image_status' => $imageStatus,
                 'warnings' => $warnings,
                 'error' => $item->error,
+                'source_list_ids' => is_array($item->source_list_ids) ? $item->source_list_ids : [],
+                'source_list_names' => $this->sourceListNames($item),
+                'occurrences_merged' => (int) $item->occurrences_merged,
+                'classification_status' => $classification?->value,
+                'classification_label' => $classification?->getLabel(),
+                'needs_classification_review' => in_array($classification, [
+                    TaxonomyClassificationStatus::Review,
+                    TaxonomyClassificationStatus::Failed,
+                ], true),
             ];
         }
 
@@ -200,8 +256,11 @@ class ProcessCuratedProductIntakeAction
         ];
     }
 
-    private function processPreviewItem(Merchant $merchant, CuratedProductIntakePreviewItem $previewItem): CuratedProductIntakeItemResult
-    {
+    private function processPreviewItem(
+        Merchant $merchant,
+        CuratedProductIntakePreviewItem $previewItem,
+        bool $deferClassification = false,
+    ): CuratedProductIntakeItemResult {
         if ($previewItem->input === null) {
             return new CuratedProductIntakeItemResult(
                 success: false,
@@ -215,7 +274,12 @@ class ProcessCuratedProductIntakeAction
         }
 
         if ($previewItem->proposedAction === 'CREATE') {
-            return $this->create->execute($merchant, $previewItem->input, $previewItem->warnings);
+            return $this->create->execute(
+                $merchant,
+                $previewItem->input,
+                $previewItem->warnings,
+                $deferClassification,
+            );
         }
 
         if ($previewItem->proposedAction === 'UPDATE') {
@@ -223,6 +287,42 @@ class ProcessCuratedProductIntakeAction
         }
 
         return $this->resultFromPreviewOnly($previewItem);
+    }
+
+    private function classifyAfterProvenance(CuratedProductIntakeItemResult $result): CuratedProductIntakeItemResult
+    {
+        $product = Product::query()->find($result->productId);
+
+        if (! $product instanceof Product) {
+            return $result;
+        }
+
+        $should = $this->shouldReclassify->execute($product);
+
+        if (! $should->shouldReclassify) {
+            return $result;
+        }
+
+        $classified = $this->classify->execute($product);
+        $warnings = array_values(array_unique(array_merge($result->warnings, $classified->warnings)));
+
+        if ($classified->status->value === 'failed') {
+            $warnings[] = 'classification_failed';
+        }
+
+        if ($classified->status->value === 'review') {
+            $warnings[] = 'classification_review';
+        }
+
+        return new CuratedProductIntakeItemResult(
+            success: $result->success,
+            outcome: $result->outcome,
+            productId: $result->productId,
+            affiliateLinkId: $result->affiliateLinkId,
+            warnings: array_values(array_unique($warnings)),
+            error: $result->error,
+            imageStatus: $result->imageStatus,
+        );
     }
 
     private function resultFromPreviewOnly(CuratedProductIntakePreviewItem $previewItem): CuratedProductIntakeItemResult
@@ -248,8 +348,9 @@ class ProcessCuratedProductIntakeAction
         CuratedProductIntakeRun $run,
         CuratedProductIntakePreviewItem $previewItem,
         CuratedProductIntakeItemResult $result,
+        array $sourceListIds = [],
     ): void {
-        DB::transaction(function () use ($run, $previewItem, $result): void {
+        DB::transaction(function () use ($run, $previewItem, $result, $sourceListIds): void {
             CuratedProductIntakeItem::query()->create([
                 'curated_product_intake_run_id' => $run->id,
                 'item_index' => $previewItem->itemIndex,
@@ -257,11 +358,104 @@ class ProcessCuratedProductIntakeAction
                 'product_id' => $result->productId,
                 'affiliate_link_id' => $result->affiliateLinkId,
                 'outcome' => CuratedProductIntakeItemOutcome::from($result->outcome),
-                'source_payload' => $previewItem->input?->sourcePayload,
+                'source_payload' => $this->intakeItemPayload($previewItem),
                 'warnings' => $result->warnings !== [] ? $result->warnings : null,
                 'error' => $result->error,
+                'source_list_ids' => $sourceListIds !== [] ? $sourceListIds : null,
+                'occurrences_merged' => $previewItem->occurrencesMerged,
             ]);
         });
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function recordProvenance(
+        CuratedProductIntakeRun $run,
+        Merchant $merchant,
+        CuratedProductIntakePreviewItem $previewItem,
+        CuratedProductIntakeItemResult $result,
+    ): array {
+        if (! $result->success || $result->affiliateLinkId === null || $previewItem->sourceLists === []) {
+            return [];
+        }
+
+        $link = AffiliateLink::query()->find($result->affiliateLinkId);
+
+        if (! $link instanceof AffiliateLink) {
+            return [];
+        }
+
+        $ids = [];
+        $occurrencesByKey = [];
+
+        foreach ($previewItem->merged?->occurrences ?? [] as $occurrence) {
+            $key = $occurrence->sourceListContext?->identityKey();
+
+            if ($key === null) {
+                continue;
+            }
+
+            $occurrencesByKey[$key] = ($occurrencesByKey[$key] ?? 0) + 1;
+        }
+
+        foreach ($previewItem->sourceLists as $sourceList) {
+            if (! $sourceList->isPresent()) {
+                continue;
+            }
+
+            $increment = $occurrencesByKey[$sourceList->identityKey()] ?? 1;
+            $source = $this->upsertSource->execute(
+                $merchant,
+                $link,
+                $sourceList,
+                $run->id,
+                now(),
+                $increment,
+            );
+            $ids[] = $source->catalog_source_list_id;
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function sourceListNames(CuratedProductIntakeItem $item): array
+    {
+        $ids = is_array($item->source_list_ids) ? $item->source_list_ids : [];
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return CatalogSourceList::query()
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function intakeItemPayload(CuratedProductIntakePreviewItem $previewItem): ?array
+    {
+        $payload = $previewItem->input?->sourcePayload;
+
+        if (! is_array($payload)) {
+            return $payload;
+        }
+
+        if ($previewItem->commercialConflicts !== []) {
+            $payload['commercial_conflicts'] = array_values(array_unique($previewItem->commercialConflicts));
+        }
+
+        $payload['occurrences_merged'] = $previewItem->occurrencesMerged;
+        $payload['source_list_names'] = $previewItem->sourceListNames;
+
+        return $payload;
     }
 
     private function intakeItemAlreadyRecorded(CuratedProductIntakeRun $run, int $itemIndex): bool

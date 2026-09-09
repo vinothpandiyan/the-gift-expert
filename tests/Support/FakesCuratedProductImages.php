@@ -21,6 +21,7 @@ trait FakesCuratedProductImages
 
         Http::fake([
             $url => Http::response($body, 200, ['Content-Type' => 'image/jpeg']),
+            'https://m.media-amazon.com/images/*' => Http::response($body, 200, ['Content-Type' => 'image/jpeg']),
         ]);
 
         return [
@@ -30,6 +31,6 @@ trait FakesCuratedProductImages
 
     protected function curatedImageUrlForAsin(string $asin): string
     {
-        return 'https://m.media-amazon.com/images/I/'.$asin.'.jpg';
+        return 'https://m.media-amazon.com/images/I/'.$asin.'._SS1200_.jpg';
     }
 }

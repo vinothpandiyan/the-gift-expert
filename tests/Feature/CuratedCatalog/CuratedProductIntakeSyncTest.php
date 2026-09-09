@@ -10,6 +10,7 @@ use App\Enums\AffiliateLinkStatus;
 use App\Enums\CuratedProductIntakeItemOutcome;
 use App\Enums\CuratedProductIntakeRunStatus;
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Filament\Pages\CuratedProductIntake;
 use App\Jobs\ProcessCuratedProductIntakeRunJob;
 use App\Models\AffiliateLink;
@@ -225,7 +226,7 @@ class CuratedProductIntakeSyncTest extends TestCase
         $this->assertContains(CuratedImageAcquisitionOutcome::STATUS_FAILED, $result->processedItems[0]['warnings']);
     }
 
-    public function test_duplicate_asin_in_payload_skips_second_item(): void
+    public function test_duplicate_asin_in_payload_is_merged_not_skipped(): void
     {
         $home = Category::query()->where('slug', 'home-and-living')->firstOrFail();
         $items = [
@@ -239,8 +240,10 @@ class CuratedProductIntakeSyncTest extends TestCase
         $result = $this->runCuratedSync($payload);
 
         $this->assertSame(1, $result->itemsCreated);
-        $this->assertSame(1, $result->itemsSkipped);
+        $this->assertSame(0, $result->itemsSkipped);
         $this->assertSame(1, Product::query()->count());
+        $this->assertSame(2, $result->processedItems[0]['occurrences_merged']);
+        $this->assertContains('merged_occurrences', $result->processedItems[0]['warnings']);
     }
 
     public function test_one_ai_failure_does_not_stop_remaining_items(): void
@@ -268,9 +271,11 @@ class CuratedProductIntakeSyncTest extends TestCase
 
         $result = $this->runCuratedSync($payload);
 
-        $this->assertSame(2, $result->itemsCreated);
-        $this->assertSame(1, $result->itemsFailed);
-        $this->assertSame(2, Product::query()->count());
+        $this->assertSame(3, $result->itemsCreated);
+        $this->assertSame(0, $result->itemsFailed);
+        $this->assertSame(3, Product::query()->count());
+        $this->assertSame(1, Product::query()->where('taxonomy_classification_status', TaxonomyClassificationStatus::Failed)->count());
+        $this->assertSame(2, Product::query()->where('taxonomy_classification_status', TaxonomyClassificationStatus::AiAccepted)->count());
     }
 
     public function test_one_image_failure_does_not_stop_remaining_items(): void
@@ -281,24 +286,27 @@ class CuratedProductIntakeSyncTest extends TestCase
 
         $firstAsin = $items[0]['external_product_id'];
         $secondAsin = $items[1]['external_product_id'];
-        $goodUrl = $this->curatedImageUrlForAsin($firstAsin);
-        $badUrl = $this->curatedImageUrlForAsin($secondAsin);
+        $imageBody = (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg'));
 
-        Http::fake([
-            'https://api.openai.com/v1/chat/completions' => Http::sequence()
-                ->push($this->commercialEnrichmentCompletion([
+        Http::fake(function ($request) use ($home, $firstAsin, $secondAsin, $imageBody) {
+            $url = $request->url();
+
+            if (str_contains($url, 'api.openai.com/v1/chat/completions')) {
+                return Http::response($this->commercialEnrichmentCompletion([
                     'taxonomy' => ['primary_category_id' => $home->id, 'category_ids' => [$home->id]],
-                ]))
-                ->push($this->commercialEnrichmentCompletion([
-                    'taxonomy' => ['primary_category_id' => $home->id, 'category_ids' => [$home->id]],
-                ])),
-            $goodUrl => Http::response(
-                (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg')),
-                200,
-                ['Content-Type' => 'image/jpeg'],
-            ),
-            $badUrl => Http::response('not-an-image', 200, ['Content-Type' => 'text/plain']),
-        ]);
+                ]));
+            }
+
+            if (str_contains($url, $firstAsin)) {
+                return Http::response($imageBody, 200, ['Content-Type' => 'image/jpeg']);
+            }
+
+            if (str_contains($url, $secondAsin)) {
+                return Http::response('not-an-image', 200, ['Content-Type' => 'text/plain']);
+            }
+
+            return Http::response('', 404);
+        });
         Storage::fake('public');
 
         $result = $this->runCuratedSync($payload);

@@ -22,6 +22,10 @@ readonly class CuratedProductIntakePreview
         public int $itemsAffiliateNotReady,
         public int $itemsActionable,
         public array $items,
+        public int $rawOccurrences = 0,
+        public int $uniqueProducts = 0,
+        public int $mergedOccurrences = 0,
+        public int $multiListProducts = 0,
     ) {}
 
     /**

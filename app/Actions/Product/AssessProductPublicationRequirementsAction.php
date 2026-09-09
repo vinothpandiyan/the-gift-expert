@@ -2,11 +2,17 @@
 
 namespace App\Actions\Product;
 
+use App\Actions\Category\IsAcceptableMerchandisingCategoryAction;
 use App\Enums\AffiliateLinkStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Models\Product;
 
 class AssessProductPublicationRequirementsAction
 {
+    public function __construct(
+        private IsAcceptableMerchandisingCategoryAction $isAcceptableMerchandisingCategory,
+    ) {}
+
     /**
      * @return array{error_codes: list<string>, warnings: list<string>, error_messages: list<string>, warning_messages: list<string>}
      */
@@ -37,14 +43,30 @@ class AssessProductPublicationRequirementsAction
             $warnings[] = 'missing_or_ambiguous_price';
         }
 
-        if (config('gift_publication.warnings.primary_category') && ! $product->categories()
+        $primary = $product->categories()
             ->wherePivot('is_primary', true)
-            ->exists()) {
+            ->first();
+
+        if (config('gift_publication.requirements.primary_category')) {
+            if ($primary === null) {
+                $errorCodes[] = 'missing_primary_category';
+            } elseif (! $this->isAcceptableMerchandisingCategory->execute((int) $primary->id)) {
+                $errorCodes[] = 'invalid_primary_category';
+            }
+        } elseif (config('gift_publication.warnings.primary_category') && $primary === null) {
             $warnings[] = 'missing_primary_category';
         }
 
+        if (config('gift_publication.requirements.classification_status')) {
+            $status = $product->taxonomy_classification_status ?? TaxonomyClassificationStatus::None;
+
+            if ($status->blocksPublication()) {
+                $errorCodes[] = 'classification_not_publishable';
+            }
+        }
+
         $errorMessages = array_map(
-            fn (string $code): string => $this->errorMessage($code),
+            fn (string $code): string => $this->errorMessage($code, $product),
             $errorCodes,
         );
 
@@ -70,14 +92,30 @@ class AssessProductPublicationRequirementsAction
         };
     }
 
-    private function errorMessage(string $code): string
+    private function errorMessage(string $code, Product $product): string
     {
         return match ($code) {
             'missing_name' => 'A gift name is required before publishing.',
             'missing_slug' => 'A gift slug is required before publishing.',
             'no_image' => 'Add at least one gift image before publishing.',
             'no_active_affiliate_link' => 'Add at least one active affiliate link before publishing.',
+            'missing_primary_category' => 'Assign an active primary merchandising category before publishing.',
+            'invalid_primary_category' => 'The primary category is not an active merchandising category.',
+            'classification_not_publishable' => $this->classificationMessage($product),
             default => 'Publication requirement failed: '.$code,
+        };
+    }
+
+    private function classificationMessage(Product $product): string
+    {
+        $status = $product->taxonomy_classification_status ?? TaxonomyClassificationStatus::None;
+
+        return match ($status) {
+            TaxonomyClassificationStatus::Review => 'Approve or override taxonomy classification before publishing. This gift is still in review.',
+            TaxonomyClassificationStatus::Failed => 'Classification failed. Assign taxonomy manually or reclassify before publishing.',
+            TaxonomyClassificationStatus::AiProposed => 'The AI proposal is not applied yet. Approve, override, or reclassify before publishing.',
+            TaxonomyClassificationStatus::None => 'This gift is unclassified. Assign taxonomy or run classification before publishing.',
+            default => 'Taxonomy classification is not ready for publication.',
         };
     }
 }

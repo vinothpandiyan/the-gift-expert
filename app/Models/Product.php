@@ -3,13 +3,16 @@
 namespace App\Models;
 
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Observers\ProductObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -35,6 +38,20 @@ class Product extends Model
         'meta_description',
         'canonical_url',
         'published_at',
+        'taxonomy_classification_status',
+        'taxonomy_classified_at',
+        'taxonomy_content_fingerprint',
+        'taxonomy_relationship_hint_fingerprint',
+        'taxonomy_classification_version',
+        'taxonomy_review_reasons',
+        'taxonomy_classification_warnings',
+        'taxonomy_gap_suggestion',
+        'taxonomy_gap_explanation',
+        'taxonomy_reasoning',
+        'taxonomy_classification_proposal',
+        'taxonomy_proposal_pending',
+        'taxonomy_approved_at',
+        'taxonomy_approved_by_user_id',
     ];
 
     protected function casts(): array
@@ -45,7 +62,45 @@ class Product extends Model
             'compare_at_amount' => 'decimal:2',
             'is_featured' => 'boolean',
             'published_at' => 'datetime',
+            'taxonomy_classification_status' => TaxonomyClassificationStatus::class,
+            'taxonomy_classified_at' => 'datetime',
+            'taxonomy_classification_version' => 'integer',
+            'taxonomy_review_reasons' => 'array',
+            'taxonomy_classification_warnings' => 'array',
+            'taxonomy_reasoning' => 'array',
+            'taxonomy_classification_proposal' => 'array',
+            'taxonomy_proposal_pending' => 'boolean',
+            'taxonomy_approved_at' => 'datetime',
         ];
+    }
+
+    public function taxonomyApprovedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'taxonomy_approved_by_user_id');
+    }
+
+    public function taxonomyClassificationIsHumanLocked(): bool
+    {
+        $status = $this->taxonomy_classification_status;
+
+        return $status instanceof TaxonomyClassificationStatus && $status->isHumanLocked();
+    }
+
+    public function taxonomyProposalIsPending(): bool
+    {
+        return (bool) $this->taxonomy_proposal_pending;
+    }
+
+    public function taxonomyClassificationIsPublishable(): bool
+    {
+        $status = $this->taxonomy_classification_status;
+
+        return $status instanceof TaxonomyClassificationStatus && $status->isPublishable();
+    }
+
+    public function catalogProductSources(): HasManyThrough
+    {
+        return $this->hasManyThrough(CatalogProductSource::class, AffiliateLink::class);
     }
 
     public function images(): HasMany

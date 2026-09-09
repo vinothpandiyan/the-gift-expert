@@ -23,6 +23,8 @@ class AffiliateLink extends Model
         'is_primary',
         'status',
         'last_verified_at',
+        'availability',
+        'last_seen_at',
     ];
 
     protected function casts(): array
@@ -31,6 +33,7 @@ class AffiliateLink extends Model
             'is_primary' => 'boolean',
             'status' => AffiliateLinkStatus::class,
             'last_verified_at' => 'datetime',
+            'last_seen_at' => 'datetime',
         ];
     }
 
@@ -61,6 +64,11 @@ class AffiliateLink extends Model
     public function importRunItems(): HasMany
     {
         return $this->hasMany(ImportRunItem::class);
+    }
+
+    public function catalogProductSources(): HasMany
+    {
+        return $this->hasMany(CatalogProductSource::class);
     }
 
     public function scopeActive(Builder $query): Builder

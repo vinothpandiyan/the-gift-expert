@@ -59,7 +59,7 @@ return [
 
         'temperature' => env('COMMERCIAL_SOURCING_ENRICHMENT_TEMPERATURE'),
 
-        'max_output_tokens' => 2000,
+        'max_output_tokens' => 2500,
 
         'max_evidence' => 8,
 

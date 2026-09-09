@@ -21,6 +21,9 @@ class CuratedProductIntakeRun extends Model
         'items_updated',
         'items_skipped',
         'items_failed',
+        'raw_occurrences',
+        'unique_products',
+        'merged_occurrences',
         'error',
         'created_by_user_id',
     ];
@@ -37,6 +40,9 @@ class CuratedProductIntakeRun extends Model
             'items_updated' => 'integer',
             'items_skipped' => 'integer',
             'items_failed' => 'integer',
+            'raw_occurrences' => 'integer',
+            'unique_products' => 'integer',
+            'merged_occurrences' => 'integer',
         ];
     }
 

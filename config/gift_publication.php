@@ -17,6 +17,8 @@ return [
         'slug' => true,
         'image' => true,
         'active_affiliate_link' => true,
+        'primary_category' => true,
+        'classification_status' => true,
     ],
 
     /*
@@ -30,7 +32,6 @@ return [
 
     'warnings' => [
         'price_amount' => true,
-        'primary_category' => true,
     ],
 
 ];

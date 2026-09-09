@@ -5,6 +5,7 @@ namespace Tests\Feature\Mvp;
 use App\Actions\Product\PublishProductAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Livewire\GiftFinder;
 use App\Models\AffiliateClick;
 use App\Models\AffiliateLink;
@@ -73,6 +74,8 @@ class MvpSmokeTest extends TestCase
 
         $product->categories()->attach($category->id, ['is_primary' => true]);
         $product->occasions()->attach($occasion->id);
+        $product->taxonomy_classification_status = TaxonomyClassificationStatus::HumanApproved;
+        $product->save();
 
         app(PublishProductAction::class)->execute($product->fresh());
 

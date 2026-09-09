@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Actions\Product\PublishProductAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\ProductStatus;
+use App\Enums\TaxonomyClassificationStatus;
 use App\Models\AffiliateLink;
 use App\Models\Category;
 use App\Models\GiftType;
@@ -178,6 +179,8 @@ class ProductSeeder extends Seeder
                 'status' => ProductStatus::Draft,
                 'price_amount' => $price,
                 'price_currency' => 'INR',
+                'taxonomy_classification_status' => TaxonomyClassificationStatus::HumanApproved,
+                'taxonomy_approved_at' => now(),
             ],
         );
 
@@ -222,7 +225,7 @@ class ProductSeeder extends Seeder
         $this->syncBySlug($product, 'interests', Interest::class, $interestSlugs);
         $this->syncBySlug($product, 'giftTypes', GiftType::class, $giftTypeSlugs, replace: true);
 
-        if ($product->status !== ProductStatus::Published) {
+        if ($product->status !== ProductStatus::Published && $primaryCategory !== null) {
             app(PublishProductAction::class)->execute($product->fresh());
         }
     }

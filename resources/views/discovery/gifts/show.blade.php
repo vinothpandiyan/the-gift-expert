@@ -61,7 +61,7 @@
                                 rel="noopener noreferrer nofollow sponsored"
                                 class="h-14 w-full px-7 text-base sm:w-auto"
                             >
-                                Check price at {{ $merchantName }}
+                                {{ $detail->primaryCtaLabel() }}
                                 <span class="sr-only">(opens in a new tab)</span>
                                 <span aria-hidden="true">↗</span>
                             </x-ui.button>
@@ -171,7 +171,7 @@
                     rel="noopener noreferrer nofollow sponsored"
                     class="shrink-0 px-5"
                 >
-                    Check price
+                    {{ $detail->primaryCtaLabel() }}
                     <span class="sr-only">at {{ $merchantName }} (opens in a new tab)</span>
                     <span aria-hidden="true">↗</span>
                 </x-ui.button>

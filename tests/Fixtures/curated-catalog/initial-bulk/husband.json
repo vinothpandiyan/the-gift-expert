@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "merchant": "amazon-in",
+  "captured_at": "2026-09-08T10:05:00+05:30",
+  "context": {
+    "source_list_name": "Gifts for Husband"
+  },
+  "items": [
+    {
+      "external_product_id": "B0SHARED01",
+      "source_url": "https://www.amazon.in/dp/B0SHARED01",
+      "title": "Shared Wallet Deluxe",
+      "price_amount": "1499.00",
+      "price_currency": "INR",
+      "source_image_url": "https://m.media-amazon.com/images/I/B0SHARED01-alt.jpg",
+      "availability": "in_stock"
+    },
+    {
+      "external_product_id": "B0HUSONLY1",
+      "source_url": "https://www.amazon.in/dp/B0HUSONLY1",
+      "title": "Husband Wallet",
+      "price_amount": "899.00",
+      "price_currency": "INR",
+      "source_image_url": "https://m.media-amazon.com/images/I/B0HUSONLY1.jpg",
+      "availability": "in_stock"
+    }
+  ]
+}

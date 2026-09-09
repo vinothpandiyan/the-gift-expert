@@ -6,6 +6,7 @@ use App\Models\AffiliateLink;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Support\DiscoveryUrl;
+use App\Support\MerchantPresentation;
 use Illuminate\Support\Collection;
 
 final class GiftDetailPage
@@ -34,6 +35,11 @@ final class GiftDetailPage
         $name = $this->primaryAffiliateLink?->merchant?->name;
 
         return filled($name) ? (string) $name : null;
+    }
+
+    public function primaryCtaLabel(): string
+    {
+        return MerchantPresentation::outboundCtaLabel($this->primaryAffiliateLink?->merchant);
     }
 
     public function outboundUrl(): ?string

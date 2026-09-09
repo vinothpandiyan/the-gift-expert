@@ -351,6 +351,10 @@ class CuratedProductIntake extends Page
             'items_affiliate_not_ready' => $preview->itemsAffiliateNotReady,
             'items_with_warnings' => $warningCount,
             'items_actionable' => $preview->itemsActionable,
+            'raw_occurrences' => $preview->rawOccurrences,
+            'unique_products' => $preview->uniqueProducts,
+            'merged_occurrences' => $preview->mergedOccurrences,
+            'multi_list_products' => $preview->multiListProducts,
         ];
 
         $this->previewRows = array_map(
@@ -369,6 +373,11 @@ class CuratedProductIntake extends Page
                 'affiliate_ready' => $item->affiliateReady,
                 'warnings' => $item->warnings,
                 'error' => $item->error?->code,
+                'source_list_count' => $item->sourceListCount(),
+                'source_list_names' => $item->sourceListNames,
+                'relationship_hint_names' => $item->relationshipHintNames,
+                'commercial_conflicts' => $item->commercialConflicts,
+                'occurrences_merged' => $item->occurrencesMerged,
             ],
             $preview->items,
         );
@@ -382,6 +391,8 @@ class CuratedProductIntake extends Page
         $nonWarningCodes = [
             CuratedImageAcquisitionOutcome::STATUS_ACQUIRED,
             CuratedImageAcquisitionOutcome::STATUS_ALREADY_PRESENT,
+            'merged_occurrences',
+            'classification_deferred',
         ];
 
         foreach ($warnings as $warning) {
