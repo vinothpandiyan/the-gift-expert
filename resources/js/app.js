@@ -139,6 +139,35 @@ document.addEventListener('alpine:init', () => {
             trapFocus(this.$refs.panel, event);
         },
     }));
+
+    window.Alpine.data('loadMoreGifts', () => ({
+        pending: false,
+
+        init() {
+            this.$el.addEventListener('click', () => {
+                this.pending = true;
+            });
+
+            if (! window.Livewire?.hook) {
+                return;
+            }
+
+            Livewire.hook('request', ({ succeed, fail }) => {
+                succeed(() => {
+                    this.pending = false;
+                });
+
+                fail(() => {
+                    if (! this.pending) {
+                        return;
+                    }
+
+                    this.pending = false;
+                    this.$wire?.markLoadMoreFailed();
+                });
+            });
+        },
+    }));
 });
 
 if (! window.Livewire) {

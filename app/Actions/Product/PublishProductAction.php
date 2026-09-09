@@ -2,6 +2,7 @@
 
 namespace App\Actions\Product;
 
+use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
 use App\Models\Product;
 use Illuminate\Validation\ValidationException;
@@ -35,6 +36,9 @@ class PublishProductAction
             $product->published_at = now();
         }
 
+        $product->editorial_ownership = EditorialOwnership::Human;
+        $product->editorial_generation_version = null;
+        $product->editorial_reviewed_at ??= now();
         $product->save();
 
         return [

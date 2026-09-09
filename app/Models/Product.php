@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
 use App\Enums\TaxonomyClassificationStatus;
 use App\Observers\ProductObserver;
@@ -27,6 +28,10 @@ class Product extends Model
         'slug',
         'short_description',
         'description',
+        'editorial_ownership',
+        'editorial_generation_version',
+        'editorial_reviewed_at',
+        'editorial_reviewed_by_user_id',
         'brand',
         'sku',
         'status',
@@ -58,6 +63,9 @@ class Product extends Model
     {
         return [
             'status' => ProductStatus::class,
+            'editorial_ownership' => EditorialOwnership::class,
+            'editorial_generation_version' => 'integer',
+            'editorial_reviewed_at' => 'datetime',
             'price_amount' => 'decimal:2',
             'compare_at_amount' => 'decimal:2',
             'is_featured' => 'boolean',
@@ -77,6 +85,31 @@ class Product extends Model
     public function taxonomyApprovedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'taxonomy_approved_by_user_id');
+    }
+
+    public function editorialReviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'editorial_reviewed_by_user_id');
+    }
+
+    public function editorialCopyIsHumanOwned(): bool
+    {
+        return $this->editorial_ownership === EditorialOwnership::Human;
+    }
+
+    public function editorialCopyIsSourceOwned(): bool
+    {
+        return $this->editorial_ownership === EditorialOwnership::Source;
+    }
+
+    public function editorialCopyNeedsAiGeneration(): bool
+    {
+        if ($this->editorialCopyIsHumanOwned()) {
+            return false;
+        }
+
+        return $this->editorial_ownership !== EditorialOwnership::Ai
+            || ($this->editorial_generation_version ?? 0) < (int) config('curated_catalog.editorial_copy.version', 1);
     }
 
     public function taxonomyClassificationIsHumanLocked(): bool

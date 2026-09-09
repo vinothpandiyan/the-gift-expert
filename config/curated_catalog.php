@@ -159,6 +159,10 @@ return [
         'max_prompt_chars' => 24000,
     ],
 
+    'editorial_copy' => [
+        'version' => 1,
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Taxonomy classification

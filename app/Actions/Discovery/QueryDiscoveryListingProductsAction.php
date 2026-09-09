@@ -20,14 +20,16 @@ class QueryDiscoveryListingProductsAction
         DiscoveryListingContext $context,
         DiscoveryListingQueryState $state,
         int $page = 1,
+        ?int $throughPage = null,
     ): LengthAwarePaginator {
         $filters = $state->toProductFilters($context);
         $perPage = max(1, (int) config('discovery_ranking.per_page', 12));
         $page = max(1, $page);
+        $throughPage = max($page, $throughPage ?? $page);
 
         if (! $this->hasProductFilters($filters)) {
             return $this->withListingQuery(
-                new LengthAwarePaginator([], 0, $perPage, $page),
+                new LengthAwarePaginator([], 0, $perPage, $throughPage),
                 $state,
             );
         }
@@ -40,6 +42,7 @@ class QueryDiscoveryListingProductsAction
                     matchAllInterests: true,
                 ),
                 $page,
+                $throughPage,
             );
 
             return $this->withListingQuery($ranked, $state);
@@ -50,7 +53,21 @@ class QueryDiscoveryListingProductsAction
 
         $this->applySort($query, $state->sort);
 
-        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+        $offset = ($page - 1) * $perPage;
+        $limit = $perPage * ($throughPage - $page + 1);
+        $total = (clone $query)->count();
+        $items = $query->offset($offset)->limit($limit)->get()->unique('id')->values();
+
+        $paginator = new LengthAwarePaginator(
+            items: $items,
+            total: $total,
+            perPage: $perPage,
+            currentPage: $throughPage,
+            options: [
+                'path' => request()->url(),
+                'pageName' => 'page',
+            ],
+        );
 
         return $this->withListingQuery($paginator, $state);
     }

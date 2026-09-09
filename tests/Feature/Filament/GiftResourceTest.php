@@ -5,6 +5,7 @@ namespace Tests\Feature\Filament;
 use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\CatalogCandidateSourcingItemStatus;
+use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
 use App\Enums\TaxonomyClassificationStatus;
 use App\Filament\Resources\Gifts\Pages\CreateGift;
@@ -44,6 +45,7 @@ class GiftResourceTest extends TestCase
             'name' => 'Ceramic Mug',
             'slug' => 'ceramic-mug',
             'status' => ProductStatus::Draft->value,
+            'editorial_ownership' => EditorialOwnership::Human->value,
         ]);
     }
 
@@ -70,7 +72,9 @@ class GiftResourceTest extends TestCase
             'id' => $product->id,
             'name' => 'New Name',
             'slug' => 'new-name',
+            'editorial_ownership' => EditorialOwnership::Human->value,
         ]);
+        $this->assertNotNull($product->fresh()->editorial_reviewed_at);
     }
 
     public function test_publish_action_blocks_when_requirements_are_missing(): void
@@ -104,6 +108,7 @@ class GiftResourceTest extends TestCase
         $product->refresh();
 
         $this->assertSame(ProductStatus::Published, $product->status);
+        $this->assertSame(EditorialOwnership::Human, $product->editorial_ownership);
         $this->assertNotNull($product->published_at);
     }
 

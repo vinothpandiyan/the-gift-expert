@@ -1,6 +1,6 @@
 <div x-data="filterDrawer" x-effect="sync($wire.filtersOpen)">
-    <div class="flex gap-8 lg:gap-10">
-        <aside class="hidden w-[264px] shrink-0 lg:block" aria-label="Filters">
+    <div class="flex gap-6 xl:gap-8">
+        <aside class="hidden w-[248px] shrink-0 xl:block" aria-label="Filters">
             <div class="sticky top-24" wire:loading.class="pointer-events-none opacity-60">
                 <div class="flex items-center justify-between pb-2">
                     <h2 class="text-[13px] font-semibold uppercase tracking-[0.12em] text-ink-muted">Narrow it down</h2>
@@ -19,15 +19,14 @@
         <div class="min-w-0 flex-1">
             <div class="flex flex-col gap-3 border-b border-line pb-4 md:flex-row md:items-center md:justify-between">
                 <h2 class="text-[14px] font-medium text-ink" aria-live="polite">
-                    {{ number_format($products->total()) }}
-                    gift {{ $products->total() === 1 ? 'idea' : 'ideas' }}
+                    {{ $resultsHeading }}
                 </h2>
 
-                <div class="hidden lg:block">
+                <div class="hidden xl:block">
                     @include('livewire.partials.gift-listing-sort', ['id' => 'gift-listing-sort', 'showLabel' => true])
                 </div>
 
-                <div class="flex items-center gap-2 lg:hidden">
+                <div class="flex items-center gap-2 xl:hidden">
                     <button
                         type="button"
                         class="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-plum/30 bg-surface px-4 text-sm font-semibold text-plum hover:border-plum hover:bg-plum-light"
@@ -67,7 +66,7 @@
             <div class="pt-6">
                 <div
                     wire:loading
-                    wire:target="toggleFilter, setFilter, removeFilter, clearFilters, nextPage, sort"
+                    wire:target="toggleFilter, setFilter, removeFilter, clearFilters, sort"
                     aria-busy="true"
                     aria-live="polite"
                 >
@@ -76,7 +75,7 @@
 
                 <div
                     wire:loading.remove
-                    wire:target="toggleFilter, setFilter, removeFilter, clearFilters, nextPage, sort"
+                    wire:target="toggleFilter, setFilter, removeFilter, clearFilters, sort"
                     class="motion-safe:transition-opacity"
                 >
                     @if ($products->isEmpty())
@@ -87,25 +86,39 @@
                             :gift-ideas-url="$giftIdeasUrl"
                         />
                     @else
-                        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 xl:grid-cols-4">
+                        <div
+                            id="gift-listing-results"
+                            class="grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-3 2xl:grid-cols-4"
+                            wire:loading.attr="aria-busy"
+                            wire:target="nextPage"
+                        >
                             @foreach ($products as $product)
                                 <x-gift-card :product="$product" :context="$context->browseContext" wire:key="gift-{{ $product->id }}" />
                             @endforeach
                         </div>
 
                         @if ($products->hasMorePages())
-                            <div class="mt-10 flex flex-col items-center gap-2">
+                            <div
+                                class="mt-10 flex flex-col items-center gap-2"
+                                x-data="loadMoreGifts"
+                            >
                                 <x-ui.button
                                     :href="$products->nextPageUrl()"
                                     variant="secondary"
                                     wire:click.prevent="nextPage"
-                                    wire:loading.attr="disabled"
+                                    wire:loading.class="pointer-events-none opacity-60"
+                                    wire:loading.attr="aria-disabled"
                                     wire:target="nextPage"
+                                    aria-controls="gift-listing-results"
                                 >
-                                    Load more gift ideas
+                                    <span wire:loading.remove wire:target="nextPage">Load more gift ideas</span>
+                                    <span wire:loading wire:target="nextPage">Loading more gifts…</span>
                                 </x-ui.button>
                                 @if ($remaining > 0)
                                     <p class="text-[13px] text-ink-muted">{{ number_format($remaining) }} more to see</p>
+                                @endif
+                                @if ($loadMoreFailed)
+                                    <p class="text-[13px] text-coral" role="alert">Couldn't load more gifts. Try again.</p>
                                 @endif
                             </div>
                         @endif
@@ -118,7 +131,7 @@
     <x-finder.promo :finder-url="$finderUrl" class="mt-14" />
 
     <div
-        class="lg:hidden"
+        class="xl:hidden"
         @keydown.escape.window="$wire.filtersOpen && $wire.set('filtersOpen', false)"
         @keydown.tab="if ($wire.filtersOpen) trap($event)"
     >

@@ -20,10 +20,10 @@ class QueryRankedDiscoveryProductsAction
         private PaginateRankedDiscoveryProductsAction $paginateRanked,
     ) {}
 
-    public function execute(DiscoveryRankingContext $context, int $page = 1): LengthAwarePaginator
+    public function execute(DiscoveryRankingContext $context, int $page = 1, ?int $throughPage = null): LengthAwarePaginator
     {
         if (config('discovery_ranking.enabled') !== true) {
-            return $this->fallbackPaginator($context, $page);
+            return $this->fallbackPaginator($context, $page, $throughPage);
         }
 
         $perPage = max(1, (int) config('discovery_ranking.per_page', 12));
@@ -59,7 +59,7 @@ class QueryRankedDiscoveryProductsAction
             $diversified = $this->appendOverflowTail($query, $diversified, $poolMax);
         }
 
-        return $this->paginateRanked->execute($diversified, $page, $perPage, $totalEligible);
+        return $this->paginateRanked->execute($diversified, $page, $perPage, $totalEligible, $throughPage);
     }
 
     /**
@@ -135,11 +135,15 @@ class QueryRankedDiscoveryProductsAction
         return $ranked;
     }
 
-    private function fallbackPaginator(DiscoveryRankingContext $context, int $page): LengthAwarePaginator
+    private function fallbackPaginator(DiscoveryRankingContext $context, int $page, ?int $throughPage = null): LengthAwarePaginator
     {
         $perPage = max(1, (int) config('discovery_ranking.per_page', 12));
+        $page = max(1, $page);
+        $throughPage = max($page, $throughPage ?? $page);
+        $offset = ($page - 1) * $perPage;
+        $limit = $perPage * ($throughPage - $page + 1);
 
-        return $this->queryProducts->execute(
+        $query = $this->queryProducts->execute(
             $context->filters,
             $context->requireActiveAffiliate,
             false,
@@ -147,6 +151,20 @@ class QueryRankedDiscoveryProductsAction
         )
             ->with($this->presentationRelations())
             ->orderByDesc('published_at')
-            ->paginate($perPage, ['*'], 'page', $page);
+            ->orderBy('id');
+
+        $total = (clone $query)->count();
+        $items = $query->offset($offset)->limit($limit)->get()->unique('id')->values();
+
+        return new LengthAwarePaginator(
+            items: $items,
+            total: $total,
+            perPage: $perPage,
+            currentPage: $throughPage,
+            options: [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ],
+        );
     }
 }

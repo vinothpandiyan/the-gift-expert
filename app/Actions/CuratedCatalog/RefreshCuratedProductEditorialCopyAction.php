@@ -5,7 +5,10 @@ namespace App\Actions\CuratedCatalog;
 use App\CommercialSourcing\CommercialEnrichmentException;
 use App\CommercialSourcing\OpenAiCompatibleCommercialEnrichmentClient;
 use App\CuratedCatalog\CuratedEditorialCopyPrompt;
+use App\Enums\EditorialOwnership;
+use App\Enums\ProductStatus;
 use App\Models\Product;
+use Illuminate\Support\Facades\DB;
 
 class RefreshCuratedProductEditorialCopyAction
 {
@@ -22,6 +25,15 @@ class RefreshCuratedProductEditorialCopyAction
     public function execute(Product $product): array
     {
         $product = $product->fresh() ?? $product;
+
+        if ($product->status !== ProductStatus::Draft) {
+            throw new CommercialEnrichmentException('Editorial backfill only accepts draft products.');
+        }
+
+        if (! $product->editorialCopyNeedsAiGeneration()) {
+            throw new CommercialEnrichmentException('Editorial copy is human-owned or already uses the current AI generation.');
+        }
+
         [$merchant] = $this->buildInput->execute($product);
         $sourceTitle = $this->contentFingerprint->sourceTitle($product);
         $fingerprintBefore = $product->taxonomy_content_fingerprint;
@@ -49,10 +61,24 @@ class RefreshCuratedProductEditorialCopyAction
         $shortDescription = $this->nullableString($decoded['short_description'] ?? null);
         $description = $this->nullableString($decoded['description'] ?? null);
 
-        $product->name = $name;
-        $product->short_description = $shortDescription;
-        $product->description = $description;
-        $product->save();
+        $product = DB::transaction(function () use ($product, $name, $shortDescription, $description): Product {
+            $fresh = Product::query()->lockForUpdate()->findOrFail($product->id);
+
+            if ($fresh->status !== ProductStatus::Draft || ! $fresh->editorialCopyNeedsAiGeneration()) {
+                throw new CommercialEnrichmentException('Editorial ownership changed while copy was being generated.');
+            }
+
+            $fresh->name = $name;
+            $fresh->short_description = $shortDescription;
+            $fresh->description = $description;
+            $fresh->editorial_ownership = EditorialOwnership::Ai;
+            $fresh->editorial_generation_version = (int) config('curated_catalog.editorial_copy.version', 1);
+            $fresh->editorial_reviewed_at = null;
+            $fresh->editorial_reviewed_by_user_id = null;
+            $fresh->save();
+
+            return $fresh;
+        });
 
         $fresh = $product->fresh() ?? $product;
 

@@ -10,6 +10,7 @@ use App\Actions\CuratedCatalog\PreviewCuratedProductIntakeAction;
 use App\Actions\CuratedCatalog\RefreshCuratedMerchantProductAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\CatalogSourceListKind;
+use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
 use App\Enums\TaxonomyClassificationStatus;
 use App\Enums\TaxonomyClassificationWarningCode;
@@ -67,6 +68,31 @@ class ClassifyCuratedMerchantProductActionTest extends TestCase
         $this->assertFalse($product->categories()->where('categories.id', $electronics->id)->exists());
         $this->assertNotNull($product->taxonomy_classification_proposal);
         $this->assertSame('BrandX French Press', $product->name);
+    }
+
+    public function test_classification_preserves_human_editorial_copy_independently_of_taxonomy_status(): void
+    {
+        $home = $this->category('Home & Living', 'home-and-living');
+        $product = $this->draftProduct();
+        $product->forceFill([
+            'name' => 'Human Editorial Title',
+            'short_description' => 'Human short description.',
+            'description' => "Human reason one\nHuman reason two\nHuman reason three",
+            'editorial_ownership' => EditorialOwnership::Human,
+            'editorial_reviewed_at' => now(),
+        ])->save();
+
+        $this->fakeClassification($home->id, [$home->id]);
+
+        app(ClassifyCuratedMerchantProductAction::class)->execute($product);
+
+        $product->refresh();
+        $this->assertSame(TaxonomyClassificationStatus::AiAccepted, $product->taxonomy_classification_status);
+        $this->assertTrue($product->categories()->whereKey($home->id)->exists());
+        $this->assertSame('Human Editorial Title', $product->name);
+        $this->assertSame('Human short description.', $product->short_description);
+        $this->assertSame("Human reason one\nHuman reason two\nHuman reason three", $product->description);
+        $this->assertSame(EditorialOwnership::Human, $product->editorial_ownership);
     }
 
     public function test_review_persists_proposal_without_applying_pivots(): void

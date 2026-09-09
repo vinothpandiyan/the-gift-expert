@@ -6,6 +6,7 @@ use App\Actions\CuratedCatalog\ApproveCuratedTaxonomyProposalAction;
 use App\Actions\CuratedCatalog\ReclassifyCuratedMerchantProductAction;
 use App\Actions\CuratedCatalog\RejectCuratedTaxonomyProposalAction;
 use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
+use App\Actions\Product\MarkProductEditorialCopyAsHumanOwnedAction;
 use App\Actions\Product\PublishProductAction;
 use App\Enums\ProductStatus;
 use App\Enums\TaxonomyClassificationStatus;
@@ -54,8 +55,14 @@ class EditGift extends EditRecord
             'profession_ids',
             'gift_type_ids',
         ]);
+        $editorialChanged = collect(['name', 'short_description', 'description'])
+            ->contains(fn (string $field): bool => ($data[$field] ?? null) !== $record->getAttribute($field));
 
         $record->update($this->forgetTaxonomyFormData($data));
+
+        if ($editorialChanged) {
+            $record = app(MarkProductEditorialCopyAsHumanOwnedAction::class)->execute($record, auth()->user());
+        }
 
         return $this->persistTaxonomyFormData($record->fresh() ?? $record, $taxonomyData);
     }
@@ -63,6 +70,24 @@ class EditGift extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('markEditorialReviewed')
+                ->label('Mark editorial reviewed')
+                ->icon(Heroicon::OutlinedShieldCheck)
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Protect this editorial copy?')
+                ->modalDescription('The current title, short description, and gift reasons will become human-owned and cannot be overwritten by automated imports, classification, or editorial generation.')
+                ->visible(fn (Product $record): bool => ! $record->editorialCopyIsHumanOwned())
+                ->action(function (Product $record): void {
+                    $this->record = app(MarkProductEditorialCopyAsHumanOwnedAction::class)
+                        ->execute($record, auth()->user());
+                    $this->fillForm();
+
+                    Notification::make()
+                        ->title('Editorial copy protected')
+                        ->success()
+                        ->send();
+                }),
             ActionGroup::make([
                 Action::make('approveClassification')
                     ->label('Approve Classification')

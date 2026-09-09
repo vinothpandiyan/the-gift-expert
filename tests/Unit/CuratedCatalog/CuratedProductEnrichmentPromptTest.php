@@ -100,6 +100,11 @@ class CuratedProductEnrichmentPromptTest extends TestCase
         $this->assertStringContainsString('Zero Relationships remains valid for generic products', $system);
         $this->assertStringContainsString('Wishlist hints remain stronger than title inference', $system);
         $this->assertStringContainsString('makeup brush holder should not be left empty', $system);
+        $this->assertStringContainsString('Friends is a real recipient Relationship', $system);
+        $this->assertStringContainsString('meaningful friend-gifting affinity compared with the general population', $system);
+        $this->assertStringContainsString('generic personalized caricatures or standees', $system);
+        $this->assertStringContainsString('Do not add Friends to every personalized product', $system);
+        $this->assertStringContainsString('Husband- or Boyfriend-specific caricature', $system);
         $this->assertStringNotContainsString('hard cap', $system);
         $this->assertStringNotContainsString('truncate', strtolower($system));
     }

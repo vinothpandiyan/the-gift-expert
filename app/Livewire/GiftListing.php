@@ -52,7 +52,15 @@ class GiftListing extends Component
     #[Url(history: true, except: 1)]
     public int $page = 1;
 
+    #[Locked]
+    public ?int $loadedFromPage = null;
+
+    #[Locked]
+    public string $listingUrl = '';
+
     public bool $filtersOpen = false;
+
+    public bool $loadMoreFailed = false;
 
     /**
      * @param  array<string, mixed>  $context
@@ -60,6 +68,7 @@ class GiftListing extends Component
     public function mount(array $context): void
     {
         $this->listingContext = $context;
+        $this->listingUrl = request()->url();
     }
 
     public function toggleFilter(string $dimension, string $slug): void
@@ -101,7 +110,7 @@ class GiftListing extends Component
         $this->category = '';
         $this->budget = '';
         $this->sort = '';
-        $this->page = 1;
+        $this->resetLoadedWindow();
         $this->filtersOpen = false;
         $this->redirectToHubIfGiftIdeasBudgetCleared();
     }
@@ -113,12 +122,19 @@ class GiftListing extends Component
 
     public function nextPage(): void
     {
-        $this->page++;
+        $this->loadMoreFailed = false;
+        $this->loadedFromPage ??= max(1, $this->page);
+        $this->page = max($this->page, $this->loadedFromPage) + 1;
+    }
+
+    public function markLoadMoreFailed(): void
+    {
+        $this->loadMoreFailed = true;
     }
 
     public function updatedSort(): void
     {
-        $this->page = 1;
+        $this->resetLoadedWindow();
     }
 
     public function render(
@@ -128,12 +144,23 @@ class GiftListing extends Component
         $this->syncNormalizedFilters();
         $context = $this->listingContext();
         $state = $this->queryState();
-        $products = $queryListing->execute($context, $state, $this->page);
+        $fromPage = max(1, $this->loadedFromPage ?? $this->page);
+        $throughPage = max($this->page, $fromPage);
+        $products = $queryListing->execute($context, $state, $fromPage, $throughPage);
+
+        if ($this->listingUrl !== '') {
+            $products->withPath($this->listingUrl);
+        }
         $options = $resolveOptions->execute($context, $state);
         $activeChips = $this->activeChips($options);
         $activeCount = count($activeChips);
-
-        $lastItem = $products->lastItem();
+        $loadedCount = ($fromPage - 1) * $products->perPage() + $products->count();
+        $remaining = max(0, $products->total() - $loadedCount);
+        $resultsHeading = $products->isEmpty()
+            ? '0 gift ideas'
+            : ($loadedCount < $products->total()
+                ? 'Showing '.number_format($loadedCount).' of '.number_format($products->total()).' gift '.($products->total() === 1 ? 'idea' : 'ideas')
+                : number_format($products->total()).' gift '.($products->total() === 1 ? 'idea' : 'ideas'));
 
         return view('livewire.gift-listing', [
             'context' => $context,
@@ -145,7 +172,8 @@ class GiftListing extends Component
             'finderUrl' => DiscoveryUrl::finder(),
             'giftIdeasUrl' => DiscoveryUrl::giftIdeas(),
             'giftsLabel' => Terminology::gifts(),
-            'remaining' => $lastItem === null ? 0 : max(0, $products->total() - (int) $lastItem),
+            'remaining' => $remaining,
+            'resultsHeading' => $resultsHeading,
         ]);
     }
 
@@ -170,7 +198,7 @@ class GiftListing extends Component
         $this->budget = $normalized->budgetSlug ?? '';
 
         if ($before !== $this->queryState()->toPaginatorQuery()) {
-            $this->page = 1;
+            $this->resetLoadedWindow();
         }
     }
 
@@ -263,7 +291,7 @@ class GiftListing extends Component
 
         if ($property === 'budget') {
             $this->budget = $enabled ? $slug : ($this->budget === $slug ? '' : $this->budget);
-            $this->page = 1;
+            $this->resetLoadedWindow();
             $this->syncNormalizedFilters();
             $this->redirectToHubIfGiftIdeasBudgetCleared();
 
@@ -282,7 +310,7 @@ class GiftListing extends Component
         }
 
         $this->{$property} = DiscoveryListingQueryState::encodeList($current);
-        $this->page = 1;
+        $this->resetLoadedWindow();
         $this->syncNormalizedFilters($dimension);
     }
 
@@ -299,5 +327,12 @@ class GiftListing extends Component
             'budget' => 'budget',
             default => null,
         };
+    }
+
+    private function resetLoadedWindow(): void
+    {
+        $this->page = 1;
+        $this->loadedFromPage = null;
+        $this->loadMoreFailed = false;
     }
 }

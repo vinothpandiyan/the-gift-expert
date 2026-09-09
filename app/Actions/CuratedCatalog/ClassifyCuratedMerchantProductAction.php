@@ -8,6 +8,7 @@ use App\CommercialSourcing\CommercialEnrichmentException;
 use App\CuratedCatalog\ClassifyCuratedMerchantProductResult;
 use App\CuratedCatalog\CuratedClassificationProposal;
 use App\CuratedCatalog\CuratedProductEnrichmentResult;
+use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
 use App\Enums\TaxonomyClassificationStatus;
 use App\Enums\TaxonomyClassificationWarningCode;
@@ -195,13 +196,20 @@ class ClassifyCuratedMerchantProductAction
             $fresh->status = ProductStatus::Draft;
 
             if ($resolved->status === TaxonomyClassificationStatus::AiAccepted && $proposal instanceof CuratedClassificationProposal) {
-                if (is_string($proposal->name) && $proposal->name !== '') {
-                    $fresh->name = $proposal->name;
-                }
-
-                $fresh->short_description = $proposal->shortDescription;
-                $fresh->description = $proposal->description;
                 $fresh->brand = $proposal->brand;
+
+                if (! $fresh->editorialCopyIsHumanOwned()) {
+                    if (is_string($proposal->name) && $proposal->name !== '') {
+                        $fresh->name = $proposal->name;
+                    }
+
+                    $fresh->short_description = $proposal->shortDescription;
+                    $fresh->description = $proposal->description;
+                    $fresh->editorial_ownership = EditorialOwnership::Ai;
+                    $fresh->editorial_generation_version = 0;
+                    $fresh->editorial_reviewed_at = null;
+                    $fresh->editorial_reviewed_by_user_id = null;
+                }
             }
 
             $fresh->save();

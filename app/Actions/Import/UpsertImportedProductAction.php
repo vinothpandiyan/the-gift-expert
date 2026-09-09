@@ -3,6 +3,7 @@
 namespace App\Actions\Import;
 
 use App\Enums\AffiliateLinkStatus;
+use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
 use App\Import\ImportedCatalogItem;
 use App\Models\AffiliateLink;
@@ -41,6 +42,7 @@ class UpsertImportedProductAction
             'slug' => $this->uniqueSlug((string) $item->name),
             'short_description' => $item->short_description,
             'description' => $item->description,
+            'editorial_ownership' => EditorialOwnership::Source,
             'brand' => $item->brand,
             'status' => ProductStatus::Draft,
             'price_amount' => $item->price_amount,
@@ -87,10 +89,13 @@ class UpsertImportedProductAction
         $product->price_currency = $item->price_currency ?? $product->price_currency;
 
         if ($product->status === ProductStatus::Draft) {
-            $product->name = $item->name;
-            $product->short_description = $item->short_description;
-            $product->description = $item->description;
             $product->brand = $item->brand;
+
+            if ($product->editorialCopyIsSourceOwned()) {
+                $product->name = $item->name;
+                $product->short_description = $item->short_description;
+                $product->description = $item->description;
+            }
         }
 
         $product->save();

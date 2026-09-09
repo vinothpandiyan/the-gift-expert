@@ -110,6 +110,11 @@ class GiftResource extends Resource
                         Textarea::make('description')
                             ->rows(5)
                             ->columnSpanFull(),
+                        Placeholder::make('editorial_ownership')
+                            ->label('Editorial ownership')
+                            ->content(fn (?Product $record): string => $record?->editorial_ownership?->getLabel() ?? 'Human-owned on creation')
+                            ->helperText('Human-owned copy is protected from imports, classification, and AI editorial backfills.')
+                            ->columnSpanFull(),
                     ])
                     ->columns(2)
                     ->columnSpan(1),

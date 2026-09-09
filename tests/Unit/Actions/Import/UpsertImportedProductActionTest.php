@@ -4,8 +4,10 @@ namespace Tests\Unit\Actions\Import;
 
 use App\Actions\Import\UpsertImportedProductAction;
 use App\Enums\AffiliateLinkStatus;
+use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
 use App\Import\ImportedCatalogItem;
+use App\Models\AffiliateLink;
 use App\Models\Merchant;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -75,5 +77,50 @@ class UpsertImportedProductActionTest extends TestCase
         ));
 
         $this->assertSame('classic-leather-wallet-2', $link->product->slug);
+    }
+
+    public function test_it_preserves_human_owned_editorial_copy_during_import_refresh(): void
+    {
+        $merchant = Merchant::query()->create([
+            'name' => 'Fake Merchant',
+            'slug' => 'fake-merchant',
+            'affiliate_network' => 'fake',
+        ]);
+        $product = Product::factory()->draft()->create([
+            'name' => 'Human Title',
+            'short_description' => 'Human short description.',
+            'description' => 'Human reason one.',
+            'brand' => 'Old Brand',
+            'editorial_ownership' => EditorialOwnership::Human,
+        ]);
+        AffiliateLink::query()->create([
+            'product_id' => $product->id,
+            'merchant_id' => $merchant->id,
+            'url' => 'https://example.test/old',
+            'external_product_id' => 'EXISTING-1',
+            'status' => AffiliateLinkStatus::Active,
+            'is_primary' => true,
+        ]);
+
+        app(UpsertImportedProductAction::class)->execute($merchant, new ImportedCatalogItem(
+            name: 'Imported Replacement Title',
+            description: 'Imported replacement description.',
+            short_description: 'Imported replacement short.',
+            brand: 'New Brand',
+            price_amount: '1999.00',
+            price_currency: 'INR',
+            affiliate_url: 'https://example.test/new',
+            external_product_id: 'EXISTING-1',
+            image_urls: [],
+            raw: [],
+        ));
+
+        $product->refresh();
+        $this->assertSame('Human Title', $product->name);
+        $this->assertSame('Human short description.', $product->short_description);
+        $this->assertSame('Human reason one.', $product->description);
+        $this->assertSame('New Brand', $product->brand);
+        $this->assertSame('1999.00', $product->price_amount);
+        $this->assertSame(EditorialOwnership::Human, $product->editorial_ownership);
     }
 }

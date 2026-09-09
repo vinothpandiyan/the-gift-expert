@@ -26,8 +26,8 @@
     $imageHeight = (int) config('media.product_images.canonical_height');
 @endphp
 
-<article {{ $attributes->merge(['class' => 'group relative flex h-full flex-col rounded-xl border border-line bg-surface p-3 transition-shadow hover:shadow-[0_8px_24px_-16px_rgba(38,35,38,0.35)]']) }}>
-    <div class="relative aspect-square overflow-hidden rounded-md bg-surface-sunken p-1.5">
+<article {{ $attributes->merge(['class' => 'group relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-surface transition-shadow hover:shadow-[0_8px_24px_-16px_rgba(38,35,38,0.35)]']) }}>
+    <div class="relative aspect-square overflow-hidden bg-surface-sunken p-1.5">
         @if ($primaryImage)
             <img
                 src="{{ $primaryImage->url() }}"
@@ -42,7 +42,7 @@
         @endif
     </div>
 
-    <div class="flex flex-1 flex-col px-1.5 pt-4 pb-1">
+    <div class="flex flex-1 flex-col px-3 pt-3 pb-3">
         @if ($badge)
             <div class="mb-2">
                 <span class="inline-flex items-center rounded-sm border px-2 py-1 text-[11px] font-semibold tracking-wide {{ $badgeTone }}">

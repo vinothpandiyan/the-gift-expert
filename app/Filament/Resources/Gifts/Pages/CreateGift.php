@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Gifts\Pages;
 
+use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
 use App\Filament\Resources\Gifts\Concerns\AppliesGiftTaxonomyFormState;
 use App\Filament\Resources\Gifts\GiftResource;
@@ -30,6 +31,9 @@ class CreateGift extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['status'] = ProductStatus::Draft->value;
+        $data['editorial_ownership'] = EditorialOwnership::Human->value;
+        $data['editorial_reviewed_at'] = now();
+        $data['editorial_reviewed_by_user_id'] = auth()->id();
         $this->pendingTaxonomy = Arr::only($data, GiftClassificationSchema::formKeys());
 
         return $this->forgetTaxonomyFormData($data);
