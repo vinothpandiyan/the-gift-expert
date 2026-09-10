@@ -72,6 +72,7 @@ class StoreProductImageAction
                     $processed = $this->processProductImage->execute(
                         $source,
                         $trimPlan?->shouldTrim === true ? $trimPlan->cropBox : null,
+                        preserveComposition: $trimSafeOuterBackground,
                     );
                     $path = $this->storagePath($product->id, $processed->extension);
 

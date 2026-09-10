@@ -123,7 +123,7 @@ class GiftListing extends Component
     public function nextPage(): void
     {
         $this->loadMoreFailed = false;
-        $this->loadedFromPage ??= max(1, $this->page);
+        $this->loadedFromPage ??= 1;
         $this->page = max($this->page, $this->loadedFromPage) + 1;
     }
 
@@ -144,7 +144,7 @@ class GiftListing extends Component
         $this->syncNormalizedFilters();
         $context = $this->listingContext();
         $state = $this->queryState();
-        $fromPage = max(1, $this->loadedFromPage ?? $this->page);
+        $fromPage = max(1, $this->loadedFromPage ?? 1);
         $throughPage = max($this->page, $fromPage);
         $products = $queryListing->execute($context, $state, $fromPage, $throughPage);
 

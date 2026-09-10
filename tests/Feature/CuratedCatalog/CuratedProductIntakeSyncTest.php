@@ -164,7 +164,7 @@ class CuratedProductIntakeSyncTest extends TestCase
         ]);
 
         Http::fake([
-            $imageUrl => Http::response(
+            'https://m.media-amazon.com/images/*' => Http::response(
                 (string) file_get_contents($this->rasterImagePath(640, 640, 'jpeg')),
                 200,
                 ['Content-Type' => 'image/jpeg'],

@@ -168,6 +168,40 @@ document.addEventListener('alpine:init', () => {
             });
         },
     }));
+
+    window.Alpine.data('productGallery', () => ({
+        active: 0,
+        lightboxOpen: false,
+        previouslyFocused: null,
+
+        openLightbox() {
+            this.previouslyFocused = document.activeElement;
+            this.lightboxOpen = true;
+            document.body.classList.add('overflow-hidden');
+            this.$nextTick(() => this.$refs.lightboxClose?.focus());
+        },
+
+        closeLightbox() {
+            if (! this.lightboxOpen) {
+                return;
+            }
+
+            this.lightboxOpen = false;
+            document.body.classList.remove('overflow-hidden');
+            restoreFocus(this.previouslyFocused);
+            this.previouslyFocused = null;
+        },
+
+        trapLightbox(event) {
+            if (this.lightboxOpen) {
+                trapFocus(this.$refs.lightboxPanel, event);
+            }
+        },
+
+        destroy() {
+            document.body.classList.remove('overflow-hidden');
+        },
+    }));
 });
 
 if (! window.Livewire) {

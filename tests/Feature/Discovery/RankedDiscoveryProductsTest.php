@@ -91,7 +91,8 @@ class RankedDiscoveryProductsTest extends TestCase
 
         $this->assertNotEmpty($pageOneIds);
         $this->assertNotEmpty($pageTwoIds);
-        $this->assertSame([], array_values(array_intersect($pageOneIds, $pageTwoIds)));
+        $this->assertSame($pageOneIds, array_slice($pageTwoIds, 0, count($pageOneIds)));
+        $this->assertSame($pageTwoIds, array_values(array_unique($pageTwoIds)));
     }
 
     public function test_repeated_ranked_queries_return_identical_order(): void

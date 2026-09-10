@@ -201,7 +201,8 @@ class DiscoverySeoTest extends TestCase
 
         $this->get(DiscoveryUrl::giftIdeasCategory($category->full_path).'?page=2')
             ->assertOk()
-            ->assertSee('<link rel="canonical" href="'.$baseCanonical.'?page=2">', false)
+            ->assertSee('<link rel="canonical" href="'.$baseCanonical.'">', false)
+            ->assertSee('<meta name="robots" content="noindex, follow">', false)
             ->assertSee('<link rel="prev"', false);
     }
 

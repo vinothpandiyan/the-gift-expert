@@ -19,20 +19,39 @@ class DetectSafeOuterBackgroundTrimActionTest extends TestCase
         $this->assertLessThanOrEqual(350, $plan->contentBox['x']);
         $this->assertGreaterThanOrEqual(500, $plan->contentBox['width']);
         $this->assertLessThanOrEqual(506, $plan->contentBox['width']);
-        $this->assertSame(600, $plan->cropBox['width']);
-        $this->assertSame(600, $plan->cropBox['height']);
+        $this->assertGreaterThanOrEqual(620, $plan->cropBox['width']);
+        $this->assertLessThanOrEqual(630, $plan->cropBox['width']);
+        $this->assertSame($plan->cropBox['width'], $plan->cropBox['height']);
         $this->assertEqualsWithDelta(0.42, $plan->occupancyBefore, 0.005);
-        $this->assertEqualsWithDelta(0.84, $plan->occupancyAfter, 0.01);
+        $this->assertEqualsWithDelta(0.81, $plan->occupancyAfter, 0.01);
     }
 
-    public function test_it_accepts_a_uniform_non_white_background(): void
+    public function test_it_preserves_a_uniform_non_white_background(): void
     {
         $path = $this->imageWithCenteredProduct(1200, 500, [210, 220, 228]);
 
         $plan = app(DetectSafeOuterBackgroundTrimAction::class)->execute($path);
 
-        $this->assertTrue($plan->shouldTrim);
-        $this->assertSame(600, $plan->cropBox['width']);
+        $this->assertFalse($plan->shouldTrim);
+        $this->assertSame('background_not_confidently_artificial', $plan->reason);
+    }
+
+    public function test_it_preserves_a_photo_with_only_a_thin_uniform_outer_edge(): void
+    {
+        $image = imagecreatetruecolor(1200, 1200);
+        $white = imagecolorallocate($image, 255, 255, 255);
+        $photo = imagecolorallocate($image, 80, 120, 150);
+        imagefilledrectangle($image, 0, 0, 1199, 1199, $white);
+        imagefilledrectangle($image, 4, 4, 1195, 1195, $photo);
+        $path = $this->writeImage($image);
+
+        $plan = app(DetectSafeOuterBackgroundTrimAction::class)->execute($path);
+
+        $this->assertFalse($plan->shouldTrim);
+        $this->assertContains($plan->reason, [
+            'background_not_confidently_artificial',
+            'non_uniform_border',
+        ]);
     }
 
     public function test_it_skips_images_with_non_uniform_edges(): void

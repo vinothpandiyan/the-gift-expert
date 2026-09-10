@@ -153,6 +153,23 @@ class GiftResourceTest extends TestCase
         $this->assertSame(ProductStatus::Draft, $blocked->fresh()->status);
     }
 
+    public function test_products_publishable_individually_are_also_bulk_publishable_without_sourcing_readiness(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $first = $this->publishableProduct('bulk-first');
+        $second = $this->publishableProduct('bulk-second');
+
+        $this->assertNull($first->latestPromotedSourcingItem);
+        $this->assertNull($second->latestPromotedSourcingItem);
+
+        Livewire::test(ListGifts::class)
+            ->callTableBulkAction('publishReady', [$first, $second]);
+
+        $this->assertSame(ProductStatus::Published, $first->fresh()->status);
+        $this->assertSame(ProductStatus::Published, $second->fresh()->status);
+    }
+
     public function test_list_shows_taxonomy_classification_status(): void
     {
         $this->actingAs(User::factory()->create());
@@ -223,15 +240,17 @@ class GiftResourceTest extends TestCase
         return $product->fresh();
     }
 
-    private function publishableProduct(): Product
+    private function publishableProduct(string $suffix = 'single'): Product
     {
         $merchant = Merchant::query()->create([
-            'name' => 'Example Merchant',
-            'slug' => 'example-merchant',
+            'name' => 'Example Merchant '.$suffix,
+            'slug' => 'example-merchant-'.$suffix,
             'affiliate_network' => 'example',
         ]);
 
         $product = Product::factory()->create([
+            'name' => 'Publishable '.$suffix,
+            'slug' => 'publishable-'.$suffix,
             'status' => ProductStatus::Draft,
             'price_amount' => '999.00',
             'taxonomy_classification_status' => TaxonomyClassificationStatus::AiAccepted,
@@ -239,21 +258,21 @@ class GiftResourceTest extends TestCase
 
         $category = Category::query()->create([
             'name' => 'Home',
-            'slug' => 'home-publishable',
+            'slug' => 'home-publishable-'.$suffix,
             'is_active' => true,
         ]);
         $product->categories()->attach($category->id, ['is_primary' => true]);
 
         ProductImage::query()->create([
             'product_id' => $product->id,
-            'path' => 'images/gift.jpg',
+            'path' => 'images/gift-'.$suffix.'.jpg',
             'is_primary' => true,
         ]);
 
         AffiliateLink::query()->create([
             'product_id' => $product->id,
             'merchant_id' => $merchant->id,
-            'url' => 'https://example.com/product',
+            'url' => 'https://example.com/product-'.$suffix,
             'status' => AffiliateLinkStatus::Active,
             'is_primary' => true,
         ]);

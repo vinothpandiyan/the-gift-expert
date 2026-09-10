@@ -28,21 +28,23 @@ return [
          */
         'amazon' => [
             'canonical_host' => 'm.media-amazon.com',
-            'canonical_token' => 'SS',
-            'canonical_long_edge' => 1200,
+            'canonical_token' => 'SL',
+            'canonical_long_edge' => 1500,
             'min_acceptable_long_edge' => 1000,
-            'max_long_edge' => 1500,
+            'max_long_edge' => 2000,
             'content_trim' => [
                 'enabled' => true,
                 'square_ratio_tolerance' => 0.02,
-                'corner_color_tolerance' => 10,
-                'background_color_tolerance' => 18,
-                'minimum_uniform_border_ratio' => 0.98,
-                'content_scan_step' => 3,
-                'safety_margin_ratio' => 0.06,
-                'minimum_safety_margin' => 12,
+                'corner_color_tolerance' => 4,
+                'background_color_tolerance' => 8,
+                'minimum_background_channel' => 240,
+                'minimum_uniform_border_ratio' => 0.995,
+                'uniform_border_depth_ratio' => 0.015,
+                'content_scan_step' => 2,
+                'safety_margin_ratio' => 0.12,
+                'minimum_safety_margin' => 48,
                 'minimum_canvas_edge' => 600,
-                'maximum_canvas_ratio' => 0.94,
+                'maximum_canvas_ratio' => 0.82,
             ],
             'hosts' => [
                 'm.media-amazon.com',
@@ -161,6 +163,12 @@ return [
 
     'editorial_copy' => [
         'version' => 1,
+    ],
+
+    'seo' => [
+        'version' => 1,
+        'meta_title_max_length' => 60,
+        'meta_description_max_length' => 160,
     ],
 
     /*

@@ -7,6 +7,7 @@ use App\Actions\CuratedCatalog\ReclassifyCuratedMerchantProductAction;
 use App\Actions\CuratedCatalog\RejectCuratedTaxonomyProposalAction;
 use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
 use App\Actions\Product\MarkProductEditorialCopyAsHumanOwnedAction;
+use App\Actions\Product\MarkProductSeoAsHumanOwnedAction;
 use App\Actions\Product\PublishProductAction;
 use App\Enums\ProductStatus;
 use App\Enums\TaxonomyClassificationStatus;
@@ -57,11 +58,17 @@ class EditGift extends EditRecord
         ]);
         $editorialChanged = collect(['name', 'short_description', 'description'])
             ->contains(fn (string $field): bool => ($data[$field] ?? null) !== $record->getAttribute($field));
+        $seoChanged = collect(['meta_title', 'meta_description', 'canonical_url'])
+            ->contains(fn (string $field): bool => ($data[$field] ?? null) !== $record->getAttribute($field));
 
         $record->update($this->forgetTaxonomyFormData($data));
 
         if ($editorialChanged) {
             $record = app(MarkProductEditorialCopyAsHumanOwnedAction::class)->execute($record, auth()->user());
+        }
+
+        if ($seoChanged) {
+            $record = app(MarkProductSeoAsHumanOwnedAction::class)->execute($record, auth()->user());
         }
 
         return $this->persistTaxonomyFormData($record->fresh() ?? $record, $taxonomyData);

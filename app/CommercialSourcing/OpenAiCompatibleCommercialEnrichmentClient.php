@@ -93,7 +93,9 @@ class OpenAiCompatibleCommercialEnrichmentClient
             throw new CommercialEnrichmentException('The commercial enrichment response was malformed.');
         }
 
-        if (! array_key_exists('name', $payload) || ! is_string($payload['name'])) {
+        $schemaRequiresName = in_array('name', $schema['required'] ?? [], true);
+
+        if ($schemaRequiresName && (! array_key_exists('name', $payload) || ! is_string($payload['name']))) {
             throw new CommercialEnrichmentException('The commercial enrichment response was malformed.');
         }
 

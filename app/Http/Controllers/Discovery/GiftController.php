@@ -23,19 +23,28 @@ class GiftController extends Controller
 
         if ($detail !== null) {
             $context = request()->query('context');
+            $breadcrumbs = PageMeta::giftBreadcrumbs(
+                $detail->product,
+                is_string($context) ? $context : null,
+            );
+            $canonical = PageMeta::giftCanonical($detail->product);
+            $description = PageMeta::giftDescription($detail->product);
+            $primaryImage = $detail->galleryImages->first();
 
             return view('discovery.gifts.show', [
                 'detail' => $detail,
                 'product' => $detail->product,
                 'relatedProducts' => $queryRelatedGifts->execute($detail->product),
                 'seoTitle' => PageMeta::giftTitle($detail->product),
-                'seoDescription' => PageMeta::giftDescription($detail->product),
-                'seoCanonical' => PageMeta::giftCanonical($detail->product),
+                'seoDescription' => $description,
+                'seoCanonical' => $canonical,
                 'seoRobots' => 'index, follow',
-                'breadcrumbs' => PageMeta::giftBreadcrumbs(
-                    $detail->product,
-                    is_string($context) ? $context : null,
-                ),
+                'seoOpenGraphTitle' => PageMeta::giftTitle($detail->product),
+                'seoOpenGraphDescription' => $description,
+                'seoOpenGraphImage' => $primaryImage?->url(),
+                'productStructuredData' => PageMeta::giftProductStructuredData($detail->product),
+                'breadcrumbStructuredData' => PageMeta::breadcrumbStructuredData($breadcrumbs, $canonical),
+                'breadcrumbs' => $breadcrumbs,
             ]);
         }
 

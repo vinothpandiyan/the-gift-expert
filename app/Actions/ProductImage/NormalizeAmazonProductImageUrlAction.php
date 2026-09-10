@@ -159,7 +159,7 @@ class NormalizeAmazonProductImageUrlAction
         }
 
         $minimum = max(1, (int) config('curated_catalog.image_acquisition.amazon.min_acceptable_long_edge', 1000));
-        $keepFamilies = ['SS', 'SX', 'SY', 'UX', 'UY'];
+        $keepFamilies = ['SL', 'SX', 'SY', 'UL', 'UX', 'UY'];
         $keepFamily = is_string($family) && in_array($family, $keepFamilies, true);
         $edge = $this->requestedLongEdge($keepFamily ? $detected : null);
         $token = $canonicalToken;

@@ -17,9 +17,9 @@ class NormalizeAmazonProductImageUrlActionTest extends TestCase
         $this->assertTrue($result->isAmazon);
         $this->assertTrue($result->changed);
         $this->assertSame(135, $result->detectedLongEdge);
-        $this->assertSame(1200, $result->requestedLongEdge);
+        $this->assertSame(1500, $result->requestedLongEdge);
         $this->assertSame(
-            'https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg',
+            'https://m.media-amazon.com/images/I/411lYXWd-cL._SL1500_.jpg',
             $result->url,
         );
     }
@@ -29,14 +29,14 @@ class NormalizeAmazonProductImageUrlActionTest extends TestCase
         $action = app(NormalizeAmazonProductImageUrlAction::class);
 
         $ss = $action->execute('https://m.media-amazon.com/images/I/411lYXWd-cL._SS135_.jpg');
-        $this->assertSame('https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg', $ss->url);
+        $this->assertSame('https://m.media-amazon.com/images/I/411lYXWd-cL._SL1500_.jpg', $ss->url);
 
         $ul = $action->execute('https://images-na.ssl-images-amazon.com/images/I/51abcDEFgH._AC_UL320_.jpg');
         $this->assertTrue($ul->isAmazon);
-        $this->assertSame('https://m.media-amazon.com/images/I/51abcDEFgH._SS1200_.jpg', $ul->url);
+        $this->assertSame('https://m.media-amazon.com/images/I/51abcDEFgH._SL1500_.jpg', $ul->url);
     }
 
-    public function test_it_rewrites_sl_tokens_to_square_canonical_rendition(): void
+    public function test_it_preserves_a_high_resolution_long_edge_rendition(): void
     {
         $result = app(NormalizeAmazonProductImageUrlAction::class)->execute(
             'https://m.media-amazon.com/images/I/411lYXWd-cL._AC_SL1500_.jpg',
@@ -45,20 +45,20 @@ class NormalizeAmazonProductImageUrlActionTest extends TestCase
         $this->assertTrue($result->isAmazon);
         $this->assertTrue($result->changed);
         $this->assertSame(1500, $result->detectedLongEdge);
-        $this->assertSame(1200, $result->requestedLongEdge);
+        $this->assertSame(1500, $result->requestedLongEdge);
         $this->assertSame(
-            'https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg',
+            'https://m.media-amazon.com/images/I/411lYXWd-cL._SL1500_.jpg',
             $result->url,
         );
     }
 
-    public function test_it_keeps_already_high_resolution_square_or_ux_urls(): void
+    public function test_it_replaces_square_renditions_but_keeps_high_resolution_ux_urls(): void
     {
         $action = app(NormalizeAmazonProductImageUrlAction::class);
 
         $ss = $action->execute('https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg');
-        $this->assertFalse($ss->changed);
-        $this->assertSame('https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg', $ss->url);
+        $this->assertTrue($ss->changed);
+        $this->assertSame('https://m.media-amazon.com/images/I/411lYXWd-cL._SL1500_.jpg', $ss->url);
 
         $ux = $action->execute('https://m.media-amazon.com/images/I/411lYXWd-cL._UX1200_.jpg');
         $this->assertFalse($ux->changed);
@@ -75,7 +75,7 @@ class NormalizeAmazonProductImageUrlActionTest extends TestCase
         $this->assertFalse($second->changed);
         $this->assertSame($first->url, $second->url);
         $this->assertSame(
-            'https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg',
+            'https://m.media-amazon.com/images/I/411lYXWd-cL._SL1500_.jpg',
             $first->url,
         );
     }
@@ -128,7 +128,7 @@ class NormalizeAmazonProductImageUrlActionTest extends TestCase
         $this->assertTrue($result->changed);
         $this->assertNull($result->detectedLongEdge);
         $this->assertSame(
-            'https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg',
+            'https://m.media-amazon.com/images/I/411lYXWd-cL._SL1500_.jpg',
             $result->url,
         );
     }

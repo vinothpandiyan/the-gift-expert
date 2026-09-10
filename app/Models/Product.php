@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EditorialOwnership;
 use App\Enums\ProductStatus;
+use App\Enums\SeoOwnership;
 use App\Enums\TaxonomyClassificationStatus;
 use App\Observers\ProductObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -42,6 +43,10 @@ class Product extends Model
         'meta_title',
         'meta_description',
         'canonical_url',
+        'seo_ownership',
+        'seo_generation_version',
+        'seo_reviewed_at',
+        'seo_reviewed_by_user_id',
         'published_at',
         'taxonomy_classification_status',
         'taxonomy_classified_at',
@@ -66,6 +71,9 @@ class Product extends Model
             'editorial_ownership' => EditorialOwnership::class,
             'editorial_generation_version' => 'integer',
             'editorial_reviewed_at' => 'datetime',
+            'seo_ownership' => SeoOwnership::class,
+            'seo_generation_version' => 'integer',
+            'seo_reviewed_at' => 'datetime',
             'price_amount' => 'decimal:2',
             'compare_at_amount' => 'decimal:2',
             'is_featured' => 'boolean',
@@ -90,6 +98,28 @@ class Product extends Model
     public function editorialReviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'editorial_reviewed_by_user_id');
+    }
+
+    public function seoReviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seo_reviewed_by_user_id');
+    }
+
+    public function seoIsHumanOwned(): bool
+    {
+        return $this->seo_ownership === SeoOwnership::Human;
+    }
+
+    public function seoNeedsAiGeneration(): bool
+    {
+        if ($this->seoIsHumanOwned()) {
+            return false;
+        }
+
+        return $this->seo_ownership !== SeoOwnership::Ai
+            || ($this->seo_generation_version ?? 0) < (int) config('curated_catalog.seo.version', 1)
+            || blank($this->meta_title)
+            || blank($this->meta_description);
     }
 
     public function editorialCopyIsHumanOwned(): bool

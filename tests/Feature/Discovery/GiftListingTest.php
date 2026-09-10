@@ -600,7 +600,7 @@ class GiftListingTest extends TestCase
             ->assertDontSee('Load more gift ideas', false);
     }
 
-    public function test_direct_page_two_does_not_include_page_one_products(): void
+    public function test_direct_page_two_restores_pages_one_and_two_without_duplicates(): void
     {
         config(['discovery_ranking.per_page' => 2]);
 
@@ -615,23 +615,29 @@ class GiftListingTest extends TestCase
             $gift->relationships()->attach($husband);
         }
 
-        Livewire::withQueryParams(['sort' => 'price_asc', 'page' => 2])
+        $component = Livewire::withQueryParams(['sort' => 'price_asc', 'page' => 2])
             ->test(GiftListing::class, [
                 'context' => DiscoveryListingContext::forRelationship($husband)->toArray(),
-            ])
-            ->assertSet('page', 2)
+            ]);
+
+        $component->assertSet('page', 2)
             ->assertSet('loadedFromPage', null)
-            ->assertDontSee('Paged Gift 1', false)
-            ->assertDontSee('Paged Gift 2', false)
+            ->assertSee('Paged Gift 1', false)
+            ->assertSee('Paged Gift 2', false)
             ->assertSee('Paged Gift 3', false)
             ->assertSee('Paged Gift 4', false)
             ->assertDontSee('Paged Gift 5', false)
             ->call('nextPage')
             ->assertSet('page', 3)
-            ->assertSet('loadedFromPage', 2)
-            ->assertDontSee('Paged Gift 1', false)
+            ->assertSet('loadedFromPage', 1)
+            ->assertSee('Paged Gift 1', false)
             ->assertSee('Paged Gift 3', false)
-            ->assertSee('Paged Gift 5', false);
+            ->assertSee('Paged Gift 5', false)
+            ->assertDontSee('Load more gift ideas', false);
+
+        $keys = [];
+        preg_match_all('/wire:key="gift-(\d+)"/', $component->html(), $keys);
+        $this->assertSame($keys[1], array_values(array_unique($keys[1])));
     }
 
     public function test_load_more_preserves_filters_and_resets_when_filters_change(): void
@@ -678,7 +684,7 @@ class GiftListingTest extends TestCase
             ->assertSee('Unfiltered Append', false);
     }
 
-    public function test_http_page_two_url_still_renders_only_that_page(): void
+    public function test_http_page_two_url_restores_pages_one_and_two(): void
     {
         config(['discovery_ranking.per_page' => 2]);
 
@@ -695,10 +701,82 @@ class GiftListingTest extends TestCase
 
         $this->get(DiscoveryUrl::relationship('husband').'?sort=price_asc&page=2')
             ->assertOk()
-            ->assertDontSee('Http Page Gift 1', false)
+            ->assertSee('Http Page Gift 1', false)
+            ->assertSee('Http Page Gift 2', false)
             ->assertSee('Http Page Gift 3', false)
             ->assertSee('Http Page Gift 4', false)
+            ->assertDontSee('Http Page Gift 5', false)
             ->assertSee('Load more gift ideas', false);
+    }
+
+    public function test_direct_page_with_filters_restores_filtered_pages_only(): void
+    {
+        config(['discovery_ranking.per_page' => 2]);
+
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+
+        foreach (range(1, 5) as $index) {
+            $gift = GiftCatalogTestHelpers::publishedGift([
+                'name' => "Filtered Restore {$index}",
+                'slug' => "filtered-restore-{$index}",
+                'price_amount' => (string) (100 * $index).'.00',
+            ]);
+            $gift->relationships()->attach($husband);
+            $gift->occasions()->attach($birthday);
+        }
+
+        $other = GiftCatalogTestHelpers::publishedGift([
+            'name' => 'Wrong Occasion Restore',
+            'slug' => 'wrong-occasion-restore',
+            'price_amount' => '50.00',
+        ]);
+        $other->relationships()->attach($husband);
+
+        Livewire::withQueryParams([
+            'sort' => 'price_asc',
+            'occasion' => 'birthday',
+            'page' => 2,
+        ])->test(GiftListing::class, [
+            'context' => DiscoveryListingContext::forRelationship($husband)->toArray(),
+        ])
+            ->assertSee('Filtered Restore 1', false)
+            ->assertSee('Filtered Restore 4', false)
+            ->assertDontSee('Filtered Restore 5', false)
+            ->assertDontSee('Wrong Occasion Restore', false);
+    }
+
+    public function test_invalid_and_beyond_final_pages_restore_a_safe_window(): void
+    {
+        config(['discovery_ranking.per_page' => 2]);
+
+        $husband = $this->relationship('Husband');
+
+        foreach (range(1, 3) as $index) {
+            $gift = GiftCatalogTestHelpers::publishedGift([
+                'name' => "Boundary Gift {$index}",
+                'slug' => "boundary-gift-{$index}",
+                'price_amount' => (string) (100 * $index).'.00',
+            ]);
+            $gift->relationships()->attach($husband);
+        }
+
+        Livewire::withQueryParams(['sort' => 'price_asc', 'page' => -3])
+            ->test(GiftListing::class, [
+                'context' => DiscoveryListingContext::forRelationship($husband)->toArray(),
+            ])
+            ->assertSee('Boundary Gift 1', false)
+            ->assertSee('Boundary Gift 2', false)
+            ->assertDontSee('Boundary Gift 3', false);
+
+        Livewire::withQueryParams(['sort' => 'price_asc', 'page' => 99])
+            ->test(GiftListing::class, [
+                'context' => DiscoveryListingContext::forRelationship($husband)->toArray(),
+            ])
+            ->assertSee('Boundary Gift 1', false)
+            ->assertSee('Boundary Gift 2', false)
+            ->assertSee('Boundary Gift 3', false)
+            ->assertDontSee('Load more gift ideas', false);
     }
 
     public function test_load_more_failure_shows_a_retry_message(): void

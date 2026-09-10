@@ -69,6 +69,76 @@ final class PageMeta
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public static function giftProductStructuredData(Product $product): array
+    {
+        $data = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Product',
+            'name' => $product->name,
+            'description' => self::giftDescription($product),
+            'url' => self::giftCanonical($product),
+        ];
+
+        $images = $product->relationLoaded('images')
+            ? $product->images->map->url()->values()->all()
+            : $product->images()->get()->map->url()->values()->all();
+
+        if ($images !== []) {
+            $data['image'] = $images;
+        }
+
+        if (filled($product->sku)) {
+            $data['sku'] = (string) $product->sku;
+        }
+
+        if (filled($product->brand)) {
+            $data['brand'] = [
+                '@type' => 'Brand',
+                'name' => (string) $product->brand,
+            ];
+        }
+
+        $activeOffer = $product->relationLoaded('affiliateLinks')
+            ? $product->affiliateLinks->first()
+            : $product->affiliateLinks()->active()->first();
+
+        if ($activeOffer !== null && $product->price_amount !== null && (float) $product->price_amount > 0) {
+            $data['offers'] = [
+                '@type' => 'Offer',
+                'url' => self::giftCanonical($product),
+                'priceCurrency' => $product->price_currency,
+                'price' => (string) $product->price_amount,
+                'availability' => 'https://schema.org/InStock',
+            ];
+        }
+
+        return array_filter($data, fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * @param  list<array{label: string, url: ?string}>  $breadcrumbs
+     * @return array<string, mixed>
+     */
+    public static function breadcrumbStructuredData(array $breadcrumbs, string $currentUrl): array
+    {
+        return [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => collect($breadcrumbs)
+                ->values()
+                ->map(fn (array $crumb, int $index): array => [
+                    '@type' => 'ListItem',
+                    'position' => $index + 1,
+                    'name' => $crumb['label'],
+                    'item' => $crumb['url'] ?? $currentUrl,
+                ])
+                ->all(),
+        ];
+    }
+
+    /**
      * @return list<array{label: string, url: ?string}>
      */
     public static function giftBreadcrumbs(Product $product, mixed $context = null): array
@@ -687,8 +757,10 @@ final class PageMeta
         $pagination = self::paginatedCanonicals($paginator, $baseCanonical);
 
         return [
-            'canonical' => $pagination['canonical'],
-            'robots' => $indexable ? 'index, follow' : 'noindex, follow',
+            // Enhanced listings restore page=N cumulatively (pages 1..N), so
+            // paginated URLs overlap the base listing and are not indexable.
+            'canonical' => $page > 1 ? $baseCanonical : $pagination['canonical'],
+            'robots' => $indexable && $page <= 1 ? 'index, follow' : 'noindex, follow',
             'prev' => $pagination['prev'],
             'next' => $pagination['next'],
         ];

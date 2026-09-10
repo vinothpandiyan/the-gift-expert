@@ -29,7 +29,7 @@ class BackfillAmazonProductImagesTest extends TestCase
         $highRes = (string) file_get_contents($this->rasterImagePath(1200, 1200, 'jpeg'));
         Http::preventStrayRequests();
         Http::fake([
-            'https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg' => Http::response(
+            'https://m.media-amazon.com/images/I/411lYXWd-cL._SL1500_.jpg' => Http::response(
                 $highRes,
                 200,
                 ['Content-Type' => 'image/jpeg'],
@@ -59,7 +59,7 @@ class BackfillAmazonProductImagesTest extends TestCase
         $freshProduct = $product->fresh();
 
         $this->assertSame(
-            'https://m.media-amazon.com/images/I/411lYXWd-cL._SS1200_.jpg',
+            'https://m.media-amazon.com/images/I/411lYXWd-cL._SL1500_.jpg',
             $freshImage->source_url,
         );
         $this->assertGreaterThanOrEqual(1000, app(ReplaceAutomaticallyAcquiredProductImageAction::class)->storedLongEdge($freshImage));

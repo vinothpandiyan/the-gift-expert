@@ -43,6 +43,23 @@ class ProcessProductImageActionTest extends TestCase
         $this->assertSame(800, $processed->height);
     }
 
+    public function test_amazon_processing_can_preserve_the_full_source_composition(): void
+    {
+        $landscape = app(ProcessProductImageAction::class)->execute(
+            $this->rasterImagePath(1200, 800),
+            preserveComposition: true,
+        );
+        $portrait = app(ProcessProductImageAction::class)->execute(
+            $this->rasterImagePath(800, 1200),
+            preserveComposition: true,
+        );
+
+        $this->assertSame(1200, $landscape->width);
+        $this->assertSame(800, $landscape->height);
+        $this->assertSame(800, $portrait->width);
+        $this->assertSame(1200, $portrait->height);
+    }
+
     public function test_square_source_is_not_upscaled(): void
     {
         $path = $this->rasterImagePath(1200, 1200);

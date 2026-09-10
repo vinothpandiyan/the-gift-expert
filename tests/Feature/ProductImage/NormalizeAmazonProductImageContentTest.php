@@ -42,7 +42,14 @@ class NormalizeAmazonProductImageContentTest extends TestCase
         $freshProduct = $product->fresh();
         $this->assertNotSame($originalPath, $freshImage->path);
         $this->assertFalse(Storage::disk('public')->exists($originalPath));
-        $this->assertSame(600, app(ReplaceAutomaticallyAcquiredProductImageAction::class)->storedLongEdge($freshImage));
+        $this->assertGreaterThanOrEqual(
+            620,
+            app(ReplaceAutomaticallyAcquiredProductImageAction::class)->storedLongEdge($freshImage),
+        );
+        $this->assertLessThanOrEqual(
+            630,
+            app(ReplaceAutomaticallyAcquiredProductImageAction::class)->storedLongEdge($freshImage),
+        );
         $this->assertSame($sourceUrl, $freshImage->source_url);
         $this->assertSame($contentHash, $freshImage->content_hash);
         $this->assertSame(TaxonomyClassificationStatus::AiAccepted, $freshProduct->taxonomy_classification_status);

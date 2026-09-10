@@ -4,6 +4,9 @@
     'robots' => 'index, follow',
     'prev' => null,
     'next' => null,
+    'openGraphTitle' => null,
+    'openGraphDescription' => null,
+    'openGraphImage' => null,
 ])
 
 <meta name="robots" content="{{ $robots }}">
@@ -22,4 +25,20 @@
 
 @if (filled($next))
     <link rel="next" href="{{ $next }}">
+@endif
+
+@if (filled($openGraphTitle))
+    <meta property="og:title" content="{{ $openGraphTitle }}">
+@endif
+
+@if (filled($openGraphDescription))
+    <meta property="og:description" content="{{ $openGraphDescription }}">
+@endif
+
+@if (filled($canonical))
+    <meta property="og:url" content="{{ $canonical }}">
+@endif
+
+@if (filled($openGraphImage))
+    <meta property="og:image" content="{{ $openGraphImage }}">
 @endif

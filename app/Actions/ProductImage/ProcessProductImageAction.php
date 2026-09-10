@@ -12,8 +12,11 @@ class ProcessProductImageAction
     /**
      * @param  array{x: int, y: int, width: int, height: int}|null  $cropBox
      */
-    public function execute(string|SplFileInfo $source, ?array $cropBox = null): ProcessedProductImage
-    {
+    public function execute(
+        string|SplFileInfo $source,
+        ?array $cropBox = null,
+        bool $preserveComposition = false,
+    ): ProcessedProductImage {
         $path = $this->absolutePath($source);
         $this->assertReadableFile($path);
         $this->assertSize($path);
@@ -46,7 +49,9 @@ class ProcessProductImageAction
 
         try {
             $sourceImage = $this->orientJpeg($sourceImage, $path, (string) $info['mime']);
-            $cropped = $this->cropToCanonicalRatio($sourceImage, $cropBox);
+            $cropped = $preserveComposition && $cropBox === null
+                ? $this->copyFullImage($sourceImage)
+                : $this->cropToCanonicalRatio($sourceImage, $cropBox);
             $resized = $this->resizeWithoutUnnecessaryUpscale($cropped);
 
             return $this->encode($resized);
@@ -55,6 +60,24 @@ class ProcessProductImageAction
                 imagedestroy($sourceImage);
             }
         }
+    }
+
+    private function copyFullImage(GdImage $image): GdImage
+    {
+        $copy = imagecrop($image, [
+            'x' => 0,
+            'y' => 0,
+            'width' => imagesx($image),
+            'height' => imagesy($image),
+        ]);
+
+        if (! $copy instanceof GdImage) {
+            throw ValidationException::withMessages([
+                'image' => ['The image composition could not be preserved.'],
+            ]);
+        }
+
+        return $copy;
     }
 
     private function absolutePath(string|SplFileInfo $source): string

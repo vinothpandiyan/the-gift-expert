@@ -54,6 +54,12 @@ class DetectSafeOuterBackgroundTrimAction
         }
 
         $background = $this->averageColor($cornerColors);
+        $minimumBackgroundChannel = (int) config('curated_catalog.image_acquisition.amazon.content_trim.minimum_background_channel', 245);
+
+        if (! $this->isConfidentArtificialBackground($background, $minimumBackgroundChannel)) {
+            return new SafeOuterBackgroundTrimPlan(false, 'background_not_confidently_artificial', $width, $height);
+        }
+
         $backgroundTolerance = (int) config('curated_catalog.image_acquisition.amazon.content_trim.background_color_tolerance', 18);
         $minimumBorderRatio = (float) config('curated_catalog.image_acquisition.amazon.content_trim.minimum_uniform_border_ratio', 0.98);
 
@@ -192,24 +198,46 @@ class DetectSafeOuterBackgroundTrimAction
         $width = imagesx($image);
         $height = imagesy($image);
         $step = max(1, (int) floor(min($width, $height) / 300));
+        $depth = max(1, (int) floor(
+            min($width, $height)
+            * (float) config('curated_catalog.image_acquisition.amazon.content_trim.uniform_border_depth_ratio', 0.015),
+        ));
         $backgroundPixels = 0;
         $sampledPixels = 0;
 
         for ($x = 0; $x < $width; $x += $step) {
-            foreach ([0, $height - 1] as $y) {
-                $sampledPixels++;
-                $backgroundPixels += $this->isBackground($this->colorAt($image, $x, $y), $background, $tolerance) ? 1 : 0;
+            for ($inset = 0; $inset < $depth; $inset++) {
+                foreach ([$inset, $height - 1 - $inset] as $y) {
+                    $sampledPixels++;
+                    $backgroundPixels += $this->isBackground($this->colorAt($image, $x, $y), $background, $tolerance) ? 1 : 0;
+                }
             }
         }
 
         for ($y = 0; $y < $height; $y += $step) {
-            foreach ([0, $width - 1] as $x) {
-                $sampledPixels++;
-                $backgroundPixels += $this->isBackground($this->colorAt($image, $x, $y), $background, $tolerance) ? 1 : 0;
+            for ($inset = 0; $inset < $depth; $inset++) {
+                foreach ([$inset, $width - 1 - $inset] as $x) {
+                    $sampledPixels++;
+                    $backgroundPixels += $this->isBackground($this->colorAt($image, $x, $y), $background, $tolerance) ? 1 : 0;
+                }
             }
         }
 
         return $sampledPixels === 0 ? 0 : $backgroundPixels / $sampledPixels;
+    }
+
+    /**
+     * @param  array{red: int, green: int, blue: int, alpha: int}  $background
+     */
+    private function isConfidentArtificialBackground(array $background, int $minimumChannel): bool
+    {
+        if ($background['alpha'] >= 120) {
+            return true;
+        }
+
+        return $background['red'] >= $minimumChannel
+            && $background['green'] >= $minimumChannel
+            && $background['blue'] >= $minimumChannel;
     }
 
     /**

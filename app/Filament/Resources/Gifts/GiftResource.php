@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Gifts;
 
-use App\Actions\Product\EvaluateAndPersistProductAutomationReadinessAction;
 use App\Actions\Product\PublishProductAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\ProductAutomationReadiness;
@@ -52,6 +51,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class GiftResource extends Resource
 {
@@ -194,6 +194,11 @@ class GiftResource extends Resource
                         Textarea::make('meta_description')
                             ->rows(2)
                             ->maxLength(500)
+                            ->columnSpanFull(),
+                        Placeholder::make('seo_ownership')
+                            ->label('SEO ownership')
+                            ->content(fn (?Product $record): string => $record?->seo_ownership?->getLabel() ?? 'Not generated')
+                            ->helperText('Human-owned SEO is protected from automated generation and import workflows.')
                             ->columnSpanFull(),
                     ])
                     ->columns(2)
@@ -425,29 +430,19 @@ class GiftResource extends Resource
                         ->icon(Heroicon::OutlinedArrowUpTray)
                         ->color('success')
                         ->requiresConfirmation()
-                        ->modalHeading('Publish ready draft gifts?')
-                        ->modalDescription('Only draft gifts with automation readiness "ready" are published through the existing publish action.')
+                        ->modalHeading('Publish selected draft gifts?')
+                        ->modalDescription('Each selected draft is validated and published through the same publication action used by the individual Publish button.')
                         ->action(function (Collection $records): void {
                             $published = 0;
+                            $skipped = 0;
                             $failed = 0;
-                            $errors = [];
+                            $details = [];
 
                             foreach ($records as $product) {
                                 /** @var Product $product */
                                 if ($product->status !== ProductStatus::Draft) {
-                                    $failed++;
-
-                                    continue;
-                                }
-
-                                $item = $product->latestPromotedSourcingItem;
-
-                                if ($item !== null) {
-                                    $item = app(EvaluateAndPersistProductAutomationReadinessAction::class)->execute($item);
-                                }
-
-                                if ($item === null || $item->readiness !== ProductAutomationReadiness::Ready) {
-                                    $failed++;
+                                    $skipped++;
+                                    $details[] = "#{$product->id} skipped: not a draft.";
 
                                     continue;
                                 }
@@ -457,21 +452,35 @@ class GiftResource extends Resource
                                     $published++;
                                 } catch (ValidationException $exception) {
                                     $failed++;
-                                    $errors[] = $product->name.': '.implode(' ', Arr::flatten($exception->errors()));
+                                    $details[] = "#{$product->id} failed: ".implode(' ', Arr::flatten($exception->errors()));
+                                } catch (Throwable $exception) {
+                                    report($exception);
+                                    $failed++;
+                                    $details[] = "#{$product->id} failed unexpectedly; check the application log.";
                                 }
                             }
 
-                            $body = "Published {$published}, skipped or failed {$failed}.";
+                            $body = "Published: {$published}. Skipped: {$skipped}. Failed: {$failed}.";
 
-                            if ($errors !== []) {
-                                $body .= ' '.implode(' ', array_slice($errors, 0, 3));
+                            if ($details !== []) {
+                                $body .= ' '.implode(' ', array_slice($details, 0, 5));
+
+                                if (count($details) > 5) {
+                                    $body .= ' '.(count($details) - 5).' additional result(s) omitted; check the affected gifts individually.';
+                                }
                             }
 
-                            Notification::make()
+                            $notification = Notification::make()
                                 ->title('Bulk publish finished')
-                                ->body($body)
-                                ->success()
-                                ->send();
+                                ->body($body);
+
+                            match (true) {
+                                $failed > 0 => $notification->danger(),
+                                $skipped > 0 => $notification->warning(),
+                                default => $notification->success(),
+                            };
+
+                            $notification->send();
                         }),
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),

@@ -10,6 +10,9 @@
         :robots="$seoRobots ?? 'index, follow'"
         :prev="$seoPrev ?? null"
         :next="$seoNext ?? null"
+        :open-graph-title="$seoOpenGraphTitle ?? null"
+        :open-graph-description="$seoOpenGraphDescription ?? null"
+        :open-graph-image="$seoOpenGraphImage ?? null"
     />
     @stack('head')
     @fonts

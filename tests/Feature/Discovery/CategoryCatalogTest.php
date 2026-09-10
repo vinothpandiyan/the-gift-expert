@@ -88,7 +88,7 @@ class CategoryCatalogTest extends TestCase
         $onPageTwo = array_values(array_filter($slugs, fn (string $slug): bool => str_contains($pageTwoHtml, '/gifts/'.$slug.'"') || str_contains($pageTwoHtml, '/gifts/'.$slug.'?')));
 
         $this->assertCount(12, $onPageOne);
-        $this->assertCount(1, $onPageTwo);
-        $this->assertSame([], array_values(array_intersect($onPageOne, $onPageTwo)));
+        $this->assertCount(13, $onPageTwo);
+        $this->assertSame($onPageOne, array_slice($onPageTwo, 0, count($onPageOne)));
     }
 }

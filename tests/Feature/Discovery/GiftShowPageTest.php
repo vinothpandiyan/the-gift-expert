@@ -75,6 +75,13 @@ class GiftShowPageTest extends TestCase
             ->assertSee('mx-auto w-full max-w-[640px]', false)
             ->assertSee('aspect-square overflow-hidden rounded-md bg-surface-sunken p-3', false)
             ->assertSee('h-full w-full object-contain', false)
+            ->assertSee('aria-label="Open larger image of Ceramic Mug"', false)
+            ->assertSee('role="dialog"', false)
+            ->assertSee('aria-modal="true"', false)
+            ->assertSee('aria-label="Close image viewer"', false)
+            ->assertSee('@click.self="closeLightbox"', false)
+            ->assertSee('@keydown.escape.window="closeLightbox"', false)
+            ->assertSee('@keydown.tab.window="trapLightbox($event)"', false)
             ->assertSee('Best for', false)
             ->assertSee('Recipients', false)
             ->assertSee('Occasions', false)
@@ -430,6 +437,34 @@ class GiftShowPageTest extends TestCase
             ->assertOk()
             ->assertSee('<link rel="canonical" href="'.$canonical.'">', false)
             ->assertDontSee('<link rel="canonical" href="'.$canonical.'?context=', false);
+    }
+
+    public function test_gift_renders_open_graph_and_product_and_breadcrumb_structured_data(): void
+    {
+        $product = GiftCatalogTestHelpers::publishedGift([
+            'slug' => 'seo-output-gift',
+            'name' => 'Clean Editorial Gift',
+            'meta_title' => 'Clean Editorial Gift for Thoughtful Giving',
+            'meta_description' => 'A concise, editorial description written for gift shoppers.',
+            'brand' => 'Editorial Brand',
+            'price_amount' => '1299.00',
+            'price_currency' => 'INR',
+        ]);
+        $canonical = DiscoveryUrl::gift($product->slug, absolute: true);
+        $image = $product->images->first();
+
+        $html = $this->get(DiscoveryUrl::gift($product->slug))
+            ->assertOk()
+            ->assertSee('<link rel="canonical" href="'.$canonical.'">', false)
+            ->assertSee('<meta property="og:title" content="Clean Editorial Gift for Thoughtful Giving">', false)
+            ->assertSee('<meta property="og:description" content="A concise, editorial description written for gift shoppers.">', false)
+            ->assertSee('<meta property="og:image" content="'.$image->url().'">', false)
+            ->getContent();
+
+        $this->assertStringContainsString('"@type":"Product"', $html);
+        $this->assertStringContainsString('"name":"Clean Editorial Gift"', $html);
+        $this->assertStringContainsString('"price":"1299.00"', $html);
+        $this->assertStringContainsString('"@type":"BreadcrumbList"', $html);
     }
 
     public function test_sparse_taxonomy_omits_empty_best_for_and_detail_groups(): void

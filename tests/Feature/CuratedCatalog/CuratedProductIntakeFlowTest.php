@@ -190,7 +190,7 @@ class CuratedProductIntakeFlowTest extends TestCase
         $this->assertTrue($product->categories()->where('categories.id', $home->id)->exists());
         $this->assertSame(1, ProductImage::query()->count());
         $this->assertSame(
-            'https://m.media-amazon.com/images/I/example._SS1200_.jpg',
+            'https://m.media-amazon.com/images/I/example._SL1500_.jpg',
             ProductImage::query()->first()->source_url,
         );
         Http::assertSentCount(2);
