@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EditorialOwnership;
+use App\Enums\ProductCurationAuditOutcome;
 use App\Enums\ProductStatus;
 use App\Enums\SeoOwnership;
 use App\Enums\TaxonomyClassificationStatus;
@@ -238,6 +239,28 @@ class Product extends Model
     public function latestPromotedSourcingItem(): HasOne
     {
         return $this->hasOne(CatalogCandidateSourcingItem::class)->latestOfMany();
+    }
+
+    public function curationAudits(): HasMany
+    {
+        return $this->hasMany(ProductCurationAudit::class);
+    }
+
+    public function curationAuditRuns(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            ProductCurationAuditRun::class,
+            'product_curation_audits',
+            'product_id',
+            'run_id',
+        )->withTimestamps();
+    }
+
+    public function latestCompletedCurationAudit(): HasOne
+    {
+        return $this->hasOne(ProductCurationAudit::class)
+            ->ofMany(['completed_at' => 'max', 'id' => 'max'], fn (Builder $query): Builder => $query
+                ->where('outcome', ProductCurationAuditOutcome::Completed));
     }
 
     public function scopePublished(Builder $query): Builder

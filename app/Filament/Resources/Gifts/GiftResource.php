@@ -4,6 +4,9 @@ namespace App\Filament\Resources\Gifts;
 
 use App\Actions\Product\PublishProductAction;
 use App\Enums\AffiliateLinkStatus;
+use App\Enums\CurationAiConfidence;
+use App\Enums\CurationIssueCode;
+use App\Enums\CurationRecommendation;
 use App\Enums\ProductAutomationReadiness;
 use App\Enums\ProductStatus;
 use App\Enums\TaxonomyClassificationStatus;
@@ -14,6 +17,7 @@ use App\Filament\Resources\Gifts\Pages\ListGifts;
 use App\Filament\Resources\Gifts\RelationManagers\AffiliateLinksRelationManager;
 use App\Filament\Resources\Gifts\RelationManagers\ImagesRelationManager;
 use App\Filament\Resources\Gifts\Schemas\GiftClassificationSchema;
+use App\Filament\Resources\Gifts\Schemas\GiftCurationAuditSchema;
 use App\Models\Merchant;
 use App\Models\Product;
 use App\Models\Relationship;
@@ -150,6 +154,7 @@ class GiftResource extends Resource
                     ->columns(2)
                     ->columnSpan(1),
                 GiftClassificationSchema::reviewSection(),
+                GiftCurationAuditSchema::reviewSection(),
                 GiftClassificationSchema::taxonomySection(),
                 Section::make('Automation readiness')
                     ->schema([
@@ -211,6 +216,7 @@ class GiftResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
+                'latestCompletedCurationAudit',
                 'latestPromotedSourcingItem',
                 'images',
                 'affiliateLinks.merchant',
@@ -247,6 +253,35 @@ class GiftResource extends Resource
                     ->label('Classification')
                     ->badge()
                     ->sortable()
+                    ->toggleable(),
+                TextColumn::make('latestCompletedCurationAudit.gift_score')
+                    ->label('Gift Score')
+                    ->badge()
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('latestCompletedCurationAudit.catalog_value_score')
+                    ->label('Catalog Value')
+                    ->badge()
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('latestCompletedCurationAudit.ai_confidence')
+                    ->label('AI confidence')
+                    ->badge()
+                    ->formatStateUsing(fn (?CurationAiConfidence $state): string => $state === null
+                        ? '—'
+                        : str($state->value)->headline()->toString())
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('latestCompletedCurationAudit.recommendation')
+                    ->label('Recommendation')
+                    ->badge()
+                    ->formatStateUsing(fn (?CurationRecommendation $state): string => $state === null
+                        ? '—'
+                        : str($state->value)->headline()->toString())
+                    ->toggleable(),
+                IconColumn::make('latestCompletedCurationAudit.requires_human_review')
+                    ->label('Curation review')
+                    ->boolean()
+                    ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('taxonomy_review_reasons')
                     ->label('Review reasons')
@@ -369,6 +404,85 @@ class GiftResource extends Resource
                 Filter::make('taxonomy_proposal_pending')
                     ->label('Pending AI proposal')
                     ->query(fn (Builder $query): Builder => $query->where('taxonomy_proposal_pending', true)),
+                Filter::make('curation_requires_human_review')
+                    ->label('Requires human review')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'latestCompletedCurationAudit',
+                        fn (Builder $auditQuery): Builder => $auditQuery->where('requires_human_review', true),
+                    )),
+                Filter::make('curation_low_gift_score')
+                    ->label('Low Gift Score')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'latestCompletedCurationAudit',
+                        fn (Builder $auditQuery): Builder => $auditQuery->where(
+                            'gift_score',
+                            '<',
+                            (int) config('catalog_curation.thresholds.human_review_gift_score', 65),
+                        ),
+                    )),
+                Filter::make('curation_low_catalog_value')
+                    ->label('Low Catalog Value')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'latestCompletedCurationAudit',
+                        fn (Builder $auditQuery): Builder => $auditQuery->where(
+                            'catalog_value_score',
+                            '<',
+                            (int) config('catalog_curation.thresholds.human_review_catalog_value_score', 50),
+                        ),
+                    )),
+                Filter::make('curation_low_confidence')
+                    ->label('Low AI confidence')
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'latestCompletedCurationAudit',
+                        fn (Builder $auditQuery): Builder => $auditQuery->where('ai_confidence', CurationAiConfidence::Low),
+                    )),
+                SelectFilter::make('curation_issue_code')
+                    ->label('Curation issue')
+                    ->options(collect(CurationIssueCode::cases())->mapWithKeys(
+                        fn (CurationIssueCode $code): array => [
+                            $code->value => str($code->value)->replace('_', ' ')->headline()->toString(),
+                        ],
+                    ))
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! is_string($value) || $value === '') {
+                            return $query;
+                        }
+
+                        return $query->whereHas(
+                            'latestCompletedCurationAudit',
+                            function (Builder $auditQuery) use ($value): Builder {
+                                if ($auditQuery->getConnection()->getDriverName() === 'sqlite') {
+                                    return $auditQuery->whereRaw(
+                                        "EXISTS (SELECT 1 FROM json_each(product_curation_audits.issues) WHERE json_extract(json_each.value, '$.code') = ?)",
+                                        [$value],
+                                    );
+                                }
+
+                                return $auditQuery->whereJsonContains('issues', ['code' => $value]);
+                            },
+                        );
+                    }),
+                SelectFilter::make('curation_recommendation')
+                    ->label('Curation recommendation')
+                    ->options(collect(CurationRecommendation::cases())->mapWithKeys(
+                        fn (CurationRecommendation $recommendation): array => [
+                            $recommendation->value => str($recommendation->value)->replace('_', ' ')->headline()->toString(),
+                        ],
+                    ))
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (! is_string($value) || $value === '') {
+                            return $query;
+                        }
+
+                        return $query->whereHas(
+                            'latestCompletedCurationAudit',
+                            fn (Builder $auditQuery): Builder => $auditQuery->where('recommendation', $value),
+                        );
+                    }),
                 SelectFilter::make('readiness')
                     ->label('Automation readiness')
                     ->options(collect(ProductAutomationReadiness::cases())->mapWithKeys(
@@ -511,6 +625,7 @@ class GiftResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with([
+                'latestCompletedCurationAudit',
                 'latestPromotedSourcingItem',
                 'images',
                 'affiliateLinks.merchant',

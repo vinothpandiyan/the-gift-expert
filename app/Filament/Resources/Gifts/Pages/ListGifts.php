@@ -37,6 +37,12 @@ class ListGifts extends ListRecords
 
             return $total;
         };
+        $curationReviewCount = Product::query()
+            ->whereHas(
+                'latestCompletedCurationAudit',
+                fn (Builder $query): Builder => $query->where('requires_human_review', true),
+            )
+            ->count();
 
         return [
             'all' => Tab::make('All')
@@ -46,6 +52,14 @@ class ListGifts extends ListRecords
                 ->badgeColor('warning')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->where('taxonomy_classification_status', TaxonomyClassificationStatus::Review)),
+            'curation_review' => Tab::make('Curation Review')
+                ->badge($curationReviewCount)
+                ->badgeColor('warning')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereHas(
+                        'latestCompletedCurationAudit',
+                        fn (Builder $auditQuery): Builder => $auditQuery->where('requires_human_review', true),
+                    )),
             'failed' => Tab::make('Failed')
                 ->badge($countFor(TaxonomyClassificationStatus::Failed))
                 ->badgeColor('danger')
