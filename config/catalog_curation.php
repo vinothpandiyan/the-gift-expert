@@ -11,8 +11,8 @@ return [
     'versions' => [
         'semantic_evaluator' => '3',
         'prompt' => '3',
-        'scoring' => '2',
-        'context' => '2',
+        'scoring' => '3',
+        'context' => '3',
     ],
 
     'limits' => [
@@ -66,6 +66,38 @@ return [
             'medium' => [0 => 4, 1 => 3, 3 => 2],
             'weak' => [0 => 2, 1 => 1, 3 => 0],
             'none' => [0 => 0],
+        ],
+        'relative_candidate' => [
+            'concept_exact_max' => 22,
+            'concept_saturation_count' => 6,
+            'taxonomy_assignment_weights' => [0.65, 0.35],
+            'dimension_weights' => [0.50, 0.30, 0.20],
+            'context_weights' => [0.50, 0.30, 0.20],
+            'intent_weights' => [0.65, 0.35],
+            'budget_band_weight' => 0.25,
+            'budget_context_weight' => 0.75,
+            'price_only_cap' => 4,
+            'shared_scarcity_cap' => 40,
+            'differentiation_ranges' => [
+                'strong' => [16, 20],
+                'medium' => [10, 14],
+                'weak' => [3, 7],
+                'none' => [0, 0],
+            ],
+            'niche_ranges' => [
+                'strong' => [4, 5],
+                'medium' => [2, 4],
+                'weak' => [1, 2],
+                'none' => [0, 0],
+            ],
+            'budget_bands' => [
+                ['slug' => 'under-500', 'min' => null, 'max' => 499.99],
+                ['slug' => '500-1000', 'min' => 500, 'max' => 999.99],
+                ['slug' => '1000-2500', 'min' => 1000, 'max' => 2499.99],
+                ['slug' => '2500-5000', 'min' => 2500, 'max' => 4999.99],
+                ['slug' => '5000-10000', 'min' => 5000, 'max' => 9999.99],
+                ['slug' => '10000-plus', 'min' => 10000, 'max' => null],
+            ],
         ],
     ],
 
