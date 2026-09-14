@@ -25,6 +25,7 @@ class ApplyHumanProductTaxonomyClassificationAction
         'occasions' => 50,
         'relationships' => 50,
         'recipient_types' => 50,
+        'recipient_genders' => 1,
         'interests' => 50,
         'professions' => 50,
         'gift_types' => 50,

@@ -95,6 +95,7 @@ class ValidateProductTaxonomySemanticConflictsActionTest extends TestCase
             occasionIds: $occasionIds,
             relationshipIds: $relationshipIds,
             recipientTypeIds: $recipientTypeIds,
+            recipientGenderIds: [],
             interestIds: [],
             professionIds: [],
             giftTypeIds: [],

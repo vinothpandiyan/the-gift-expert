@@ -56,7 +56,7 @@ Classify using taxonomy IDs from the catalog only. Never invent taxonomy names, 
 
 1. Product identity — Category answers "What is this?" Be precise.
 2. Gift eligibility — Relationship answers "Which recipients are particularly plausible gift targets for this product?" Occasion answers "When would this naturally work as a gift?" Relationship must be selective. Occasion follows the conservative Occasion rules below. Do not enumerate every person who could technically receive the item.
-3. Intrinsic or specialized relevance — Interest, RecipientType, Profession, and GiftType describe characteristics the product actually represents. Be conservative. Generic product affinity belongs in Interest, not Relationship.
+3. Intrinsic or specialized relevance — Interest, RecipientType, RecipientGender, Profession, and GiftType describe characteristics the product actually represents. Be conservative. Generic product affinity belongs in Interest, not Relationship.
 
 Category rules:
 - Category is what the product is. Return exactly one intended primary merchandising Category ID.
@@ -83,7 +83,7 @@ Relationship rules:
 - Do not assign a Relationship merely because the product could technically be gifted to that person.
 - Distinguish generic products from recipient-signalled products. Generic products contain no meaningful recipient signal in the title, design, wording, use case, or presentation (tyre inflator, vacuum cleaner, generic keyboard, generic Bluetooth speaker, gaming console, study lamp). These may correctly receive relationship_ids = []. For generic or unisex products, prefer few or no Relationship assignments unless there is clear recipient affinity. Do not add weak tags merely to avoid zero.
 - Recipient-signalled products provide meaningful evidence about likely gift recipients (jewelry box for women/girls, makeup organizer, couple mug set, mother-themed pendant, husband anniversary keepsake, boyfriend wallet card, bride gift, father-themed mug). These should receive a small, selective set of Relationships supported by that evidence. Do not leave them empty merely because they are unhinted.
-- Gender suitability is supporting evidence for recipient affinity, not an instruction to enumerate every Relationship of that gender. Never invent Men, Women, or Unisex as Relationships, and do not expand "men's product" into Husband + Boyfriend + Father + Brother + Son automatically. Do not translate "for women" into every female Relationship. A jewelry box for women/girls may reasonably support a small subset such as Wife, Girlfriend, Mother, Sister, Daughter depending on the actual product. A men's grooming gift set may reasonably support Husband, Boyfriend, Father, Brother when the gifting context supports it.
+- Gender suitability is supporting evidence for recipient affinity, not an instruction to enumerate every Relationship of that gender. Never invent Men, Women, Boys, Girls, Male Friend, Female Friend, or Unisex as Relationships. Classify gender via recipient_gender_ids only. Do not expand "men's product" into Husband + Boyfriend + Father + Brother + Son automatically. Do not translate "for women" into every female Relationship. A jewelry box for women/girls may reasonably support a small subset such as Wife, Girlfriend, Mother, Sister, Daughter depending on the actual product. A men's grooming gift set may reasonably support Husband, Boyfriend, Father, Brother when the gifting context supports it.
 - Explicit recipient wording such as "for husband", "for wife", "for boyfriend", "for girlfriend", "for mother", "for father", "for sister", "for brother", "for daughter", or "for son" is strong Relationship evidence. Normally retain the explicitly named active Relationship unless the title is clearly marketplace keyword spam or contradicts the actual product. Do not blindly trust every recipient keyword in a spammy marketplace title; use product identity and overall title context.
 - Couple-oriented gifts are not Newlyweds-only. A couple mug set, romantic couple frame, couple activity book, or anniversary keepsake may naturally support Husband, Wife, Boyfriend, and Girlfriend where appropriate. Add Newlyweds only when wedding or newlywed positioning is actually supported. "Couple" does not mean Newlyweds only.
 - Do not use Relationship as a substitute for Interest. A gaming keyboard may have Interest Gaming / Tech & Gadgets with few or no Relationships.
@@ -105,7 +105,9 @@ Occasion rules:
 
 Interests: product affinity only. 0–3 only when there is a meaningful semantic match. Zero is valid; do not add weak interests for coverage. Generic affinity belongs here: a camera accessory may use Photography with possibly no Relationships; a fitness tracker may use Fitness / Tech & Gadgets with only selective Relationships.
 
-Recipient types: conservative. 0–2 only when useful. Zero is valid. Never default Adult onto every physical product, and do not treat unisex as equivalent to Adult. Never return inactive Adult. Pet means the animal recipient; gifts for the owner use the Pet Parent interest.
+Recipient types: conservative. 0–2 only when useful. Zero is valid. Never default Adult onto every physical product, and do not treat unisex as equivalent to Adult. Never return inactive Adult. Use Baby, Kids, Teen, School Student, College Student, Senior, Pet, or Couple only when product evidence supports them. Pet means the animal recipient; gifts for the owner use the Pet Parent interest.
+
+Recipient gender: exactly 0 or 1 ID from the catalog (male, female, or unisex). Classify from product evidence only — title, design, wording, use case, or presentation. Men/Women/Boys/Girls are UI labels for the same male/female values; do not invent separate gender rows. Do not create Male Friend, Female Friend, or any gender-shaped Relationship. Gender is not a Relationship and does not replace selective Relationship assignment. Leave empty when gender is unclear or genuinely irrelevant.
 
 Professions: only genuine profession affinity. Normally 0 unless the item is genuinely occupation-specific. General work or laptop use does not make a product profession-specific.
 
@@ -213,6 +215,7 @@ PROMPT;
                         'occasion_ids' => $idList,
                         'relationship_ids' => $idList,
                         'recipient_type_ids' => $idList,
+                        'recipient_gender_ids' => $idList,
                         'interest_ids' => $idList,
                         'profession_ids' => $idList,
                         'gift_type_ids' => $idList,
@@ -223,6 +226,7 @@ PROMPT;
                         'occasion_ids',
                         'relationship_ids',
                         'recipient_type_ids',
+                        'recipient_gender_ids',
                         'interest_ids',
                         'profession_ids',
                         'gift_type_ids',
@@ -235,6 +239,7 @@ PROMPT;
                         'primary_category' => $confidenceScore,
                         'relationships' => $confidenceScore,
                         'recipient_types' => $confidenceScore,
+                        'recipient_genders' => $confidenceScore,
                         'occasions' => $confidenceScore,
                         'interests' => $confidenceScore,
                         'professions' => $confidenceScore,
@@ -244,6 +249,7 @@ PROMPT;
                         'primary_category',
                         'relationships',
                         'recipient_types',
+                        'recipient_genders',
                         'occasions',
                         'interests',
                         'professions',

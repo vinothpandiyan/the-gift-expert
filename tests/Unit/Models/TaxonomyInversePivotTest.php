@@ -4,6 +4,7 @@ namespace Tests\Unit\Models;
 
 use App\Models\Product;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -47,6 +48,25 @@ class TaxonomyInversePivotTest extends TestCase
             'recipient_type_id' => $recipientType->id,
             'product_id' => $product->id,
         ]);
+    }
+
+    public function test_recipient_gender_products_uses_recipient_gender_product_pivot(): void
+    {
+        $recipientGender = RecipientGender::query()->create([
+            'name' => 'Male',
+            'slug' => 'male',
+        ]);
+
+        $product = Product::factory()->create();
+
+        $recipientGender->products()->attach($product);
+
+        $this->assertDatabaseHas('recipient_gender_product', [
+            'recipient_gender_id' => $recipientGender->id,
+            'product_id' => $product->id,
+        ]);
+
+        $this->assertTrue($product->recipientGenders()->whereKey($recipientGender->id)->exists());
     }
 
     public function test_profession_products_uses_profession_product_pivot(): void

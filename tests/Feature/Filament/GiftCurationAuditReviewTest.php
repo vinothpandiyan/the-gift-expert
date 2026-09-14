@@ -63,7 +63,7 @@ class GiftCurationAuditReviewTest extends TestCase
             ],
             'saturation_novelty_factor' => 21,
             'peer_counts' => ['concept' => 6],
-            'peer_product_ids' => ['concept' => [41, 42]],
+            'peer_product_ids' => ['concept' => [41, 42, 43, 44, 45, 46, 47, 48]],
             'semantic_evaluation' => [
                 'current_taxonomy_evaluations' => [
                     'relationships' => [[
@@ -110,15 +110,26 @@ class GiftCurationAuditReviewTest extends TestCase
             ->assertDontSee('Old Concept')
             ->assertSee('Hard Taxonomy Conflict')
             ->assertSee('Blocking')
-            ->assertSee('Gift IDs: 41, 42')
-            ->assertSee('Current vs audit fit')
-            ->assertSee('Father · Weak — The fit is too broad.')
-            ->assertSee('Mother · Strong')
-            ->assertSee('Remove: Father')
+            ->assertSee('Gift 41')
+            ->assertSee('Gift 42')
+            ->assertSee('View 2 more')
+            ->assertDontSee('Gift IDs:')
+            ->assertSee('Taxonomy findings')
+            ->assertSee('Father')
+            ->assertSee('Weak')
+            ->assertSee('The fit is too broad.')
+            ->assertSee('Mother')
+            ->assertSee('Strong')
+            ->assertSee('Removed')
             ->assertSee('Material')
             ->assertSee('Advisory')
-            ->assertSee('Retain: Brother')
+            ->assertSee('Retained')
+            ->assertSee('Brother')
             ->assertSee('Forces review')
+            ->assertSee('Why this gift?')
+            ->assertSee('Catalog context')
+            ->assertSee('Audit metadata')
+            ->assertSee('Concept novelty')
             ->assertDontSee('No completed curation audit');
     }
 

@@ -9,6 +9,7 @@ readonly class ValidatedProductTaxonomyClassification
      * @param  list<int>  $occasionIds
      * @param  list<int>  $relationshipIds
      * @param  list<int>  $recipientTypeIds
+     * @param  list<int>  $recipientGenderIds
      * @param  list<int>  $interestIds
      * @param  list<int>  $professionIds
      * @param  list<int>  $giftTypeIds
@@ -21,6 +22,7 @@ readonly class ValidatedProductTaxonomyClassification
         public array $occasionIds,
         public array $relationshipIds,
         public array $recipientTypeIds,
+        public array $recipientGenderIds,
         public array $interestIds,
         public array $professionIds,
         public array $giftTypeIds,
@@ -33,6 +35,7 @@ readonly class ValidatedProductTaxonomyClassification
      * @param  list<int>|null  $occasionIds
      * @param  list<int>|null  $relationshipIds
      * @param  list<int>|null  $recipientTypeIds
+     * @param  list<int>|null  $recipientGenderIds
      * @param  list<int>|null  $interestIds
      * @param  list<int>|null  $professionIds
      * @param  list<int>|null  $giftTypeIds
@@ -45,6 +48,7 @@ readonly class ValidatedProductTaxonomyClassification
         ?array $occasionIds = null,
         ?array $relationshipIds = null,
         ?array $recipientTypeIds = null,
+        ?array $recipientGenderIds = null,
         ?array $interestIds = null,
         ?array $professionIds = null,
         ?array $giftTypeIds = null,
@@ -58,6 +62,7 @@ readonly class ValidatedProductTaxonomyClassification
             occasionIds: $occasionIds ?? $this->occasionIds,
             relationshipIds: $relationshipIds ?? $this->relationshipIds,
             recipientTypeIds: $recipientTypeIds ?? $this->recipientTypeIds,
+            recipientGenderIds: $recipientGenderIds ?? $this->recipientGenderIds,
             interestIds: $interestIds ?? $this->interestIds,
             professionIds: $professionIds ?? $this->professionIds,
             giftTypeIds: $giftTypeIds ?? $this->giftTypeIds,

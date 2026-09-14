@@ -11,6 +11,7 @@ readonly class ProductTaxonomySnapshot
      * @param  list<int>  $interestIds
      * @param  list<int>  $giftTypeIds
      * @param  list<int>  $recipientTypeIds
+     * @param  list<int>  $recipientGenderIds
      * @param  list<int>  $professionIds
      * @param  array<string, array<int, string>>  $names
      */
@@ -22,6 +23,7 @@ readonly class ProductTaxonomySnapshot
         public array $interestIds,
         public array $giftTypeIds,
         public array $recipientTypeIds,
+        public array $recipientGenderIds,
         public array $professionIds,
         public ?string $classificationStatus,
         public array $names,
@@ -38,6 +40,7 @@ readonly class ProductTaxonomySnapshot
             'interests',
             'gift_types',
             'recipient_types',
+            'recipient_genders',
             'professions',
         ];
     }
@@ -53,6 +56,7 @@ readonly class ProductTaxonomySnapshot
             'interests' => $this->interestIds,
             'gift_types' => $this->giftTypeIds,
             'recipient_types' => $this->recipientTypeIds,
+            'recipient_genders' => $this->recipientGenderIds,
             'professions' => $this->professionIds,
             'categories' => $this->categoryIds,
             default => [],
@@ -77,6 +81,7 @@ readonly class ProductTaxonomySnapshot
             'interest_ids' => $this->interestIds,
             'gift_type_ids' => $this->giftTypeIds,
             'recipient_type_ids' => $this->recipientTypeIds,
+            'recipient_gender_ids' => $this->recipientGenderIds,
             'profession_ids' => $this->professionIds,
             'classification_status' => $this->classificationStatus,
             'names' => $this->names,

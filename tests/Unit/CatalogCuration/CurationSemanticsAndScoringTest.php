@@ -641,6 +641,7 @@ class CurationSemanticsAndScoringTest extends TestCase
                 ['id' => 2, 'name' => 'Mother', 'slug' => 'mother', 'description' => null],
             ],
             recipientTypes: [],
+            recipientGenders: [],
             interests: [],
             professions: [],
             giftTypes: [],

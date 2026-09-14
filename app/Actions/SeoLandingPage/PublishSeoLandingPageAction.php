@@ -47,6 +47,7 @@ class PublishSeoLandingPageAction
         return filled($page->occasion_id)
             || filled($page->relationship_id)
             || filled($page->recipient_type_id)
+            || filled($page->recipient_gender_id)
             || filled($page->profession_id)
             || filled($page->gift_type_id)
             || filled($page->category_id)

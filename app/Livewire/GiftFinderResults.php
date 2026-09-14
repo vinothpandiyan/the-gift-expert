@@ -52,6 +52,7 @@ class GiftFinderResults extends Component
                 'occasion:id,name',
                 'relationship:id,name',
                 'recipientType:id,name',
+                'recipientGender:id,name',
                 'profession:id,name',
                 'giftType:id,name',
                 'budgetRange:id,name',
@@ -133,6 +134,10 @@ class GiftFinderResults extends Component
 
         if ($session->recipientType !== null) {
             $items[] = ['label' => 'Recipient', 'value' => $session->recipientType->name];
+        }
+
+        if ($session->recipientGender !== null) {
+            $items[] = ['label' => 'Gender', 'value' => $session->recipientGender->name];
         }
 
         if ($session->profession !== null) {

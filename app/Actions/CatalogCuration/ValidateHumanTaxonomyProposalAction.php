@@ -13,6 +13,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +31,7 @@ class ValidateHumanTaxonomyProposalAction
         'interests' => Interest::class,
         'gift_types' => GiftType::class,
         'recipient_types' => RecipientType::class,
+        'recipient_genders' => RecipientGender::class,
         'professions' => Profession::class,
     ];
 
@@ -102,12 +104,14 @@ class ValidateHumanTaxonomyProposalAction
             'interest_ids' => $resulting->interestIds,
             'gift_type_ids' => $resulting->giftTypeIds,
             'recipient_type_ids' => $resulting->recipientTypeIds,
+            'recipient_gender_ids' => $resulting->recipientGenderIds,
             'profession_ids' => $resulting->professionIds,
         ], [
             'categories' => 20,
             'occasions' => 50,
             'relationships' => 50,
             'recipient_types' => 50,
+            'recipient_genders' => 1,
             'interests' => 50,
             'professions' => 50,
             'gift_types' => 50,

@@ -13,6 +13,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
@@ -119,6 +120,7 @@ class ResolveDiscoveryFilterOptionsAction
             'occasion' => Occasion::query(),
             'relationship' => Relationship::query(),
             'recipient' => RecipientType::query(),
+            'gender' => RecipientGender::query(),
             'interest' => Interest::query(),
             'profession' => Profession::query(),
             'gift_type' => GiftType::query(),

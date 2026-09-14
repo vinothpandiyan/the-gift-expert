@@ -35,6 +35,7 @@ class SeoLandingPage extends Model
         'occasion_id',
         'relationship_id',
         'recipient_type_id',
+        'recipient_gender_id',
         'profession_id',
         'gift_type_id',
         'category_id',
@@ -67,6 +68,11 @@ class SeoLandingPage extends Model
     public function recipientType(): BelongsTo
     {
         return $this->belongsTo(RecipientType::class);
+    }
+
+    public function recipientGender(): BelongsTo
+    {
+        return $this->belongsTo(RecipientGender::class);
     }
 
     public function profession(): BelongsTo

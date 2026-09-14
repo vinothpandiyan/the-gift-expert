@@ -31,6 +31,9 @@ class GiftListing extends Component
     #[Url(as: 'recipient', history: true, except: '')]
     public string $recipient = '';
 
+    #[Url(as: 'gender', history: true, except: '')]
+    public string $gender = '';
+
     #[Url(as: 'interest', history: true, except: '')]
     public string $interest = '';
 
@@ -104,6 +107,7 @@ class GiftListing extends Component
         $this->occasion = '';
         $this->relationship = '';
         $this->recipient = '';
+        $this->gender = '';
         $this->interest = '';
         $this->profession = '';
         $this->giftType = '';
@@ -191,6 +195,7 @@ class GiftListing extends Component
         $this->occasion = DiscoveryListingQueryState::encodeList($normalized->occasionSlugs);
         $this->relationship = DiscoveryListingQueryState::encodeList($normalized->relationshipSlugs);
         $this->recipient = DiscoveryListingQueryState::encodeList($normalized->recipientSlugs);
+        $this->gender = DiscoveryListingQueryState::encodeList($normalized->genderSlugs);
         $this->interest = DiscoveryListingQueryState::encodeList($normalized->interestSlugs);
         $this->profession = DiscoveryListingQueryState::encodeList($normalized->professionSlugs);
         $this->giftType = DiscoveryListingQueryState::encodeList($normalized->giftTypeSlugs);
@@ -229,6 +234,7 @@ class GiftListing extends Component
             occasionSlugs: DiscoveryListingQueryState::decodeList($this->occasion),
             relationshipSlugs: DiscoveryListingQueryState::decodeList($this->relationship),
             recipientSlugs: DiscoveryListingQueryState::decodeList($this->recipient),
+            genderSlugs: DiscoveryListingQueryState::decodeList($this->gender),
             interestSlugs: DiscoveryListingQueryState::decodeList($this->interest),
             professionSlugs: DiscoveryListingQueryState::decodeList($this->profession),
             giftTypeSlugs: DiscoveryListingQueryState::decodeList($this->giftType),
@@ -248,6 +254,7 @@ class GiftListing extends Component
             'occasion' => DiscoveryListingQueryState::decodeList($this->occasion),
             'relationship' => DiscoveryListingQueryState::decodeList($this->relationship),
             'recipient' => DiscoveryListingQueryState::decodeList($this->recipient),
+            'gender' => DiscoveryListingQueryState::decodeList($this->gender),
             'interest' => DiscoveryListingQueryState::decodeList($this->interest),
             'profession' => DiscoveryListingQueryState::decodeList($this->profession),
             'gift_type' => DiscoveryListingQueryState::decodeList($this->giftType),
@@ -320,6 +327,7 @@ class GiftListing extends Component
             'occasion' => 'occasion',
             'relationship' => 'relationship',
             'recipient' => 'recipient',
+            'gender' => 'gender',
             'interest' => 'interest',
             'profession' => 'profession',
             'gift_type' => 'giftType',

@@ -208,6 +208,12 @@ class Product extends Model
             ->withPivot('created_at');
     }
 
+    public function recipientGenders(): BelongsToMany
+    {
+        return $this->belongsToMany(RecipientGender::class, 'recipient_gender_product')
+            ->withPivot('created_at');
+    }
+
     public function interests(): BelongsToMany
     {
         return $this->belongsToMany(Interest::class, 'interest_product')

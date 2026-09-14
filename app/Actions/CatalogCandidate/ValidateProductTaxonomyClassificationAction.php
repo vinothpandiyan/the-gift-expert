@@ -9,6 +9,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use Illuminate\Database\Eloquent\Model;
@@ -50,6 +51,12 @@ class ValidateProductTaxonomyClassificationAction
             $taxonomy['recipient_type_ids'] ?? [],
             RecipientType::class,
             $this->cap('recipient_types', $capOverrides),
+            $rejected,
+        );
+        $recipientGenderIds = $this->acceptedIds(
+            $taxonomy['recipient_gender_ids'] ?? [],
+            RecipientGender::class,
+            $this->cap('recipient_genders', $capOverrides),
             $rejected,
         );
         $interestIds = $this->acceptedIds(
@@ -99,6 +106,7 @@ class ValidateProductTaxonomyClassificationAction
             occasionIds: $occasionIds,
             relationshipIds: $relationshipIds,
             recipientTypeIds: $recipientTypeIds,
+            recipientGenderIds: $recipientGenderIds,
             interestIds: $interestIds,
             professionIds: $professionIds,
             giftTypeIds: $giftTypeIds,

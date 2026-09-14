@@ -8,8 +8,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | When true, selecting an optional finder dimension (relationship, recipient
-    | type, interest, profession, gift type) excludes products not tagged with
-    | that dimension. When false, untagged products remain with zero score.
+    | type, recipient gender, interest, profession, gift type) excludes products
+    | not tagged with that dimension. When false, untagged products remain with
+    | zero score. Male/female gender filters expand to include unisex products.
     |
     */
 
@@ -31,7 +32,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Deterministic, explainable weights for the MVP recommendation engine.
-    | Budget is a hard filter only and is not scored.
+    | Budget and RecipientGender are hard eligibility filters only and are not scored.
     |
     */
 

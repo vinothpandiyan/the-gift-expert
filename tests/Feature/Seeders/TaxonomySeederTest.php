@@ -10,6 +10,7 @@ use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Product;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use App\Models\SeoLandingPage;
@@ -22,6 +23,7 @@ use Database\Seeders\MerchantSeeder;
 use Database\Seeders\OccasionSeeder;
 use Database\Seeders\ProductSeeder;
 use Database\Seeders\ProfessionSeeder;
+use Database\Seeders\RecipientGenderSeeder;
 use Database\Seeders\RecipientTypeSeeder;
 use Database\Seeders\RelationshipSeeder;
 use Database\Seeders\SeoLandingPageSeeder;
@@ -41,6 +43,7 @@ class TaxonomySeederTest extends TestCase
         OccasionSeeder::class,
         RelationshipSeeder::class,
         RecipientTypeSeeder::class,
+        RecipientGenderSeeder::class,
         InterestSeeder::class,
         ProfessionSeeder::class,
         GiftTypeSeeder::class,
@@ -54,7 +57,8 @@ class TaxonomySeederTest extends TestCase
         $this->assertSame(6, BudgetRange::query()->count());
         $this->assertSame(26, Occasion::query()->count());
         $this->assertSame(16, Relationship::query()->count());
-        $this->assertSame(6, RecipientType::query()->count());
+        $this->assertSame(9, RecipientType::query()->count());
+        $this->assertSame(3, RecipientGender::query()->count());
         $this->assertSame(17, Interest::query()->count());
         $this->assertSame(8, Profession::query()->count());
         $this->assertSame(9, GiftType::query()->count());
@@ -74,6 +78,7 @@ class TaxonomySeederTest extends TestCase
             Occasion::query()->count(),
             Relationship::query()->count(),
             RecipientType::query()->count(),
+            RecipientGender::query()->count(),
             Interest::query()->count(),
             Profession::query()->count(),
             GiftType::query()->count(),
@@ -87,6 +92,7 @@ class TaxonomySeederTest extends TestCase
             Occasion::query()->count(),
             Relationship::query()->count(),
             RecipientType::query()->count(),
+            RecipientGender::query()->count(),
             Interest::query()->count(),
             Profession::query()->count(),
             GiftType::query()->count(),
@@ -220,6 +226,12 @@ class TaxonomySeederTest extends TestCase
 
         $this->assertFalse(RecipientType::query()->where('slug', 'adult')->value('is_active'));
         $this->assertTrue(RecipientType::query()->where('slug', 'kids')->value('is_active'));
+        $this->assertTrue(RecipientType::query()->where('slug', 'baby')->value('is_active'));
+        $this->assertTrue(RecipientType::query()->where('slug', 'school-student')->value('is_active'));
+        $this->assertTrue(RecipientType::query()->where('slug', 'college-student')->value('is_active'));
+        $this->assertTrue(RecipientGender::query()->where('slug', 'male')->value('is_active'));
+        $this->assertTrue(RecipientGender::query()->where('slug', 'female')->value('is_active'));
+        $this->assertTrue(RecipientGender::query()->where('slug', 'unisex')->value('is_active'));
 
         $this->assertSame('Home Chef / Foodie', Interest::query()->where('slug', 'food')->value('name'));
         $this->assertSame('Tech & Gadgets', Interest::query()->where('slug', 'technology')->value('name'));

@@ -11,6 +11,8 @@ readonly class ProductTaxonomyClassificationReview
      * @param  list<array{code: string, label: string, description: string}>  $warnings
      * @param  list<array{label: string, names: list<string>, items: list<array{name: string}>, confidence: ?string, below_threshold: bool}>  $proposalDimensions
      * @param  list<array{label: string, names: list<string>, items: list<array{name: string}>}>  $appliedDimensions
+     * @param  list<array{label: string, status: string, status_label: string, added: list<string>, removed: list<string>}>  $differences
+     * @param  list<array{label: string, value: string}>  $metadata
      * @param  list<array{name: string, kind: string, relationship: ?string, first_seen: ?string, last_seen: ?string, is_trusted_hint: bool}>  $provenance
      * @param  list<string>  $trustedHintNames
      * @param  list<string>  $proposedRelationshipNames
@@ -29,6 +31,9 @@ readonly class ProductTaxonomyClassificationReview
         public ?string $classifiedAt,
         public ?string $approvedAt,
         public ?string $approvedBy,
+        public ?string $confidenceLabel,
+        public ?string $confidenceValue,
+        public string $confidenceColor,
         public bool $proposalPending,
         public bool $proposalStale,
         public array $reviewReasons,
@@ -39,6 +44,8 @@ readonly class ProductTaxonomyClassificationReview
         public array $reasoningBlocks,
         public array $proposalDimensions,
         public array $appliedDimensions,
+        public array $differences,
+        public array $metadata,
         public array $provenance,
         public array $trustedHintNames,
         public array $proposedRelationshipNames,

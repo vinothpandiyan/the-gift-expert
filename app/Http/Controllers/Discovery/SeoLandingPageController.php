@@ -32,6 +32,7 @@ class SeoLandingPageController extends Controller
                 'interests',
                 'relationship',
                 'recipientType',
+                'recipientGender',
                 'giftType',
                 'occasion',
                 'profession',

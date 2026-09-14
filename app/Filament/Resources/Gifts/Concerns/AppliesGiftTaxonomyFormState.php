@@ -52,6 +52,7 @@ trait AppliesGiftTaxonomyFormState
         if ($incoming['primary_category_id'] === null
             && $incoming['relationship_ids'] === []
             && $incoming['recipient_type_ids'] === []
+            && $incoming['recipient_gender_ids'] === []
             && $incoming['occasion_ids'] === []
             && $incoming['interest_ids'] === []
             && $incoming['profession_ids'] === []

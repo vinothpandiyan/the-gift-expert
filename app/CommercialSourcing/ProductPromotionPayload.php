@@ -12,6 +12,7 @@ readonly class ProductPromotionPayload
      * @param  list<int>  $occasionIds
      * @param  list<int>  $relationshipIds
      * @param  list<int>  $recipientTypeIds
+     * @param  list<int>  $recipientGenderIds
      * @param  list<int>  $interestIds
      * @param  list<int>  $professionIds
      * @param  list<int>  $giftTypeIds
@@ -38,6 +39,7 @@ readonly class ProductPromotionPayload
         public array $occasionIds,
         public array $relationshipIds,
         public array $recipientTypeIds,
+        public array $recipientGenderIds,
         public array $interestIds,
         public array $professionIds,
         public array $giftTypeIds,
@@ -67,6 +69,7 @@ readonly class ProductPromotionPayload
             occasionIds: $this->occasionIds,
             relationshipIds: $this->relationshipIds,
             recipientTypeIds: $this->recipientTypeIds,
+            recipientGenderIds: $this->recipientGenderIds,
             interestIds: $this->interestIds,
             professionIds: $this->professionIds,
             giftTypeIds: $this->giftTypeIds,
@@ -105,6 +108,7 @@ readonly class ProductPromotionPayload
             occasionIds: self::intList($taxonomy['occasion_ids'] ?? []),
             relationshipIds: self::intList($taxonomy['relationship_ids'] ?? []),
             recipientTypeIds: self::intList($taxonomy['recipient_type_ids'] ?? []),
+            recipientGenderIds: self::intList($taxonomy['recipient_gender_ids'] ?? []),
             interestIds: self::intList($taxonomy['interest_ids'] ?? []),
             professionIds: self::intList($taxonomy['profession_ids'] ?? []),
             giftTypeIds: self::intList($taxonomy['gift_type_ids'] ?? []),
@@ -142,6 +146,7 @@ readonly class ProductPromotionPayload
             occasionIds: $this->occasionIds,
             relationshipIds: $this->relationshipIds,
             recipientTypeIds: $this->recipientTypeIds,
+            recipientGenderIds: $this->recipientGenderIds,
             interestIds: $this->interestIds,
             professionIds: $this->professionIds,
             giftTypeIds: $this->giftTypeIds,
@@ -172,6 +177,7 @@ readonly class ProductPromotionPayload
                 'occasion_ids' => $this->occasionIds,
                 'relationship_ids' => $this->relationshipIds,
                 'recipient_type_ids' => $this->recipientTypeIds,
+                'recipient_gender_ids' => $this->recipientGenderIds,
                 'interest_ids' => $this->interestIds,
                 'profession_ids' => $this->professionIds,
                 'gift_type_ids' => $this->giftTypeIds,

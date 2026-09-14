@@ -18,6 +18,7 @@ class CaptureProductTaxonomySnapshotAction
             'interests',
             'giftTypes',
             'recipientTypes',
+            'recipientGenders',
             'professions',
         ]);
 
@@ -32,6 +33,7 @@ class CaptureProductTaxonomySnapshotAction
             interestIds: $this->ids($product->interests),
             giftTypeIds: $this->ids($product->giftTypes),
             recipientTypeIds: $this->ids($product->recipientTypes),
+            recipientGenderIds: $this->ids($product->recipientGenders),
             professionIds: $this->ids($product->professions),
             classificationStatus: $product->taxonomy_classification_status?->value,
             names: [
@@ -41,6 +43,7 @@ class CaptureProductTaxonomySnapshotAction
                 'interests' => $this->names($product->interests),
                 'gift_types' => $this->names($product->giftTypes),
                 'recipient_types' => $this->names($product->recipientTypes),
+                'recipient_genders' => $this->names($product->recipientGenders),
                 'professions' => $this->names($product->professions),
             ],
         );

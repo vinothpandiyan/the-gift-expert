@@ -24,6 +24,7 @@ return [
         'relationships' => 4,
         'occasions' => 4,
         'recipient_types' => 3,
+        'recipient_genders' => 1,
         'professions' => 2,
         'gift_types' => 2,
         'categories' => 3,

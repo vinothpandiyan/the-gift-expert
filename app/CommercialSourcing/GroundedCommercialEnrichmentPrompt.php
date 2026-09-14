@@ -53,7 +53,9 @@ Professions: attach only when the item is genuinely profession-specific (for exa
 
 Relationships: only honest suitability from the candidate or offer context. Do not attach every relationship.
 
-Recipient types: do not default Adult onto every product. Use Kids, Teen, Senior, Pet, or Couple only when useful. Pet means the animal recipient.
+Recipient types: do not default Adult onto every product. Use Baby, Kids, Teen, School Student, College Student, Senior, Pet, or Couple only when useful. Pet means the animal recipient.
+
+Recipient gender: exactly 0 or 1 ID from the catalog (male, female, or unisex) based on product evidence only. Men/Women/Boys/Girls are labels for the same male/female values. Do not invent Male Friend or other gender-shaped Relationships; gender is not a Relationship.
 
 Occasions: only supported broad occasions present in the evidence. Do not attach every celebration.
 
@@ -125,6 +127,7 @@ PROMPT;
                         'occasion_ids' => $idList,
                         'relationship_ids' => $idList,
                         'recipient_type_ids' => $idList,
+                        'recipient_gender_ids' => $idList,
                         'interest_ids' => $idList,
                         'profession_ids' => $idList,
                         'gift_type_ids' => $idList,
@@ -135,6 +138,7 @@ PROMPT;
                         'occasion_ids',
                         'relationship_ids',
                         'recipient_type_ids',
+                        'recipient_gender_ids',
                         'interest_ids',
                         'profession_ids',
                         'gift_type_ids',

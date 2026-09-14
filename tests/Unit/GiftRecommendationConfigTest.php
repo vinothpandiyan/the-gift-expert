@@ -25,6 +25,7 @@ class GiftRecommendationConfigTest extends TestCase
         $this->assertSame(25, $weights['occasion_match']);
         $this->assertSame(15, $weights['relationship_match']);
         $this->assertSame(15, $weights['recipient_type_match']);
+        $this->assertArrayNotHasKey('recipient_gender_match', $weights);
         $this->assertSame(10, $weights['interest_match']);
         $this->assertSame(30, $weights['interest_match_max']);
         $this->assertSame(20, $weights['profession_match']);

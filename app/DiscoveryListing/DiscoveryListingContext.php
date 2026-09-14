@@ -31,6 +31,7 @@ final class DiscoveryListingContext
         'gift_type',
         'profession',
         'recipient',
+        'gender',
         'budget',
     ];
 
@@ -42,6 +43,7 @@ final class DiscoveryListingContext
      *     occasion_id?: int|null,
      *     relationship_id?: int|null,
      *     recipient_type_id?: int|null,
+     *     recipient_gender_id?: int|null,
      *     profession_id?: int|null,
      *     gift_type_id?: int|null,
      *     category_id?: int|null,
@@ -100,7 +102,7 @@ final class DiscoveryListingContext
         return new self(
             surface: 'relationship',
             fixedFilters: ['relationship_id' => $relationship->id],
-            availableDimensions: ['occasion', 'budget', 'interest', 'gift_type', 'category'],
+            availableDimensions: ['occasion', 'budget', 'interest', 'gift_type', 'category', 'gender'],
             browseContext: 'relationship:'.$relationship->slug,
         );
     }
@@ -110,7 +112,7 @@ final class DiscoveryListingContext
         return new self(
             surface: 'occasion',
             fixedFilters: ['occasion_id' => $occasion->id],
-            availableDimensions: ['relationship', 'recipient', 'budget', 'interest', 'gift_type', 'category'],
+            availableDimensions: ['relationship', 'recipient', 'gender', 'budget', 'interest', 'gift_type', 'category'],
             browseContext: 'occasion:'.$occasion->slug,
         );
     }
@@ -120,7 +122,7 @@ final class DiscoveryListingContext
         return new self(
             surface: 'recipient_type',
             fixedFilters: ['recipient_type_id' => $recipientType->id],
-            availableDimensions: ['relationship', 'occasion', 'budget', 'interest', 'gift_type'],
+            availableDimensions: ['relationship', 'occasion', 'budget', 'interest', 'gift_type', 'gender'],
             browseContext: 'recipient_type:'.$recipientType->slug,
         );
     }
@@ -141,7 +143,7 @@ final class DiscoveryListingContext
         return new self(
             surface: 'profession',
             fixedFilters: ['profession_id' => $profession->id],
-            availableDimensions: ['relationship', 'occasion', 'budget', 'interest', 'gift_type'],
+            availableDimensions: ['relationship', 'occasion', 'budget', 'interest', 'gift_type', 'gender'],
             browseContext: 'profession:'.$profession->slug,
         );
     }
@@ -175,6 +177,7 @@ final class DiscoveryListingContext
                 'relationship',
                 'occasion',
                 'recipient',
+                'gender',
                 'profession',
                 'budget',
                 'interest',
@@ -198,6 +201,9 @@ final class DiscoveryListingContext
         }
         if ($filters['recipient_type_id'] === null) {
             $available[] = 'recipient';
+        }
+        if ($filters['recipient_gender_id'] === null) {
+            $available[] = 'gender';
         }
         if ($filters['profession_id'] === null) {
             $available[] = 'profession';
@@ -259,6 +265,7 @@ final class DiscoveryListingContext
             'occasion' => 'Occasion',
             'relationship' => 'Relationship',
             'recipient' => 'Recipient',
+            'gender' => 'Recipient gender',
             'budget' => 'Budget',
             'interest' => 'Interest',
             'profession' => 'Profession',

@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             OccasionSeeder::class,
             RelationshipSeeder::class,
             RecipientTypeSeeder::class,
+            RecipientGenderSeeder::class,
             InterestSeeder::class,
             ProfessionSeeder::class,
             GiftTypeSeeder::class,

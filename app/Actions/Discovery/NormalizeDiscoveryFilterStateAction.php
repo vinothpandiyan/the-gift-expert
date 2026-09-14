@@ -12,6 +12,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,7 @@ class NormalizeDiscoveryFilterStateAction
     private const SEMANTIC_ORDER = [
         'relationship',
         'recipient',
+        'gender',
         'profession',
         'interest',
         'gift_type',
@@ -128,6 +130,7 @@ class NormalizeDiscoveryFilterStateAction
             'occasion' => Occasion::class,
             'relationship' => Relationship::class,
             'recipient' => RecipientType::class,
+            'gender' => RecipientGender::class,
             'interest' => Interest::class,
             'profession' => Profession::class,
             'gift_type' => GiftType::class,

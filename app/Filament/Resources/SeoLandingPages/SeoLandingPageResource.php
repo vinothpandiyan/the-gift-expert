@@ -127,6 +127,12 @@ class SeoLandingPageResource extends Resource
                             ->searchable()
                             ->preload()
                             ->nullable(),
+                        Select::make('recipient_gender_id')
+                            ->label('Recipient gender')
+                            ->relationship('recipientGender', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->nullable(),
                         Select::make('occasion_id')
                             ->label('Occasion')
                             ->relationship('occasion', 'name')
@@ -203,6 +209,7 @@ class SeoLandingPageResource extends Resource
                                     'occasion_id' => $get('occasion_id'),
                                     'relationship_id' => $get('relationship_id'),
                                     'recipient_type_id' => $get('recipient_type_id'),
+                                    'recipient_gender_id' => $get('recipient_gender_id'),
                                     'profession_id' => $get('profession_id'),
                                     'gift_type_id' => $get('gift_type_id'),
                                     'category_id' => $get('category_id'),

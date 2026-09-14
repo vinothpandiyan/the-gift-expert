@@ -38,6 +38,7 @@ readonly class CuratedClassificationProposal
             'category_ids' => $this->taxonomy->categoryIds,
             'relationship_ids' => $this->taxonomy->relationshipIds,
             'recipient_type_ids' => $this->taxonomy->recipientTypeIds,
+            'recipient_gender_ids' => $this->taxonomy->recipientGenderIds,
             'occasion_ids' => $this->taxonomy->occasionIds,
             'interest_ids' => $this->taxonomy->interestIds,
             'profession_ids' => $this->taxonomy->professionIds,

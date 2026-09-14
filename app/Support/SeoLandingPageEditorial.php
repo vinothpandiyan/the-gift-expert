@@ -19,6 +19,7 @@ final class SeoLandingPageEditorial
      *     occasion_id: int|null,
      *     relationship_id: int|null,
      *     recipient_type_id: int|null,
+     *     recipient_gender_id: int|null,
      *     profession_id: int|null,
      *     gift_type_id: int|null,
      *     category_id: int|null,
@@ -36,6 +37,7 @@ final class SeoLandingPageEditorial
             'occasion_id' => self::nullableId($page->occasion_id),
             'relationship_id' => self::nullableId($page->relationship_id),
             'recipient_type_id' => self::nullableId($page->recipient_type_id),
+            'recipient_gender_id' => self::nullableId($page->recipient_gender_id),
             'profession_id' => self::nullableId($page->profession_id),
             'gift_type_id' => self::nullableId($page->gift_type_id),
             'category_id' => self::nullableId($page->category_id),
@@ -83,6 +85,7 @@ final class SeoLandingPageEditorial
             ->where('occasion_id', $filters['occasion_id'])
             ->where('relationship_id', $filters['relationship_id'])
             ->where('recipient_type_id', $filters['recipient_type_id'])
+            ->where('recipient_gender_id', $filters['recipient_gender_id'])
             ->where('profession_id', $filters['profession_id'])
             ->where('gift_type_id', $filters['gift_type_id'])
             ->where('category_id', $filters['category_id'])

@@ -7,6 +7,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use Filament\Support\Contracts\HasLabel;
@@ -18,6 +19,7 @@ enum TaxonomyDimension: string implements HasLabel
     case Occasion = 'occasion';
     case Relationship = 'relationship';
     case RecipientType = 'recipient_type';
+    case RecipientGender = 'recipient_gender';
     case Interest = 'interest';
     case Profession = 'profession';
     case GiftType = 'gift_type';
@@ -26,6 +28,7 @@ enum TaxonomyDimension: string implements HasLabel
     {
         return match ($this) {
             self::RecipientType => 'Recipient type',
+            self::RecipientGender => 'Recipient gender',
             self::GiftType => 'Gift type',
             default => $this->name,
         };
@@ -41,6 +44,7 @@ enum TaxonomyDimension: string implements HasLabel
             self::Occasion => Occasion::class,
             self::Relationship => Relationship::class,
             self::RecipientType => RecipientType::class,
+            self::RecipientGender => RecipientGender::class,
             self::Interest => Interest::class,
             self::Profession => Profession::class,
             self::GiftType => GiftType::class,
@@ -57,6 +61,7 @@ enum TaxonomyDimension: string implements HasLabel
             'occasion' => self::Occasion,
             'relationship' => self::Relationship,
             'recipient' => self::RecipientType,
+            'gender' => self::RecipientGender,
             'interest' => self::Interest,
             'profession' => self::Profession,
             'gift_type' => self::GiftType,
@@ -75,6 +80,7 @@ enum TaxonomyDimension: string implements HasLabel
             self::Occasion => ['table' => 'occasion_product', 'foreign_key' => 'occasion_id'],
             self::Relationship => ['table' => 'relationship_product', 'foreign_key' => 'relationship_id'],
             self::RecipientType => ['table' => 'recipient_type_product', 'foreign_key' => 'recipient_type_id'],
+            self::RecipientGender => ['table' => 'recipient_gender_product', 'foreign_key' => 'recipient_gender_id'],
             self::Interest => ['table' => 'interest_product', 'foreign_key' => 'interest_id'],
             self::Profession => ['table' => 'profession_product', 'foreign_key' => 'profession_id'],
             self::GiftType => ['table' => 'gift_type_product', 'foreign_key' => 'gift_type_id'],
@@ -91,6 +97,7 @@ enum TaxonomyDimension: string implements HasLabel
             'occasion_id', 'occasion_ids' => self::Occasion,
             'relationship_id', 'relationship_ids' => self::Relationship,
             'recipient_type_id', 'recipient_type_ids' => self::RecipientType,
+            'recipient_gender_id', 'recipient_gender_ids' => self::RecipientGender,
             'profession_id', 'profession_ids' => self::Profession,
             'gift_type_id', 'gift_type_ids' => self::GiftType,
             'category_id', 'category_ids' => self::Category,

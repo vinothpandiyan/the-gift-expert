@@ -47,6 +47,9 @@ class BuildProductTaxonomyClassificationReviewAction
         $trustedHintIds = $this->resolveHints->execute($product);
         $proposedRelationshipIds = $this->idList($proposal['relationship_ids'] ?? []);
         $reasoningBlocks = $this->reasoningBlocks($product, $proposal);
+        $proposalDimensions = $this->proposalDimensions($proposal, $confidence, $thresholds);
+        $appliedDimensions = $this->appliedDimensions($product);
+        [$confidenceLabel, $confidenceValue, $confidenceColor] = $this->overallConfidence($confidence, $thresholds);
 
         return new ProductTaxonomyClassificationReview(
             title: (string) $product->name,
@@ -61,6 +64,9 @@ class BuildProductTaxonomyClassificationReviewAction
             classifiedAt: $product->taxonomy_classified_at?->toDateTimeString(),
             approvedAt: $product->taxonomy_approved_at?->toDateTimeString(),
             approvedBy: $product->taxonomyApprovedBy?->name,
+            confidenceLabel: $confidenceLabel,
+            confidenceValue: $confidenceValue,
+            confidenceColor: $confidenceColor,
             proposalPending: $product->taxonomyProposalIsPending(),
             proposalStale: $proposal !== [] && $this->detectStale->execute($product),
             reviewReasons: $this->codes($product->taxonomy_review_reasons ?? []),
@@ -69,8 +75,10 @@ class BuildProductTaxonomyClassificationReviewAction
             gapExplanation: $product->taxonomy_gap_explanation,
             reasoning: $this->reasoningText($reasoningBlocks),
             reasoningBlocks: $reasoningBlocks,
-            proposalDimensions: $this->proposalDimensions($proposal, $confidence, $thresholds),
-            appliedDimensions: $this->appliedDimensions($product),
+            proposalDimensions: $proposalDimensions,
+            appliedDimensions: $appliedDimensions,
+            differences: $proposalDimensions === [] ? [] : $this->differences($proposalDimensions, $appliedDimensions),
+            metadata: $this->metadata($product, $proposal),
             provenance: $this->provenance($product),
             trustedHintNames: ProductTaxonomyFormState::names(TaxonomyDimension::Relationship, $trustedHintIds),
             proposedRelationshipNames: ProductTaxonomyFormState::names(TaxonomyDimension::Relationship, $proposedRelationshipIds),
@@ -135,6 +143,12 @@ class BuildProductTaxonomyClassificationReviewAction
                 'Recipient types',
                 ProductTaxonomyFormState::names(TaxonomyDimension::RecipientType, $this->idList($proposal['recipient_type_ids'] ?? [])),
                 $this->score($confidence['recipient_types'] ?? null),
+                null,
+            ),
+            $this->dimensionRow(
+                'Recipient gender',
+                ProductTaxonomyFormState::names(TaxonomyDimension::RecipientGender, $this->idList($proposal['recipient_gender_ids'] ?? [])),
+                $this->score($confidence['recipient_genders'] ?? null),
                 null,
             ),
             $this->dimensionRow(
@@ -302,6 +316,96 @@ class BuildProductTaxonomyClassificationReviewAction
     }
 
     /**
+     * @param  array<string, mixed>  $confidence
+     * @param  array<string, mixed>  $thresholds
+     * @return array{0: ?string, 1: ?string, 2: string}
+     */
+    private function overallConfidence(array $confidence, array $thresholds): array
+    {
+        $score = $this->score($confidence['primary_category'] ?? null);
+
+        if ($score === null) {
+            return [null, null, 'gray'];
+        }
+
+        $high = (float) ($thresholds['primary_category_auto_accept'] ?? 0.85);
+        $medium = (float) ($thresholds['optional_keep_min'] ?? 0.60);
+        $label = $score >= $high ? 'High' : ($score >= $medium ? 'Medium' : 'Low');
+
+        return [
+            $label,
+            ((string) (int) round($score * 100)).'%',
+            match ($label) {
+                'High' => 'success',
+                'Medium' => 'warning',
+                default => 'danger',
+            },
+        ];
+    }
+
+    /**
+     * @param  list<array{label: string, names: list<string>}>  $proposalDimensions
+     * @param  list<array{label: string, names: list<string>}>  $appliedDimensions
+     * @return list<array{label: string, status: string, status_label: string, added: list<string>, removed: list<string>}>
+     */
+    private function differences(array $proposalDimensions, array $appliedDimensions): array
+    {
+        $proposedByLabel = collect($proposalDimensions)->keyBy('label');
+        $appliedByLabel = collect($appliedDimensions)->keyBy('label');
+        $labels = collect($proposalDimensions)
+            ->pluck('label')
+            ->merge(collect($appliedDimensions)->pluck('label'))
+            ->unique()
+            ->values();
+
+        return $labels
+            ->map(function (string $label) use ($proposedByLabel, $appliedByLabel): array {
+                $proposedNames = $proposedByLabel[$label]['names'] ?? [];
+                $currentNames = $appliedByLabel[$label]['names'] ?? [];
+                $added = array_values(array_diff($proposedNames, $currentNames));
+                $removed = array_values(array_diff($currentNames, $proposedNames));
+                $status = match (true) {
+                    $added !== [] && $removed !== [] => 'conflict',
+                    $added !== [] => 'added',
+                    $removed !== [] => 'removed',
+                    default => 'unchanged',
+                };
+
+                return [
+                    'label' => $label,
+                    'status' => $status,
+                    'status_label' => match ($status) {
+                        'added' => 'Added',
+                        'removed' => 'Removed',
+                        'conflict' => 'Conflict',
+                        default => 'No difference',
+                    },
+                    'added' => $added,
+                    'removed' => $removed,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $proposal
+     * @return list<array{label: string, value: string}>
+     */
+    private function metadata(Product $product, array $proposal): array
+    {
+        return [
+            ['label' => 'Classification version', 'value' => $product->taxonomy_classification_version !== null ? (string) $product->taxonomy_classification_version : '—'],
+            ['label' => 'Proposal version', 'value' => filled($proposal['classification_version'] ?? null) ? (string) $proposal['classification_version'] : '—'],
+            ['label' => 'Classified at', 'value' => $product->taxonomy_classified_at?->toDateTimeString() ?? '—'],
+            ['label' => 'Approved at', 'value' => $product->taxonomy_approved_at?->toDateTimeString() ?? '—'],
+            ['label' => 'Approved by', 'value' => $product->taxonomyApprovedBy?->name ?? '—'],
+            ['label' => 'Source title', 'value' => filled($proposal['source_title'] ?? null) ? (string) $proposal['source_title'] : '—'],
+            ['label' => 'Content fingerprint', 'value' => filled($product->taxonomy_content_fingerprint) ? (string) $product->taxonomy_content_fingerprint : '—'],
+        ];
+    }
+
+    /**
      * @param  list<string>  $names
      * @return list<array{name: string}>
      */
@@ -340,6 +444,7 @@ class BuildProductTaxonomyClassificationReviewAction
             'primary_category' => 'Primary Category',
             'relationships' => 'Relationships',
             'recipient_types' => 'Recipient types',
+            'recipient_genders' => 'Recipient gender',
             'occasions' => 'Occasions',
             'interests' => 'Interests',
             'professions' => 'Professions',

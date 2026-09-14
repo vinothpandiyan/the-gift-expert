@@ -183,7 +183,7 @@ return [
     */
 
     'taxonomy_classification' => [
-        'version' => 1,
+        'version' => 2,
         'thresholds' => [
             'primary_category_auto_accept' => 0.85,
             'gift_type_auto_accept' => 0.80,

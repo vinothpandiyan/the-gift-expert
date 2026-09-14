@@ -207,6 +207,8 @@ class HumanCurationResource extends Resource
                                 'taxonomy_gift_types_remove' => $get('taxonomy_gift_types_remove'),
                                 'taxonomy_recipient_types_add' => $get('taxonomy_recipient_types_add'),
                                 'taxonomy_recipient_types_remove' => $get('taxonomy_recipient_types_remove'),
+                                'taxonomy_recipient_genders_add' => $get('taxonomy_recipient_genders_add'),
+                                'taxonomy_recipient_genders_remove' => $get('taxonomy_recipient_genders_remove'),
                                 'taxonomy_professions_add' => $get('taxonomy_professions_add'),
                                 'taxonomy_professions_remove' => $get('taxonomy_professions_remove'),
                             ]))
@@ -615,6 +617,7 @@ class HumanCurationResource extends Resource
             'interests' => 'Interests',
             'gift_types' => 'Gift types',
             'recipient_types' => 'Recipient types',
+            'recipient_genders' => 'Recipient gender',
             'professions' => 'Professions',
         ] as $dimension => $label) {
             $fields[] = CheckboxList::make('taxonomy_'.$dimension.'_remove')
@@ -622,7 +625,7 @@ class HumanCurationResource extends Resource
                 ->options(fn (?Product $record): array => self::currentTaxonomyOptions($record, $dimension))
                 ->live()
                 ->columns(2);
-            $fields[] = Select::make('taxonomy_'.$dimension.'_add')
+            $add = Select::make('taxonomy_'.$dimension.'_add')
                 ->label('Add '.$label)
                 ->options(fn (?Product $record): array => self::addableTaxonomyOptions($record, $dimension))
                 ->multiple()
@@ -630,6 +633,12 @@ class HumanCurationResource extends Resource
                 ->preload()
                 ->live()
                 ->native(false);
+
+            if ($dimension === 'recipient_genders') {
+                $add = $add->maxItems(1);
+            }
+
+            $fields[] = $add;
         }
 
         return $fields;

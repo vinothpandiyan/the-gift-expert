@@ -40,6 +40,7 @@ class ApplyProductTaxonomyClassificationAction
         $product->occasions()->sync($classification->occasionIds);
         $product->relationships()->sync($classification->relationshipIds);
         $product->recipientTypes()->sync($classification->recipientTypeIds);
+        $product->recipientGenders()->sync($classification->recipientGenderIds);
         $product->interests()->sync($classification->interestIds);
         $product->professions()->sync($classification->professionIds);
         $product->giftTypes()->sync($classification->giftTypeIds);

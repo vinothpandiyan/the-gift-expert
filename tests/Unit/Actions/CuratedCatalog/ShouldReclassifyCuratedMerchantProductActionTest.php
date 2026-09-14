@@ -69,7 +69,7 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
     public function test_failed_does_not_retry_without_flag(): void
     {
         $product = $this->product(TaxonomyClassificationStatus::Failed);
-        $product->taxonomy_classification_version = 1;
+        $product->taxonomy_classification_version = $this->classificationVersion();
         $product->save();
 
         $decision = app(ShouldReclassifyCuratedMerchantProductAction::class)->execute($product);
@@ -92,11 +92,11 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
     {
         $product = $this->product(TaxonomyClassificationStatus::AiAccepted);
         $this->attachPrimary($product);
-        $product->taxonomy_classification_version = 1;
+        $product->taxonomy_classification_version = max(1, $this->classificationVersion() - 1);
         $product->save();
         $this->storeFingerprints($product);
 
-        config(['curated_catalog.taxonomy_classification.version' => 2]);
+        config(['curated_catalog.taxonomy_classification.version' => $this->classificationVersion() + 1]);
 
         $decision = app(ShouldReclassifyCuratedMerchantProductAction::class)->execute($product->fresh());
 
@@ -108,7 +108,7 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
     {
         $product = $this->product(TaxonomyClassificationStatus::AiAccepted, name: 'Original Title');
         $this->attachPrimary($product);
-        $product->taxonomy_classification_version = 1;
+        $product->taxonomy_classification_version = $this->classificationVersion();
         $product->save();
         $this->storeFingerprints($product);
 
@@ -125,7 +125,7 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
     {
         $product = $this->product(TaxonomyClassificationStatus::AiAccepted);
         $this->attachPrimary($product);
-        $product->taxonomy_classification_version = 1;
+        $product->taxonomy_classification_version = $this->classificationVersion();
         $product->save();
         $this->storeFingerprints($product);
 
@@ -146,7 +146,7 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
     {
         $product = $this->product(TaxonomyClassificationStatus::AiAccepted);
         $this->attachPrimary($product);
-        $product->taxonomy_classification_version = 1;
+        $product->taxonomy_classification_version = $this->classificationVersion();
         $product->save();
         $this->storeFingerprints($product);
         $before = $product->taxonomy_relationship_hint_fingerprint;
@@ -177,7 +177,7 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
     {
         $product = $this->product(TaxonomyClassificationStatus::AiAccepted);
         $this->attachPrimary($product);
-        $product->taxonomy_classification_version = 1;
+        $product->taxonomy_classification_version = $this->classificationVersion();
         $product->save();
         $this->storeFingerprints($product);
 
@@ -187,6 +187,11 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
         $this->assertSame('current', $decision->reason);
     }
 
+    private function classificationVersion(): int
+    {
+        return (int) config('curated_catalog.taxonomy_classification.version', 1);
+    }
+
     private function product(TaxonomyClassificationStatus $status, string $name = 'French Press'): Product
     {
         $merchant = $this->configureCuratedAmazonMerchant();
@@ -194,7 +199,7 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
             'name' => $name,
             'status' => ProductStatus::Draft,
             'taxonomy_classification_status' => $status,
-            'taxonomy_classification_version' => 1,
+            'taxonomy_classification_version' => $this->classificationVersion(),
         ]);
         AffiliateLink::query()->create([
             'product_id' => $product->id,

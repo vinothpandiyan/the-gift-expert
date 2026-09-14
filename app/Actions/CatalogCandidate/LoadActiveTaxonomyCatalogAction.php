@@ -8,6 +8,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 
@@ -32,6 +33,7 @@ class LoadActiveTaxonomyCatalogAction
             occasions: $this->dimension(Occasion::class),
             relationships: $this->dimension(Relationship::class),
             recipientTypes: $this->dimension(RecipientType::class),
+            recipientGenders: $this->dimension(RecipientGender::class),
             interests: $this->dimension(Interest::class),
             professions: $this->dimension(Profession::class),
             giftTypes: $this->dimension(GiftType::class),

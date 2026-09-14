@@ -91,6 +91,7 @@ class EnrichAndClassifyCommercialOfferAction
             occasionIds: $validated->occasionIds,
             relationshipIds: $validated->relationshipIds,
             recipientTypeIds: $validated->recipientTypeIds,
+            recipientGenderIds: $validated->recipientGenderIds,
             interestIds: $validated->interestIds,
             professionIds: $validated->professionIds,
             giftTypeIds: $validated->giftTypeIds,

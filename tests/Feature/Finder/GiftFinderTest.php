@@ -7,6 +7,7 @@ use App\Livewire\GiftFinder;
 use App\Models\BudgetRange;
 use App\Models\Interest;
 use App\Models\Occasion;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\RecommendationSession;
 use App\Models\Relationship;
@@ -276,11 +277,18 @@ class GiftFinderTest extends TestCase
         $occasion = $this->occasion('Birthday');
         $interest = $this->interest('Coffee');
         $budget = $this->budgetRange('Under ₹500');
+        $gender = RecipientGender::query()->create([
+            'name' => 'Male',
+            'slug' => 'male',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
 
         $session = RecommendationSession::query()->create([
             'relationship_id' => $relationship->id,
             'occasion_id' => $occasion->id,
             'budget_range_id' => $budget->id,
+            'recipient_gender_id' => $gender->id,
         ]);
         $session->interests()->attach($interest->id);
 
@@ -289,6 +297,7 @@ class GiftFinderTest extends TestCase
             ->assertSet('relationship_id', $relationship->id)
             ->assertSet('occasion_id', $occasion->id)
             ->assertSet('budget_range_id', $budget->id)
+            ->assertSet('recipient_gender_id', $gender->id)
             ->assertSet('interest_ids', [$interest->id]);
 
         $this->get(DiscoveryUrl::finderEdit($session->uuid))

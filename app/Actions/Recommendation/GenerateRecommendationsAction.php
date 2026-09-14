@@ -22,6 +22,7 @@ class GenerateRecommendationsAction
      *     budget_range_id?: int|null,
      *     relationship_id?: int|null,
      *     recipient_type_id?: int|null,
+     *     recipient_gender_id?: int|null,
      *     profession_id?: int|null,
      *     gift_type_id?: int|null,
      *     interest_ids?: list<int>,
@@ -45,6 +46,7 @@ class GenerateRecommendationsAction
             'budget_range_id' => $input['budget_range_id'] ?? null,
             'relationship_id' => $input['relationship_id'] ?? null,
             'recipient_type_id' => $input['recipient_type_id'] ?? null,
+            'recipient_gender_id' => $input['recipient_gender_id'] ?? null,
             'profession_id' => $input['profession_id'] ?? null,
             'gift_type_id' => $input['gift_type_id'] ?? null,
             'ip_hash' => $input['ip_hash'] ?? null,
@@ -61,6 +63,7 @@ class GenerateRecommendationsAction
             'budgetRange',
             'relationship',
             'recipientType',
+            'recipientGender',
             'profession',
             'giftType',
             'interests',
@@ -132,6 +135,7 @@ class GenerateRecommendationsAction
         if (config('gift_recommendations.optional_dimensions_filter_strict')) {
             $filters['relationship_id'] = $session->relationship_id;
             $filters['recipient_type_id'] = $session->recipient_type_id;
+            $filters['recipient_gender_id'] = $session->recipient_gender_id;
             $filters['profession_id'] = $session->profession_id;
             $filters['gift_type_id'] = $session->gift_type_id;
             $filters['interest_ids'] = $interestIds;

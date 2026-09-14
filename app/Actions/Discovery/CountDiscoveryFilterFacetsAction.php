@@ -7,6 +7,7 @@ use App\DiscoveryListing\DiscoveryListingContext;
 use App\DiscoveryListing\DiscoveryListingQueryState;
 use App\Enums\TaxonomyDimension;
 use App\Models\BudgetRange;
+use App\Support\RecipientGenderFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -57,6 +58,10 @@ class CountDiscoveryFilterFacetsAction
             throw new InvalidArgumentException("Unsupported discovery facet dimension [{$dimension}].");
         }
 
+        if ($taxonomy === TaxonomyDimension::RecipientGender) {
+            return $this->countRecipientGender($eligible, $candidateIds);
+        }
+
         return $this->countTaxonomy($eligible, $taxonomy, $candidateIds);
     }
 
@@ -80,6 +85,36 @@ class CountDiscoveryFilterFacetsAction
 
         foreach ($rows as $id => $count) {
             $counts[(int) $id] = (int) $count;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Facet counts for gender use the same male/female→unisex expansion as
+     * QueryPublishedProductsByFiltersAction so chip counts match listing results.
+     *
+     * @param  list<int>  $candidateIds
+     * @return array<int, int>
+     */
+    private function countRecipientGender(Builder $eligible, array $candidateIds): array
+    {
+        $counts = [];
+
+        foreach ($candidateIds as $candidateId) {
+            $matchIds = RecipientGenderFilter::expandMatchIds([$candidateId]);
+
+            if ($matchIds === []) {
+                $counts[$candidateId] = 0;
+
+                continue;
+            }
+
+            $counts[$candidateId] = (int) DB::table('recipient_gender_product')
+                ->whereIn('recipient_gender_id', $matchIds)
+                ->whereIn('product_id', (clone $eligible)->select('products.id'))
+                ->distinct()
+                ->count('product_id');
         }
 
         return $counts;

@@ -66,6 +66,7 @@ class GroundedCommercialEnrichmentPromptTest extends TestCase
             occasions: [],
             relationships: [],
             recipientTypes: [],
+            recipientGenders: [],
             interests: [],
             professions: [],
             giftTypes: [],

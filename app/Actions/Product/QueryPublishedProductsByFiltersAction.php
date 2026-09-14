@@ -5,6 +5,7 @@ namespace App\Actions\Product;
 use App\Enums\AffiliateLinkStatus;
 use App\Models\BudgetRange;
 use App\Models\Product;
+use App\Support\RecipientGenderFilter;
 use Illuminate\Database\Eloquent\Builder;
 use InvalidArgumentException;
 
@@ -18,6 +19,8 @@ class QueryPublishedProductsByFiltersAction
      *     relationship_ids?: list<int>|null,
      *     recipient_type_id?: int|null,
      *     recipient_type_ids?: list<int>|null,
+     *     recipient_gender_id?: int|null,
+     *     recipient_gender_ids?: list<int>|null,
      *     profession_id?: int|null,
      *     profession_ids?: list<int>|null,
      *     gift_type_id?: int|null,
@@ -45,6 +48,8 @@ class QueryPublishedProductsByFiltersAction
             'relationship_ids' => $this->idList($filters['relationship_ids'] ?? []),
             'recipient_type_id' => $this->nullableId($filters['recipient_type_id'] ?? null),
             'recipient_type_ids' => $this->idList($filters['recipient_type_ids'] ?? []),
+            'recipient_gender_id' => $this->nullableId($filters['recipient_gender_id'] ?? null),
+            'recipient_gender_ids' => $this->idList($filters['recipient_gender_ids'] ?? []),
             'profession_id' => $this->nullableId($filters['profession_id'] ?? null),
             'profession_ids' => $this->idList($filters['profession_ids'] ?? []),
             'gift_type_id' => $this->nullableId($filters['gift_type_id'] ?? null),
@@ -74,6 +79,18 @@ class QueryPublishedProductsByFiltersAction
         $this->constrainByIds($query, 'relationships', 'relationships.id', $normalized['relationship_ids']);
         $this->constrainById($query, 'recipientTypes', 'recipient_types.id', $normalized['recipient_type_id']);
         $this->constrainByIds($query, 'recipientTypes', 'recipient_types.id', $normalized['recipient_type_ids']);
+        $this->constrainByIds(
+            $query,
+            'recipientGenders',
+            'recipient_genders.id',
+            RecipientGenderFilter::expandMatchId($normalized['recipient_gender_id']),
+        );
+        $this->constrainByIds(
+            $query,
+            'recipientGenders',
+            'recipient_genders.id',
+            RecipientGenderFilter::expandMatchIds($normalized['recipient_gender_ids']),
+        );
         $this->constrainById($query, 'professions', 'professions.id', $normalized['profession_id']);
         $this->constrainByIds($query, 'professions', 'professions.id', $normalized['profession_ids']);
         $this->constrainById($query, 'giftTypes', 'gift_types.id', $normalized['gift_type_id']);
@@ -95,6 +112,8 @@ class QueryPublishedProductsByFiltersAction
      *     relationship_ids: list<int>,
      *     recipient_type_id: int|null,
      *     recipient_type_ids: list<int>,
+     *     recipient_gender_id: int|null,
+     *     recipient_gender_ids: list<int>,
      *     profession_id: int|null,
      *     profession_ids: list<int>,
      *     gift_type_id: int|null,
@@ -114,6 +133,8 @@ class QueryPublishedProductsByFiltersAction
             || $filters['relationship_ids'] !== []
             || $filters['recipient_type_id'] !== null
             || $filters['recipient_type_ids'] !== []
+            || $filters['recipient_gender_id'] !== null
+            || $filters['recipient_gender_ids'] !== []
             || $filters['profession_id'] !== null
             || $filters['profession_ids'] !== []
             || $filters['gift_type_id'] !== null

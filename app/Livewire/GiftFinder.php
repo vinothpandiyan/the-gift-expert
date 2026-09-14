@@ -8,6 +8,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\RecommendationSession;
 use App\Models\Relationship;
@@ -31,6 +32,8 @@ class GiftFinder extends Component
     public mixed $relationship_id = null;
 
     public mixed $recipient_type_id = null;
+
+    public mixed $recipient_gender_id = null;
 
     /** @var list<int|string> */
     public array $interest_ids = [];
@@ -100,6 +103,18 @@ class GiftFinder extends Component
     public function selectRecipientType(int $id): void
     {
         $this->recipient_type_id = $this->nullableId($this->recipient_type_id) === $id ? null : $id;
+    }
+
+    public function selectRecipientGender(mixed $id = null): void
+    {
+        if ($id === null || $id === '') {
+            $this->recipient_gender_id = null;
+
+            return;
+        }
+
+        $id = (int) $id;
+        $this->recipient_gender_id = $this->nullableId($this->recipient_gender_id) === $id ? null : $id;
     }
 
     public function selectProfession(int $id): void
@@ -173,6 +188,7 @@ class GiftFinder extends Component
             'occasion_id' => $this->nullableId($validated['occasion_id'] ?? null),
             'relationship_id' => $this->nullableId($validated['relationship_id'] ?? null),
             'recipient_type_id' => $this->nullableId($validated['recipient_type_id'] ?? null),
+            'recipient_gender_id' => $this->nullableId($validated['recipient_gender_id'] ?? null),
             'profession_id' => $this->nullableId($validated['profession_id'] ?? null),
             'gift_type_id' => $this->nullableId($validated['gift_type_id'] ?? null),
             'budget_range_id' => $this->nullableId($validated['budget_range_id'] ?? null),
@@ -240,6 +256,22 @@ class GiftFinder extends Component
     public function recipientTypes(): Collection
     {
         return $this->activeOptions(RecipientType::query(), ['id', 'name', 'description']);
+    }
+
+    /**
+     * Male/Female only — "Anyone" is null (no filter), not the unisex taxonomy ID.
+     *
+     * @return Collection<int, object{id: int, name: string}>
+     */
+    #[Computed]
+    public function recipientGenders(): Collection
+    {
+        return RecipientGender::query()
+            ->where('is_active', true)
+            ->whereIn('slug', [RecipientGender::SLUG_MALE, RecipientGender::SLUG_FEMALE])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 
     /**
@@ -312,6 +344,14 @@ class GiftFinder extends Component
             'occasion_id' => ['nullable', $this->activeExistsRule('occasions')],
             'relationship_id' => ['nullable', $this->activeExistsRule('relationships')],
             'recipient_type_id' => ['nullable', $this->activeExistsRule('recipient_types')],
+            'recipient_gender_id' => [
+                'nullable',
+                Rule::exists('recipient_genders', 'id')
+                    ->where(fn (QueryBuilder $query) => $query
+                        ->where('is_active', true)
+                        ->whereIn('slug', [RecipientGender::SLUG_MALE, RecipientGender::SLUG_FEMALE])
+                        ->whereNull('deleted_at')),
+            ],
             'profession_id' => ['nullable', $this->activeExistsRule('professions')],
             'gift_type_id' => ['nullable', $this->activeExistsRule('gift_types')],
             'budget_range_id' => ['nullable', $this->activeExistsRule('budget_ranges')],
@@ -355,6 +395,7 @@ class GiftFinder extends Component
         $this->relationship_id = $session->relationship_id;
         $this->occasion_id = $session->occasion_id;
         $this->recipient_type_id = $session->recipient_type_id;
+        $this->recipient_gender_id = $session->recipient_gender_id;
         $this->profession_id = $session->profession_id;
         $this->gift_type_id = $session->gift_type_id;
         $this->budget_range_id = $session->budget_range_id;
@@ -428,6 +469,7 @@ class GiftFinder extends Component
             'occasion_id' => 'occasion',
             'relationship_id' => 'relationship',
             'recipient_type_id' => 'recipient',
+            'recipient_gender_id' => 'recipient gender',
             'profession_id' => 'profession',
             'gift_type_id' => 'gift type',
             'budget_range_id' => 'budget',

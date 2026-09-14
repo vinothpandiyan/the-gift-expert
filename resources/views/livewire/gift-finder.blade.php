@@ -117,6 +117,24 @@
                     </fieldset>
 
                     <fieldset>
+                        <legend class="mb-3 text-[13px] font-semibold text-ink">Recipient gender</legend>
+                        <div class="flex flex-wrap gap-2.5" role="group" aria-label="Recipient gender">
+                            @foreach ($this->recipientGenders as $recipientGender)
+                                <x-finder.option-chip
+                                    :label="$recipientGender->name"
+                                    :selected="(int) $recipient_gender_id === (int) $recipientGender->id"
+                                    wire:click="selectRecipientGender({{ $recipientGender->id }})"
+                                />
+                            @endforeach
+                            <x-finder.option-chip
+                                label="Anyone"
+                                :selected="$recipient_gender_id === null || $recipient_gender_id === ''"
+                                wire:click="selectRecipientGender(null)"
+                            />
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
                         <legend class="mb-3 text-[13px] font-semibold text-ink">Profession</legend>
                         <div class="flex flex-wrap gap-2.5" role="group" aria-label="Profession">
                             @foreach ($this->professions as $profession)

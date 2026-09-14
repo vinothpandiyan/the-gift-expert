@@ -20,7 +20,7 @@ class GiftCurationAuditSchema
                     ->columnSpanFull(),
             ])
             ->extraAttributes([
-                'class' => 'min-w-0',
+                'class' => 'min-w-0 col-span-full',
                 'data-curation-audit-section' => '',
             ])
             ->columns(1)

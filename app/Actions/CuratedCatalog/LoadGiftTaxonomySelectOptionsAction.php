@@ -9,6 +9,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 
@@ -23,6 +24,7 @@ class LoadGiftTaxonomySelectOptionsAction
      *     categories: array<int, string>,
      *     relationships: array<int, string>,
      *     recipient_types: array<int, string>,
+     *     recipient_genders: array<int, string>,
      *     occasions: array<int, string>,
      *     interests: array<int, string>,
      *     professions: array<int, string>,
@@ -35,6 +37,7 @@ class LoadGiftTaxonomySelectOptionsAction
             'categories' => $this->categoryOptions(),
             'relationships' => $this->dimensionOptions(Relationship::class),
             'recipient_types' => $this->dimensionOptions(RecipientType::class),
+            'recipient_genders' => $this->dimensionOptions(RecipientGender::class),
             'occasions' => $this->dimensionOptions(Occasion::class),
             'interests' => $this->dimensionOptions(Interest::class),
             'professions' => $this->dimensionOptions(Profession::class),
@@ -85,6 +88,7 @@ class LoadGiftTaxonomySelectOptionsAction
             TaxonomyDimension::Category => $all['categories'],
             TaxonomyDimension::Relationship => $all['relationships'],
             TaxonomyDimension::RecipientType => $all['recipient_types'],
+            TaxonomyDimension::RecipientGender => $all['recipient_genders'],
             TaxonomyDimension::Occasion => $all['occasions'],
             TaxonomyDimension::Interest => $all['interests'],
             TaxonomyDimension::Profession => $all['professions'],

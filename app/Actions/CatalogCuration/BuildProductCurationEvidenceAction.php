@@ -18,6 +18,7 @@ class BuildProductCurationEvidenceAction
             'interests:id,name,slug',
             'giftTypes:id,name,slug',
             'recipientTypes:id,name,slug',
+            'recipientGenders:id,name,slug',
             'professions:id,name,slug',
             'affiliateLinks.merchant:id,name,slug',
             'affiliateLinks.catalogProductSources.sourceList:id,name,normalized_name,kind',
@@ -33,6 +34,7 @@ class BuildProductCurationEvidenceAction
             'interests',
             'gift_types' => 'giftTypes',
             'recipient_types' => 'recipientTypes',
+            'recipient_genders' => 'recipientGenders',
             'professions',
         ] as $key => $relation) {
             $name = is_int($key) ? $relation : $key;

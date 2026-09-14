@@ -145,6 +145,7 @@ class ResolveCuratedClassificationDecisionAction
         $interestIds = $taxonomy->interestIds;
         $occasionIds = $taxonomy->occasionIds;
         $recipientTypeIds = $taxonomy->recipientTypeIds;
+        $recipientGenderIds = $taxonomy->recipientGenderIds;
         $professionIds = $taxonomy->professionIds;
 
         if ($interestIds !== [] && $confidence->interests !== null && $confidence->interests < $min) {
@@ -162,6 +163,11 @@ class ResolveCuratedClassificationDecisionAction
             $warnings[] = TaxonomyClassificationWarningCode::AiOptionalTaxonomyDropped->value;
         }
 
+        if ($recipientGenderIds !== [] && $confidence->recipientGenders !== null && $confidence->recipientGenders < $min) {
+            $recipientGenderIds = [];
+            $warnings[] = TaxonomyClassificationWarningCode::AiOptionalTaxonomyDropped->value;
+        }
+
         if ($professionIds !== [] && $confidence->professions !== null && $confidence->professions < $min) {
             $professionIds = [];
             $warnings[] = TaxonomyClassificationWarningCode::AiOptionalTaxonomyDropped->value;
@@ -171,6 +177,7 @@ class ResolveCuratedClassificationDecisionAction
             interestIds: $interestIds,
             occasionIds: $occasionIds,
             recipientTypeIds: $recipientTypeIds,
+            recipientGenderIds: $recipientGenderIds,
             professionIds: $professionIds,
         );
     }
@@ -371,6 +378,7 @@ class ResolveCuratedClassificationDecisionAction
                 TaxonomyDimension::GiftType => 20,
                 TaxonomyDimension::Interest => 30,
                 TaxonomyDimension::Profession => 40,
+                TaxonomyDimension::RecipientGender => 45,
                 TaxonomyDimension::RecipientType => 50,
                 TaxonomyDimension::Relationship => 90,
                 TaxonomyDimension::Category => 100,
@@ -414,6 +422,7 @@ class ResolveCuratedClassificationDecisionAction
             TaxonomyDimension::GiftType => $taxonomy->with(giftTypeIds: $without($taxonomy->giftTypeIds)),
             TaxonomyDimension::Interest => $taxonomy->with(interestIds: $without($taxonomy->interestIds)),
             TaxonomyDimension::Profession => $taxonomy->with(professionIds: $without($taxonomy->professionIds)),
+            TaxonomyDimension::RecipientGender => $taxonomy->with(recipientGenderIds: $without($taxonomy->recipientGenderIds)),
             TaxonomyDimension::RecipientType => $taxonomy->with(recipientTypeIds: $without($taxonomy->recipientTypeIds)),
             TaxonomyDimension::Relationship => $taxonomy->with(relationshipIds: $without($taxonomy->relationshipIds)),
             TaxonomyDimension::Category => $taxonomy,

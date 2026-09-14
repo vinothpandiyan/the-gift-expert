@@ -13,10 +13,12 @@ use App\Models\Merchant;
 use App\Models\Occasion;
 use App\Models\Product;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\RecommendationResult;
 use App\Models\RecommendationSession;
 use App\Models\Relationship;
+use Database\Seeders\RecipientGenderSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
@@ -203,6 +205,66 @@ class GenerateRecommendationsActionTest extends TestCase
         $this->assertSame((float) $expected, (float) $result->score);
         $this->assertSame($expected, $result->score_breakdown['total']);
         $this->assertSame($weights['occasion_match'], $result->score_breakdown['occasion_match']);
+    }
+
+    public function test_recipient_gender_is_eligibility_only_and_does_not_contribute_score(): void
+    {
+        $this->seed(RecipientGenderSeeder::class);
+
+        $maleId = (int) RecipientGender::query()->where('slug', 'male')->value('id');
+        $femaleId = (int) RecipientGender::query()->where('slug', 'female')->value('id');
+        $unisexId = (int) RecipientGender::query()->where('slug', 'unisex')->value('id');
+        $relationship = $this->relationship('Friends');
+
+        $male = $this->gift(['name' => 'Male Gift', 'slug' => 'male-gift', 'price_amount' => '400.00']);
+        $male->relationships()->attach($relationship);
+        $male->recipientGenders()->attach($maleId);
+
+        $unisex = $this->gift(['name' => 'Unisex Gift', 'slug' => 'unisex-gift', 'price_amount' => '400.00']);
+        $unisex->relationships()->attach($relationship);
+        $unisex->recipientGenders()->attach($unisexId);
+
+        $female = $this->gift(['name' => 'Female Gift', 'slug' => 'female-gift', 'price_amount' => '400.00']);
+        $female->relationships()->attach($relationship);
+        $female->recipientGenders()->attach($femaleId);
+
+        $maleSession = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'recipient_gender_id' => $maleId,
+        ]);
+
+        $this->assertEqualsCanonicalizing(
+            [$male->id, $unisex->id],
+            $maleSession->results->pluck('product_id')->all(),
+        );
+        $this->assertNotContains($female->id, $maleSession->results->pluck('product_id')->all());
+
+        foreach ($maleSession->results as $result) {
+            $this->assertArrayNotHasKey('recipient_gender_match', $result->score_breakdown);
+            $this->assertSame(
+                (float) config('gift_recommendations.weights.relationship_match'),
+                (float) $result->score,
+            );
+        }
+
+        $femaleSession = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'recipient_gender_id' => $femaleId,
+        ]);
+
+        $this->assertEqualsCanonicalizing(
+            [$female->id, $unisex->id],
+            $femaleSession->results->pluck('product_id')->all(),
+        );
+        $this->assertNotContains($male->id, $femaleSession->results->pluck('product_id')->all());
+
+        foreach ($femaleSession->results as $result) {
+            $this->assertArrayNotHasKey('recipient_gender_match', $result->score_breakdown);
+            $this->assertSame(
+                (float) config('gift_recommendations.weights.relationship_match'),
+                (float) $result->score,
+            );
+        }
     }
 
     public function test_it_caps_interests_at_max_interests_and_interest_score_max(): void

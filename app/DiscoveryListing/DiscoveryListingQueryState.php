@@ -8,6 +8,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ final class DiscoveryListingQueryState
         'occasion',
         'relationship',
         'recipient',
+        'gender',
         'interest',
         'profession',
         'gift_type',
@@ -38,6 +40,7 @@ final class DiscoveryListingQueryState
      * @param  list<string>  $occasionSlugs
      * @param  list<string>  $relationshipSlugs
      * @param  list<string>  $recipientSlugs
+     * @param  list<string>  $genderSlugs
      * @param  list<string>  $interestSlugs
      * @param  list<string>  $professionSlugs
      * @param  list<string>  $giftTypeSlugs
@@ -47,6 +50,7 @@ final class DiscoveryListingQueryState
         public readonly array $occasionSlugs = [],
         public readonly array $relationshipSlugs = [],
         public readonly array $recipientSlugs = [],
+        public readonly array $genderSlugs = [],
         public readonly array $interestSlugs = [],
         public readonly array $professionSlugs = [],
         public readonly array $giftTypeSlugs = [],
@@ -73,6 +77,7 @@ final class DiscoveryListingQueryState
             occasionSlugs: self::decodeList($query['occasion'] ?? ''),
             relationshipSlugs: self::decodeList($query['relationship'] ?? ''),
             recipientSlugs: self::decodeList($query['recipient'] ?? ''),
+            genderSlugs: self::decodeList($query['gender'] ?? ''),
             interestSlugs: self::decodeList($query['interest'] ?? ''),
             professionSlugs: self::decodeList($query['profession'] ?? ''),
             giftTypeSlugs: self::decodeList($query['gift_type'] ?? ''),
@@ -147,6 +152,7 @@ final class DiscoveryListingQueryState
         return $this->occasionSlugs !== []
             || $this->relationshipSlugs !== []
             || $this->recipientSlugs !== []
+            || $this->genderSlugs !== []
             || $this->interestSlugs !== []
             || $this->professionSlugs !== []
             || $this->giftTypeSlugs !== []
@@ -169,6 +175,7 @@ final class DiscoveryListingQueryState
             occasionSlugs: $context->allows('occasion') ? $this->occasionSlugs : [],
             relationshipSlugs: $context->allows('relationship') ? $this->relationshipSlugs : [],
             recipientSlugs: $context->allows('recipient') ? $this->recipientSlugs : [],
+            genderSlugs: $context->allows('gender') ? $this->genderSlugs : [],
             interestSlugs: $context->allows('interest') ? $this->interestSlugs : [],
             professionSlugs: $context->allows('profession') ? $this->professionSlugs : [],
             giftTypeSlugs: $context->allows('gift_type') ? $this->giftTypeSlugs : [],
@@ -189,6 +196,7 @@ final class DiscoveryListingQueryState
             occasionSlugs: $dimension === 'occasion' ? [] : $this->occasionSlugs,
             relationshipSlugs: $dimension === 'relationship' ? [] : $this->relationshipSlugs,
             recipientSlugs: $dimension === 'recipient' ? [] : $this->recipientSlugs,
+            genderSlugs: $dimension === 'gender' ? [] : $this->genderSlugs,
             interestSlugs: $dimension === 'interest' ? [] : $this->interestSlugs,
             professionSlugs: $dimension === 'profession' ? [] : $this->professionSlugs,
             giftTypeSlugs: $dimension === 'gift_type' ? [] : $this->giftTypeSlugs,
@@ -217,6 +225,7 @@ final class DiscoveryListingQueryState
             'occasion' => $this->occasionSlugs,
             'relationship' => $this->relationshipSlugs,
             'recipient' => $this->recipientSlugs,
+            'gender' => $this->genderSlugs,
             'interest' => $this->interestSlugs,
             'profession' => $this->professionSlugs,
             'gift_type' => $this->giftTypeSlugs,
@@ -238,6 +247,7 @@ final class DiscoveryListingQueryState
                 occasionSlugs: $slugs,
                 relationshipSlugs: $this->relationshipSlugs,
                 recipientSlugs: $this->recipientSlugs,
+                genderSlugs: $this->genderSlugs,
                 interestSlugs: $this->interestSlugs,
                 professionSlugs: $this->professionSlugs,
                 giftTypeSlugs: $this->giftTypeSlugs,
@@ -250,6 +260,7 @@ final class DiscoveryListingQueryState
                 occasionSlugs: $this->occasionSlugs,
                 relationshipSlugs: $slugs,
                 recipientSlugs: $this->recipientSlugs,
+                genderSlugs: $this->genderSlugs,
                 interestSlugs: $this->interestSlugs,
                 professionSlugs: $this->professionSlugs,
                 giftTypeSlugs: $this->giftTypeSlugs,
@@ -262,6 +273,20 @@ final class DiscoveryListingQueryState
                 occasionSlugs: $this->occasionSlugs,
                 relationshipSlugs: $this->relationshipSlugs,
                 recipientSlugs: $slugs,
+                genderSlugs: $this->genderSlugs,
+                interestSlugs: $this->interestSlugs,
+                professionSlugs: $this->professionSlugs,
+                giftTypeSlugs: $this->giftTypeSlugs,
+                categoryPaths: $this->categoryPaths,
+                budgetSlug: $this->budgetSlug,
+                sort: $this->sort,
+                page: $this->page,
+            ),
+            'gender' => new self(
+                occasionSlugs: $this->occasionSlugs,
+                relationshipSlugs: $this->relationshipSlugs,
+                recipientSlugs: $this->recipientSlugs,
+                genderSlugs: $slugs,
                 interestSlugs: $this->interestSlugs,
                 professionSlugs: $this->professionSlugs,
                 giftTypeSlugs: $this->giftTypeSlugs,
@@ -274,6 +299,7 @@ final class DiscoveryListingQueryState
                 occasionSlugs: $this->occasionSlugs,
                 relationshipSlugs: $this->relationshipSlugs,
                 recipientSlugs: $this->recipientSlugs,
+                genderSlugs: $this->genderSlugs,
                 interestSlugs: $slugs,
                 professionSlugs: $this->professionSlugs,
                 giftTypeSlugs: $this->giftTypeSlugs,
@@ -286,6 +312,7 @@ final class DiscoveryListingQueryState
                 occasionSlugs: $this->occasionSlugs,
                 relationshipSlugs: $this->relationshipSlugs,
                 recipientSlugs: $this->recipientSlugs,
+                genderSlugs: $this->genderSlugs,
                 interestSlugs: $this->interestSlugs,
                 professionSlugs: $slugs,
                 giftTypeSlugs: $this->giftTypeSlugs,
@@ -298,6 +325,7 @@ final class DiscoveryListingQueryState
                 occasionSlugs: $this->occasionSlugs,
                 relationshipSlugs: $this->relationshipSlugs,
                 recipientSlugs: $this->recipientSlugs,
+                genderSlugs: $this->genderSlugs,
                 interestSlugs: $this->interestSlugs,
                 professionSlugs: $this->professionSlugs,
                 giftTypeSlugs: $slugs,
@@ -310,6 +338,7 @@ final class DiscoveryListingQueryState
                 occasionSlugs: $this->occasionSlugs,
                 relationshipSlugs: $this->relationshipSlugs,
                 recipientSlugs: $this->recipientSlugs,
+                genderSlugs: $this->genderSlugs,
                 interestSlugs: $this->interestSlugs,
                 professionSlugs: $this->professionSlugs,
                 giftTypeSlugs: $this->giftTypeSlugs,
@@ -322,6 +351,7 @@ final class DiscoveryListingQueryState
                 occasionSlugs: $this->occasionSlugs,
                 relationshipSlugs: $this->relationshipSlugs,
                 recipientSlugs: $this->recipientSlugs,
+                genderSlugs: $this->genderSlugs,
                 interestSlugs: $this->interestSlugs,
                 professionSlugs: $this->professionSlugs,
                 giftTypeSlugs: $this->giftTypeSlugs,
@@ -346,6 +376,7 @@ final class DiscoveryListingQueryState
         $occasionIds = $this->activeIds(Occasion::class, $state->occasionSlugs);
         $relationshipIds = $this->activeIds(Relationship::class, $state->relationshipSlugs);
         $recipientIds = $this->activeIds(RecipientType::class, $state->recipientSlugs);
+        $genderIds = $this->activeIds(RecipientGender::class, $state->genderSlugs);
         $professionIds = $this->activeIds(Profession::class, $state->professionSlugs);
         $giftTypeIds = $this->activeIds(GiftType::class, $state->giftTypeSlugs);
         $interestIds = $this->activeIds(Interest::class, $state->interestSlugs);
@@ -360,6 +391,9 @@ final class DiscoveryListingQueryState
         }
         if ($recipientIds !== []) {
             $filters['recipient_type_ids'] = $recipientIds;
+        }
+        if ($genderIds !== []) {
+            $filters['recipient_gender_ids'] = $genderIds;
         }
         if ($professionIds !== []) {
             $filters['profession_ids'] = $professionIds;
@@ -402,6 +436,7 @@ final class DiscoveryListingQueryState
             'occasion' => self::encodeList($this->occasionSlugs),
             'relationship' => self::encodeList($this->relationshipSlugs),
             'recipient' => self::encodeList($this->recipientSlugs),
+            'gender' => self::encodeList($this->genderSlugs),
             'interest' => self::encodeList($this->interestSlugs),
             'profession' => self::encodeList($this->professionSlugs),
             'gift_type' => self::encodeList($this->giftTypeSlugs),

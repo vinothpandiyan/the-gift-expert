@@ -7,6 +7,7 @@ use App\Models\GiftType;
 use App\Models\Interest;
 use App\Models\Occasion;
 use App\Models\Profession;
+use App\Models\RecipientGender;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use App\Models\SeoLandingPage;
@@ -237,6 +238,7 @@ final class SeoLandingPageCandidateCatalog
             'occasion_id' => self::nullableId(Occasion::class, $definition['occasion']),
             'relationship_id' => self::nullableId(Relationship::class, $definition['relationship']),
             'recipient_type_id' => self::nullableId(RecipientType::class, $definition['recipient_type']),
+            'recipient_gender_id' => self::nullableId(RecipientGender::class, $definition['recipient_gender'] ?? null),
             'profession_id' => self::nullableId(Profession::class, $definition['profession']),
             'gift_type_id' => self::nullableId(GiftType::class, $definition['gift_type']),
             'category_id' => null,
@@ -261,7 +263,7 @@ final class SeoLandingPageCandidateCatalog
     {
         $count = 0;
 
-        foreach (['occasion_id', 'relationship_id', 'recipient_type_id', 'profession_id', 'gift_type_id', 'category_id', 'budget_range_id'] as $column) {
+        foreach (['occasion_id', 'relationship_id', 'recipient_type_id', 'recipient_gender_id', 'profession_id', 'gift_type_id', 'category_id', 'budget_range_id'] as $column) {
             if ($filters[$column] !== null) {
                 $count++;
             }
@@ -292,6 +294,7 @@ final class SeoLandingPageCandidateCatalog
             $filters['occasion_id'] ?? 'n',
             $filters['relationship_id'] ?? 'n',
             $filters['recipient_type_id'] ?? 'n',
+            $filters['recipient_gender_id'] ?? 'n',
             $filters['profession_id'] ?? 'n',
             $filters['gift_type_id'] ?? 'n',
             $filters['category_id'] ?? 'n',
@@ -347,6 +350,7 @@ final class SeoLandingPageCandidateCatalog
             'relationship' => $relationship,
             'occasion' => $occasion,
             'recipient_type' => $recipient_type,
+            'recipient_gender' => null,
             'profession' => $profession,
             'gift_type' => $gift_type,
             'category' => null,

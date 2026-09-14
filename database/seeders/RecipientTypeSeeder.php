@@ -10,8 +10,11 @@ class RecipientTypeSeeder extends Seeder
     public function run(): void
     {
         $recipientTypes = [
+            ['Baby', true],
             ['Kids', true],
             ['Teen', true],
+            ['School Student', true],
+            ['College Student', true],
             ['Adult', false],
             ['Senior', true],
             ['Pet', true],

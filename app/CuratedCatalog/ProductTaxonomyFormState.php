@@ -13,6 +13,7 @@ class ProductTaxonomyFormState
      *     primary_category_id: int|null,
      *     relationship_ids: list<int>,
      *     recipient_type_ids: list<int>,
+     *     recipient_gender_ids: list<int>,
      *     occasion_ids: list<int>,
      *     interest_ids: list<int>,
      *     profession_ids: list<int>,
@@ -25,6 +26,7 @@ class ProductTaxonomyFormState
             'categories',
             'relationships',
             'recipientTypes',
+            'recipientGenders',
             'occasions',
             'interests',
             'professions',
@@ -38,6 +40,7 @@ class ProductTaxonomyFormState
             'primary_category_id' => $primary?->id,
             'relationship_ids' => self::activeIds($product->relationships),
             'recipient_type_ids' => self::activeIds($product->recipientTypes),
+            'recipient_gender_ids' => self::activeIds($product->recipientGenders),
             'occasion_ids' => self::activeIds($product->occasions),
             'interest_ids' => self::activeIds($product->interests),
             'profession_ids' => self::activeIds($product->professions),
@@ -52,6 +55,7 @@ class ProductTaxonomyFormState
      *     category_ids: list<int>,
      *     relationship_ids: list<int>,
      *     recipient_type_ids: list<int>,
+     *     recipient_gender_ids: list<int>,
      *     occasion_ids: list<int>,
      *     interest_ids: list<int>,
      *     profession_ids: list<int>,
@@ -63,6 +67,7 @@ class ProductTaxonomyFormState
         $primary = self::nullableId($data['primary_category_id'] ?? null);
         $relationships = self::idList($data['relationship_ids'] ?? []);
         $recipientTypes = self::idList($data['recipient_type_ids'] ?? []);
+        $recipientGenders = self::idList($data['recipient_gender_ids'] ?? []);
         $occasions = self::idList($data['occasion_ids'] ?? []);
         $interests = self::idList($data['interest_ids'] ?? []);
         $professions = self::idList($data['profession_ids'] ?? []);
@@ -73,6 +78,7 @@ class ProductTaxonomyFormState
             'category_ids' => $primary !== null ? [$primary] : [],
             'relationship_ids' => $relationships,
             'recipient_type_ids' => $recipientTypes,
+            'recipient_gender_ids' => $recipientGenders,
             'occasion_ids' => $occasions,
             'interest_ids' => $interests,
             'profession_ids' => $professions,
@@ -99,6 +105,7 @@ class ProductTaxonomyFormState
             'primary_category_id' => self::nullableId($state['primary_category_id'] ?? null),
             'relationship_ids' => self::idList($state['relationship_ids'] ?? []),
             'recipient_type_ids' => self::idList($state['recipient_type_ids'] ?? []),
+            'recipient_gender_ids' => self::idList($state['recipient_gender_ids'] ?? []),
             'occasion_ids' => self::idList($state['occasion_ids'] ?? []),
             'interest_ids' => self::idList($state['interest_ids'] ?? []),
             'profession_ids' => self::idList($state['profession_ids'] ?? []),

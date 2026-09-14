@@ -70,8 +70,9 @@ class CuratedProductEnrichmentPromptTest extends TestCase
         $this->assertStringContainsString('Do not use Relationship as a substitute for Interest', $system);
         $this->assertStringContainsString('Trusted source Relationship hints should normally be retained', $system);
         $this->assertStringContainsString('Unhinted products have no such evidence', $system);
-        $this->assertStringContainsString('Never invent Men, Women, or Unisex as Relationships', $system);
-        $this->assertStringContainsString('do not expand "men\'s product"', $system);
+        $this->assertStringContainsString('Never invent Men, Women, Boys, Girls, Male Friend, Female Friend, or Unisex as Relationships', $system);
+        $this->assertStringContainsString('Classify gender via recipient_gender_ids only', $system);
+        $this->assertStringContainsString('Do not expand "men\'s product"', $system);
         $this->assertStringContainsString('reusable merchandising destination across multiple products', $system);
         $this->assertStringContainsString('Do not report a taxonomy gap merely because the current Category is broader', $system);
         $this->assertStringContainsString('Royal Enfield Diecast Motorcycles', $system);
@@ -143,6 +144,7 @@ class CuratedProductEnrichmentPromptTest extends TestCase
             occasions: [],
             relationships: [],
             recipientTypes: [],
+            recipientGenders: [],
             interests: [],
             professions: [],
             giftTypes: [],
@@ -187,6 +189,7 @@ class CuratedProductEnrichmentPromptTest extends TestCase
             occasions: [],
             relationships: [],
             recipientTypes: [],
+            recipientGenders: [],
             interests: [],
             professions: [],
             giftTypes: [],

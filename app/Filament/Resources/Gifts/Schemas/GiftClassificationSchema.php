@@ -17,7 +17,7 @@ class GiftClassificationSchema
 {
     public static function reviewSection(): Section
     {
-        return Section::make('Classification review')
+        return Section::make('Classification Review')
             ->schema([
                 View::make('filament.gifts.partials.classification-review')
                     ->viewData(fn (?Product $record): array => [
@@ -26,7 +26,7 @@ class GiftClassificationSchema
                     ->columnSpanFull(),
             ])
             ->extraAttributes([
-                'class' => 'min-w-0',
+                'class' => 'min-w-0 col-span-full',
                 'data-classification-review-section' => '',
             ])
             ->columns(1)
@@ -77,6 +77,8 @@ class GiftClassificationSchema
                     ->columnSpanFull(),
                 self::taxonomySelect('relationship_ids', 'Relationships', 'relationships'),
                 self::taxonomySelect('recipient_type_ids', 'Recipient types', 'recipient_types'),
+                self::taxonomySelect('recipient_gender_ids', 'Recipient gender', 'recipient_genders')
+                    ->maxItems(1),
                 self::taxonomySelect('occasion_ids', 'Occasions', 'occasions'),
                 self::taxonomySelect('interest_ids', 'Interests', 'interests'),
                 self::taxonomySelect('profession_ids', 'Professions', 'professions'),
@@ -99,6 +101,7 @@ class GiftClassificationSchema
             'primary_category_id',
             'relationship_ids',
             'recipient_type_ids',
+            'recipient_gender_ids',
             'occasion_ids',
             'interest_ids',
             'profession_ids',

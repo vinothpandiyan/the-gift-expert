@@ -110,6 +110,7 @@ readonly class HumanTaxonomyProposal
             interestIds: $ids['interests'],
             giftTypeIds: $ids['gift_types'],
             recipientTypeIds: $ids['recipient_types'],
+            recipientGenderIds: $ids['recipient_genders'],
             professionIds: $ids['professions'],
             classificationStatus: $snapshot->classificationStatus,
             names: $names,
