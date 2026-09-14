@@ -231,6 +231,38 @@ class CuratedProductIntakeFlowTest extends TestCase
         $this->assertNotContains('taxonomy_ids_rejected', $result->warnings);
     }
 
+    public function test_deferred_create_truncates_overlong_title_without_publishing(): void
+    {
+        $title = str_repeat('The Man Company Men\'s Grooming Kit Perfect Gift For Him ', 6);
+
+        Http::fake();
+
+        $payload = $this->curatedPayload([
+            'items' => [[
+                'external_product_id' => 'B0DVZKX8MX',
+                'source_url' => 'https://www.amazon.in/dp/B0DVZKX8MX',
+                'title' => $title,
+                'price_amount' => '899.00',
+                'price_currency' => 'INR',
+            ]],
+        ]);
+        $input = app(PreviewCuratedProductIntakeAction::class)->execute($payload)->items[0]->input;
+        $result = app(CreateCuratedMerchantProductAction::class)->execute(
+            $this->merchant,
+            $input,
+            deferClassification: true,
+        );
+
+        $this->assertTrue($result->success);
+        $product = Product::query()->firstOrFail();
+        $this->assertSame(255, mb_strlen($product->name));
+        $this->assertSame(ProductStatus::Draft, $product->status);
+        $this->assertNull($product->published_at);
+        $this->assertSame(TaxonomyClassificationStatus::None, $product->taxonomy_classification_status);
+        $this->assertSame(1, Product::query()->count());
+        $this->assertSame(0, Product::query()->published()->count());
+    }
+
     public function test_create_persists_failed_classification_without_invalid_pivots_when_primary_is_missing(): void
     {
         Http::fake([

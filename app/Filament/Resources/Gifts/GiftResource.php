@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Gifts;
 
-use App\Actions\Product\PublishProductAction;
+use App\Actions\Product\PublishProductsAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Enums\CurationAiConfidence;
 use App\Enums\CurationIssueCode;
@@ -51,11 +51,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
-use Throwable;
 
 class GiftResource extends Resource
 {
@@ -547,40 +544,25 @@ class GiftResource extends Resource
                         ->modalHeading('Publish selected draft gifts?')
                         ->modalDescription('Each selected draft is validated and published through the same publication action used by the individual Publish button.')
                         ->action(function (Collection $records): void {
-                            $published = 0;
-                            $skipped = 0;
-                            $failed = 0;
-                            $details = [];
-
-                            foreach ($records as $product) {
-                                /** @var Product $product */
-                                if ($product->status !== ProductStatus::Draft) {
-                                    $skipped++;
-                                    $details[] = "#{$product->id} skipped: not a draft.";
-
-                                    continue;
-                                }
-
-                                try {
-                                    app(PublishProductAction::class)->execute($product->fresh());
-                                    $published++;
-                                } catch (ValidationException $exception) {
-                                    $failed++;
-                                    $details[] = "#{$product->id} failed: ".implode(' ', Arr::flatten($exception->errors()));
-                                } catch (Throwable $exception) {
-                                    report($exception);
-                                    $failed++;
-                                    $details[] = "#{$product->id} failed unexpectedly; check the application log.";
-                                }
-                            }
+                            $attempts = app(PublishProductsAction::class)->execute($records, 'filament:gifts.bulk-publish');
+                            $tally = PublishProductsAction::tally($attempts);
+                            $published = $tally['published'];
+                            $skipped = $tally['skipped'];
+                            $failed = $tally['failed'];
+                            $details = $attempts
+                                ->reject(fn ($attempt): bool => $attempt->result->value === 'published')
+                                ->map(fn ($attempt): string => "#{$attempt->productId} {$attempt->result->value}: {$attempt->reason}")
+                                ->take(5)
+                                ->values()
+                                ->all();
 
                             $body = "Published: {$published}. Skipped: {$skipped}. Failed: {$failed}.";
 
                             if ($details !== []) {
-                                $body .= ' '.implode(' ', array_slice($details, 0, 5));
+                                $body .= ' '.implode(' ', $details);
 
-                                if (count($details) > 5) {
-                                    $body .= ' '.(count($details) - 5).' additional result(s) omitted; check the affected gifts individually.';
+                                if ($skipped + $failed > 5) {
+                                    $body .= ' '.(($skipped + $failed) - 5).' additional result(s) omitted; check the affected gifts individually.';
                                 }
                             }
 

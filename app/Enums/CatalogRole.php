@@ -10,4 +10,15 @@ enum CatalogRole: string
     case UniquePick = 'unique_pick';
     case NichePick = 'niche_pick';
     case Undifferentiated = 'undifferentiated';
+
+    /**
+     * @return list<self>
+     */
+    public static function humanMerchandisingCases(): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $role): bool => $role !== self::Undifferentiated,
+        ));
+    }
 }

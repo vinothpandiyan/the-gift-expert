@@ -263,6 +263,20 @@ class Product extends Model
                 ->where('outcome', ProductCurationAuditOutcome::Completed));
     }
 
+    public function curationDecisions(): HasMany
+    {
+        return $this->hasMany(ProductCurationDecision::class)
+            ->orderByDesc('decided_at')
+            ->orderByDesc('id');
+    }
+
+    public function currentCurationDecision(): HasOne
+    {
+        return $this->hasOne(ProductCurationDecision::class)
+            ->ofMany(['id' => 'max'], fn (Builder $query): Builder => $query
+                ->whereNotNull('current_for_product_id'));
+    }
+
     public function scopePublished(Builder $query): Builder
     {
         return $query

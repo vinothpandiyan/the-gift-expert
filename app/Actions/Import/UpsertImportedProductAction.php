@@ -37,9 +37,11 @@ class UpsertImportedProductAction
 
     private function createNew(Merchant $merchant, ImportedCatalogItem $item): AffiliateLink
     {
+        $name = $this->catalogName($item->name);
+
         $product = Product::query()->create([
-            'name' => $item->name,
-            'slug' => $this->uniqueSlug((string) $item->name),
+            'name' => $name,
+            'slug' => $this->uniqueSlug($name),
             'short_description' => $item->short_description,
             'description' => $item->description,
             'editorial_ownership' => EditorialOwnership::Source,
@@ -92,7 +94,7 @@ class UpsertImportedProductAction
             $product->brand = $item->brand;
 
             if ($product->editorialCopyIsSourceOwned()) {
-                $product->name = $item->name;
+                $product->name = $this->catalogName($item->name);
                 $product->short_description = $item->short_description;
                 $product->description = $item->description;
             }
@@ -103,6 +105,11 @@ class UpsertImportedProductAction
         return $link->fresh();
     }
 
+    private function catalogName(?string $name): string
+    {
+        return mb_substr(trim((string) $name), 0, 255);
+    }
+
     private function uniqueSlug(string $name): string
     {
         $base = Str::slug($name);
@@ -111,11 +118,12 @@ class UpsertImportedProductAction
             $base = 'gift';
         }
 
+        $base = mb_substr($base, 0, 240);
         $slug = $base;
         $suffix = 2;
 
         while (Product::withTrashed()->where('slug', $slug)->exists()) {
-            $slug = $base.'-'.$suffix;
+            $slug = mb_substr($base, 0, 240 - strlen((string) $suffix) - 1).'-'.$suffix;
             $suffix++;
         }
 

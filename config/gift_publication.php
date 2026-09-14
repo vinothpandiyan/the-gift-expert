@@ -34,4 +34,19 @@ return [
         'price_amount' => true,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Launch publication
+    |--------------------------------------------------------------------------
+    |
+    | Editorial eligibility for a first launch cohort. Technical readiness
+    | remains AssessProductPublicationRequirementsAction / PublishProductAction.
+    |
+    */
+
+    'launch' => [
+        'concept_cluster_warning_threshold' => 3,
+        'sparse_landing_page_count' => 2,
+    ],
+
 ];

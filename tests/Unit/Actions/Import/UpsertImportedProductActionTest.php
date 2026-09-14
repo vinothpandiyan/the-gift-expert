@@ -79,6 +79,35 @@ class UpsertImportedProductActionTest extends TestCase
         $this->assertSame('classic-leather-wallet-2', $link->product->slug);
     }
 
+    public function test_it_truncates_overlong_amazon_titles_to_the_catalog_name_column(): void
+    {
+        $merchant = Merchant::query()->create([
+            'name' => 'Fake Merchant',
+            'slug' => 'fake-merchant',
+            'affiliate_network' => 'fake',
+        ]);
+        $title = str_repeat('The Man Company Men\'s Grooming Kit Perfect Gift ', 8);
+
+        $link = app(UpsertImportedProductAction::class)->execute($merchant, new ImportedCatalogItem(
+            name: $title,
+            description: null,
+            short_description: null,
+            brand: null,
+            price_amount: '899.00',
+            price_currency: 'INR',
+            affiliate_url: 'https://www.amazon.in/dp/B0DVZKX8MX',
+            external_product_id: 'B0DVZKX8MX',
+            image_urls: [],
+            raw: ['title' => $title],
+        ));
+
+        $this->assertSame(255, mb_strlen($link->product->name));
+        $this->assertLessThanOrEqual(255, strlen($link->product->slug));
+        $this->assertSame(ProductStatus::Draft, $link->product->status);
+        $this->assertNull($link->product->published_at);
+        $this->assertSame(1, Product::query()->count());
+    }
+
     public function test_it_preserves_human_owned_editorial_copy_during_import_refresh(): void
     {
         $merchant = Merchant::query()->create([

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Actions\CatalogCuration\QueryHumanCurationQueueAction;
+use App\Actions\CatalogCuration\ResolveAcceptedCurationAuditRunAction;
 use App\Models\Category;
 use App\Models\GiftType;
 use App\Models\Interest;
@@ -23,7 +25,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ResolveAcceptedCurationAuditRunAction::class);
+        $this->app->singleton(QueryHumanCurationQueueAction::class);
     }
 
     /**

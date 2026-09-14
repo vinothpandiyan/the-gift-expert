@@ -184,4 +184,28 @@ return [
         'thoughtful gift',
         'something special',
     ],
+
+    'human_curation' => [
+        'peer_comparison_limit' => 8,
+        'weak_differentiation_max' => 6,
+        'integrity_issue_codes' => [
+            'semantic_response_invalid',
+            'unresolved_taxonomy_label',
+            'missing_current_assignment_evaluation',
+        ],
+        'material_taxonomy_issue_codes' => [
+            'relationship_overclassification',
+            'occasion_overclassification',
+            'interest_mismatch',
+            'gift_type_mismatch',
+            'taxonomy_conflict',
+            'hard_taxonomy_conflict',
+            'missing_primary_category',
+        ],
+        'evidence_issue_codes' => [
+            'missing_commerce_evidence',
+            'weak_product_confidence',
+        ],
+        'feature_density_warning_share' => 0.8,
+    ],
 ];
