@@ -78,6 +78,9 @@ class CuratedProductEnrichmentPromptTest extends TestCase
         $this->assertStringContainsString('Royal Enfield Diecast Motorcycles', $system);
         $this->assertStringContainsString('Mechanical Gaming Keyboards', $system);
         $this->assertStringContainsString('Home Decor & Keepsakes', $system);
+        $this->assertStringContainsString('Gift Boxes & Hampers is independent of GiftType', $system);
+        $this->assertStringContainsString('chocolate-dominant hamper', $system);
+        $this->assertStringContainsString('Do not automatically classify telescopes', $system);
         $this->assertStringContainsString('meaningful recipient affinity', $system);
     }
 

@@ -88,6 +88,32 @@ class ShouldReclassifyCuratedMerchantProductActionTest extends TestCase
         $this->assertSame('retry_failed', $decision->reason);
     }
 
+    public function test_failed_retries_when_permitted_at_current_version(): void
+    {
+        $product = $this->product(TaxonomyClassificationStatus::Failed);
+        $product->taxonomy_classification_version = $this->classificationVersion();
+        $product->save();
+
+        $decision = app(ShouldReclassifyCuratedMerchantProductAction::class)->execute($product, retryFailed: true);
+
+        $this->assertTrue($decision->shouldReclassify);
+        $this->assertSame('retry_failed', $decision->reason);
+    }
+
+    public function test_retry_failed_does_not_reclassify_current_ai_accepted(): void
+    {
+        $product = $this->product(TaxonomyClassificationStatus::AiAccepted);
+        $this->attachPrimary($product);
+        $product->taxonomy_classification_version = $this->classificationVersion();
+        $product->save();
+        $this->storeFingerprints($product);
+
+        $decision = app(ShouldReclassifyCuratedMerchantProductAction::class)->execute($product->fresh(), retryFailed: true);
+
+        $this->assertFalse($decision->shouldReclassify);
+        $this->assertSame('current', $decision->reason);
+    }
+
     public function test_version_bump_reclassifies_ai_managed(): void
     {
         $product = $this->product(TaxonomyClassificationStatus::AiAccepted);

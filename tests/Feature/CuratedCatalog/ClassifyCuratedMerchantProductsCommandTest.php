@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\CuratedCatalog;
 
+use App\Actions\CuratedCatalog\BuildCuratedRelationshipHintFingerprintAction;
+use App\Actions\CuratedCatalog\BuildCuratedTaxonomyContentFingerprintAction;
 use App\Actions\CuratedCatalog\PlanCuratedMerchantProductClassificationAction;
 use App\Actions\CuratedCatalog\ProcessCuratedProductIntakeBatchAction;
 use App\Enums\ProductStatus;
@@ -139,6 +141,7 @@ class ClassifyCuratedMerchantProductsCommandTest extends TestCase
 
         $product = Product::query()->firstOrFail();
         $product->taxonomy_classification_status = TaxonomyClassificationStatus::Failed;
+        $product->taxonomy_classification_version = (int) config('curated_catalog.taxonomy_classification.version', 1);
         $product->save();
 
         $other = Product::query()->create([
@@ -149,6 +152,7 @@ class ClassifyCuratedMerchantProductsCommandTest extends TestCase
             'price_currency' => 'INR',
         ]);
         $other->taxonomy_classification_status = TaxonomyClassificationStatus::Failed;
+        $other->taxonomy_classification_version = (int) config('curated_catalog.taxonomy_classification.version', 1);
         $other->save();
 
         $run = CuratedProductIntakeRun::query()->firstOrFail();
@@ -161,10 +165,121 @@ class ClassifyCuratedMerchantProductsCommandTest extends TestCase
             '--dry-run' => true,
         ])
             ->expectsOutputToContain('Failed that would retry')
+            ->expectsOutputToContain(sprintf(
+                'product=%d status=failed version=%d reason=retry_failed',
+                $product->id,
+                (int) config('curated_catalog.taxonomy_classification.version', 1),
+            ))
             ->assertSuccessful();
 
         Http::assertNothingSent();
         $this->assertSame(TaxonomyClassificationStatus::Failed, $other->fresh()->taxonomy_classification_status);
+    }
+
+    public function test_product_retry_failed_at_current_version_is_eligible(): void
+    {
+        Category::query()->create([
+            'name' => 'Home & Living',
+            'slug' => 'home-and-living',
+            'is_active' => true,
+        ]);
+        $this->fakeImageHttp();
+        $this->writeWishlist('husband.json', 'Gifts for Husband', ['B0SHARED01']);
+        app(ProcessCuratedProductIntakeBatchAction::class)->commit($this->directory, deferClassification: true);
+
+        $product = Product::query()->firstOrFail();
+        $version = (int) config('curated_catalog.taxonomy_classification.version', 1);
+        $product->taxonomy_classification_status = TaxonomyClassificationStatus::Failed;
+        $product->taxonomy_classification_version = $version;
+        $product->save();
+
+        Http::fake();
+
+        $plan = app(PlanCuratedMerchantProductClassificationAction::class)->execute(
+            null,
+            $product->id,
+            null,
+            null,
+            null,
+            false,
+            true,
+        );
+
+        $this->assertSame(1, $plan->totalConsidered);
+        $this->assertSame(1, $plan->eligible);
+        $this->assertSame(0, $plan->skippedCurrent);
+        $this->assertSame('retry_failed', $plan->items[0]->decisionReason);
+        $this->assertSame('failed', $plan->items[0]->status);
+        $this->assertSame($version, $plan->items[0]->version);
+
+        $this->artisan('catalog:classify-curated', [
+            '--product' => (string) $product->id,
+            '--retry-failed' => true,
+            '--dry-run' => true,
+        ])
+            ->expectsOutputToContain(sprintf(
+                'product=%d status=failed version=%d reason=retry_failed eligible=yes',
+                $product->id,
+                $version,
+            ))
+            ->assertSuccessful();
+
+        Http::assertNothingSent();
+    }
+
+    public function test_product_retry_failed_does_not_reclassify_current_ai_accepted(): void
+    {
+        $home = Category::query()->create([
+            'name' => 'Home & Living',
+            'slug' => 'home-and-living',
+            'is_active' => true,
+        ]);
+        $this->fakeImageHttp();
+        $this->writeWishlist('husband.json', 'Gifts for Husband', ['B0SHARED01']);
+        app(ProcessCuratedProductIntakeBatchAction::class)->commit($this->directory, deferClassification: true);
+
+        $product = Product::query()->firstOrFail();
+        $version = (int) config('curated_catalog.taxonomy_classification.version', 1);
+        $product->taxonomy_classification_status = TaxonomyClassificationStatus::AiAccepted;
+        $product->taxonomy_classification_version = $version;
+        $product->taxonomy_content_fingerprint = app(BuildCuratedTaxonomyContentFingerprintAction::class)->execute($product);
+        $product->taxonomy_relationship_hint_fingerprint = app(BuildCuratedRelationshipHintFingerprintAction::class)->execute($product);
+        $product->save();
+        $product->categories()->attach($home->id, ['is_primary' => true]);
+
+        Http::fake();
+
+        $plan = app(PlanCuratedMerchantProductClassificationAction::class)->execute(
+            null,
+            $product->id,
+            null,
+            null,
+            null,
+            false,
+            true,
+        );
+
+        $this->assertSame(1, $plan->totalConsidered);
+        $this->assertSame(0, $plan->eligible);
+        $this->assertSame(1, $plan->skippedCurrent);
+        $this->assertSame('current', $plan->items[0]->decisionReason);
+        $this->assertSame('ai_accepted', $plan->items[0]->status);
+
+        $this->artisan('catalog:classify-curated', [
+            '--product' => (string) $product->id,
+            '--retry-failed' => true,
+            '--dry-run' => true,
+        ])
+            ->expectsOutputToContain(sprintf(
+                'product=%d status=ai_accepted version=%d reason=current eligible=no',
+                $product->id,
+                $version,
+            ))
+            ->assertSuccessful();
+
+        Http::assertNothingSent();
+        $this->assertSame(TaxonomyClassificationStatus::AiAccepted, $product->fresh()->taxonomy_classification_status);
+        $this->assertTrue($product->fresh()->categories()->where('categories.id', $home->id)->exists());
     }
 
     public function test_product_force_does_not_default_to_unclassified_status(): void

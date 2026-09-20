@@ -57,7 +57,7 @@ class ClassifyCuratedMerchantProductsCommand extends Command
         );
 
         if ($dryRun) {
-            $this->printPlan($plan);
+            $this->printPlan($plan, $productId !== null);
             $this->comment('Dry run completed. No enrichment or classification writes were performed.');
 
             return self::SUCCESS;
@@ -101,19 +101,20 @@ class ClassifyCuratedMerchantProductsCommand extends Command
         return 'none';
     }
 
-    private function printPlan(CuratedClassificationPlan $plan): void
+    private function printPlan(CuratedClassificationPlan $plan, bool $includeIneligible = false): void
     {
         foreach ($plan->items as $item) {
-            if (! $item->eligible) {
+            if (! $item->eligible && ! $includeIneligible) {
                 continue;
             }
 
             $this->line(sprintf(
-                'product=%d status=%s version=%s reason=%s hints=%s',
+                'product=%d status=%s version=%s reason=%s%s hints=%s',
                 $item->productId,
                 $item->status,
                 $item->version ?? '—',
                 $item->decisionReason,
+                $includeIneligible ? (' eligible='.($item->eligible ? 'yes' : 'no')) : '',
                 $item->hintSlugs === [] ? '—' : implode(',', $item->hintSlugs),
             ));
         }

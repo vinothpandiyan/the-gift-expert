@@ -38,13 +38,45 @@ class CategorySeeder extends Seeder
             ->where('slug', 'home-and-living')
             ->whereNull('parent_id')
             ->firstOrFail();
+        $electronics = Category::query()
+            ->where('slug', 'electronics')
+            ->whereNull('parent_id')
+            ->firstOrFail();
         $fashion = Category::query()
             ->where('slug', 'fashion-and-accessories')
             ->whereNull('parent_id')
             ->firstOrFail();
 
         $this->seedCategory($home->id, 'Kitchen & Dining', 'kitchen-and-dining', 1);
+        $this->seedCategory($electronics->id, 'Musical Instruments', 'musical-instruments', 1);
         $this->seedCategory($fashion->id, 'Jewellery', 'jewellery', 1);
+
+        // Distinct merchandising family for digital/physical gift cards and vouchers.
+        // Independent of GiftType `gift-cards` (facet) and primary navigation Gift Types links.
+        $this->seedCategory(null, 'Gift Cards & Vouchers', 'gift-cards-vouchers', 13);
+
+        // Root merchandising Category for vehicle care, cleaning, and automotive accessories.
+        $this->seedCategory(null, 'Automotive & Vehicle Care', 'automotive-vehicle-care', 14);
+
+        // Root merchandising Category for plants, planters, gardening tools, and plant-care products.
+        $this->seedCategory(null, 'Gardening & Plant Care', 'gardening-plant-care', 15);
+
+        // Root merchandising Category for handbags, backpacks, wallets, luggage, and carrying products.
+        $bags = $this->seedCategory(null, 'Bags, Wallets & Luggage', 'bags-wallets-luggage', 16);
+        // Luggage/travel-organizing accessories (passport holders, luggage tags, packing organizers).
+        $this->seedCategory($bags->id, 'Travel Accessories', 'travel-accessories', 1);
+
+        // Root merchandising Category for wearable footwear.
+        $footwear = $this->seedCategory(null, 'Footwear', 'footwear', 17);
+        // Shoe-care kits, organizers, insoles, and footwear maintenance accessories.
+        $this->seedCategory($footwear->id, 'Footwear Accessories', 'footwear-accessories', 1);
+
+        // Root for mixed gift boxes/hampers when no dominant merchandising family fits.
+        // Independent of GiftType `hampers-gift-sets` — do not auto-map every hamper GiftType here.
+        $this->seedCategory(null, 'Gift Boxes & Hampers', 'gift-boxes-hampers', 18);
+
+        $this->seedCategory($electronics->id, 'Cameras & Photography', 'cameras-photography', 2);
+        $this->seedCategory($home->id, 'Home Decor & Keepsakes', 'home-decor-keepsakes', 2);
 
         $giftsForHim = $this->seedCategory(null, 'Gifts for Him', 'gifts-for-him', 100, active: false);
         $this->seedCategory($giftsForHim->id, 'Gifts for Husband', 'gifts-for-husband', 1, active: false);

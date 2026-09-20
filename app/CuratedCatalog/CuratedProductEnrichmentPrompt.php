@@ -65,9 +65,15 @@ Category rules:
 - Choose the most specific valid merchandising category available. Use broad roots such as Fashion & Accessories only when no better fit exists in the catalog.
 - Never attach a category merely to increase discovery coverage or because you are uncertain between families. Choose the best primary product family.
 - Never use a recipient-, relationship-, occasion-, or SEO-intent-shaped category as primary.
-- Never use retired/composite Categories or Personalized Gifts as a category. Personalization is a GiftType. A personalized wallet belongs in Fashion & Accessories or Jewellery, with GiftType Personalized Gifts.
+- Never use retired/composite Categories or Personalized Gifts as a category. Personalization is a GiftType. A personalized wallet belongs in Bags, Wallets & Luggage or Jewellery, with GiftType Personalized Gifts.
 - Primary Category confidence measures confidence that the selected Category is the best correct Category among the taxonomy values currently available.
 - Do not lower primary Category confidence merely because a more specific taxonomy leaf could theoretically exist. A scrapbook that honestly belongs in Stationery & Office may have high primary Category confidence while separately reporting a Photo Albums & Scrapbooks taxonomy gap. Those two signals are independent.
+- Gardening & Plant Care is for plants, planters, gardening kits/tools, terrariums, and plant-care products. Do not use it merely because a decorative product contains an artificial plant motif.
+- Cameras & Photography is for digital/instant/action cameras, photography equipment, and camera accessories. Do not automatically classify telescopes here.
+- Home Decor & Keepsakes is for decorative gifts, photo frames, display pieces, sentimental keepsakes, and non-functional decorative home gifts. Avoid using it as a generic fallback when a more precise merchandising Category fits.
+- Bags, Wallets & Luggage covers handbags, backpacks, wallets, purses, travel bags, laptop bags, and luggage. Travel Accessories (its child) is constrained to luggage/travel-organizing accessories such as passport holders, luggage tags, packing organizers, and travel pouches — not travel electronics or outdoor equipment.
+- Footwear is wearable shoes/sandals/slippers/sneakers. Footwear Accessories covers shoe-care kits, organizers, insoles, and footwear maintenance accessories.
+- Gift Boxes & Hampers is independent of GiftType Hampers / Gift Sets. Use Gift Boxes & Hampers as primary Category only when the product itself is primarily a mixed gift box, hamper, or presentation-led gift set and there is no more meaningful dominant merchandising family. A chocolate-dominant hamper belongs in Food & Beverages (or the appropriate food Category) with GiftType Hampers / Gift Sets. A beauty hamper belongs in Beauty & Grooming with GiftType Hampers / Gift Sets. Do not assign Gift Boxes & Hampers merely because GiftType is Hampers / Gift Sets, and do not invent a primary Category for ambiguous romantic combos whose contents cannot be verified.
 
 Trusted Relationship hints:
 - Wishlist hints are curator-provided strong evidence, not guaranteed truth.
@@ -121,7 +127,7 @@ Taxonomy gaps:
 - taxonomy_gap is independent of primary Category confidence. A high-confidence parent Category can still report an advisory gap.
 - A taxonomy gap should only be reported when the missing concept is likely to justify a reusable merchandising destination across multiple products.
 - Do not report a taxonomy gap merely because the current Category is broader than the exact product subtype. Toys & Games does not need "Royal Enfield Diecast Motorcycles". Electronics does not need "Mechanical Gaming Keyboards". Those are SKU or subtype noise.
-- Report a gap only when it represents a recurring, useful merchandising distinction that many catalog products may need. A potentially useful example is Home & Living → Home Decor & Keepsakes, because it may represent a substantial reusable product cluster. Prefer broader reusable concepts over SKU-level microcategories.
+- Report a gap only when it represents a recurring, useful merchandising distinction that many catalog products may need. Prefer broader reusable concepts over SKU-level microcategories. Do not propose gaps for Categories that already exist in the catalog (for example Gardening & Plant Care, Cameras & Photography, Home Decor & Keepsakes, Bags/Wallets/Luggage, Footwear, or Gift Boxes & Hampers).
 - Do not invent a taxonomy row. Do not propose a category that already exists.
 - severity = advisory when a valid existing merchandising Category accurately represents the product, but a more specific reusable leaf could improve taxonomy later.
 - severity = blocking when the product cannot be represented honestly by the current Category taxonomy: no acceptable merchandising Category, only clearly incorrect Categories, or product identity itself is too ambiguous.
