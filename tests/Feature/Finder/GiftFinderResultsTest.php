@@ -185,6 +185,70 @@ class GiftFinderResultsTest extends TestCase
             ->assertDontSee('Great Match', false);
     }
 
+    public function test_broader_recommendations_are_grouped_after_strongest_matches(): void
+    {
+        $relationship = Relationship::query()->create(['name' => 'Husband', 'slug' => 'husband', 'is_active' => true]);
+        $occasion = Occasion::query()->create(['name' => 'Birthday', 'slug' => 'birthday', 'is_active' => true]);
+        $session = RecommendationSession::query()->create([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+        ]);
+
+        $best = GiftCatalogTestHelpers::publishedGift(['name' => 'Best Gift', 'slug' => 'best-gift']);
+        $broader = GiftCatalogTestHelpers::publishedGift(['name' => 'Broader Gift', 'slug' => 'broader-gift']);
+
+        $this->createResult($session, $best, rank: 1, score: 40, explanation: 'Matches Husband.', breakdown: [
+            'total' => 40,
+            'match_tier' => RecommendationResult::TIER_BEST,
+        ]);
+        $this->createResult($session, $broader, rank: 2, score: 15, explanation: 'Matches Husband.', breakdown: [
+            'total' => 15,
+            'match_tier' => RecommendationResult::TIER_RELATED,
+        ]);
+
+        $html = $this->get(DiscoveryUrl::finderResults($session->uuid))
+            ->assertOk()
+            ->assertSee('1 great match for Husband', false)
+            ->assertSee('More Birthday gifts they may like', false)
+            ->getContent();
+
+        $this->assertLessThan(strpos($html, 'More Birthday gifts'), strpos($html, 'Best Gift'));
+        $this->assertGreaterThan(strpos($html, 'More Birthday gifts'), strpos($html, 'Broader Gift'));
+        $this->assertSame(1, substr_count($html, 'Great Match'));
+    }
+
+    public function test_results_without_tier_data_render_as_a_single_ungrouped_list(): void
+    {
+        $session = RecommendationSession::query()->create([]);
+        $gift = GiftCatalogTestHelpers::publishedGift(['name' => 'Legacy Gift', 'slug' => 'legacy-gift']);
+
+        $this->createResult($session, $gift, rank: 1, score: 40, explanation: 'Matches Birthday.');
+
+        $this->get(DiscoveryUrl::finderResults($session->uuid))
+            ->assertOk()
+            ->assertSee('Legacy Gift', false)
+            ->assertSee('Any budget', false)
+            ->assertDontSee('great match', false)
+            ->assertDontSee('they may like', false);
+    }
+
+    public function test_only_broader_results_are_not_split_into_groups(): void
+    {
+        $session = RecommendationSession::query()->create([]);
+        $gift = GiftCatalogTestHelpers::publishedGift(['name' => 'Related Only', 'slug' => 'related-only']);
+
+        $this->createResult($session, $gift, rank: 1, score: 15, explanation: 'Matches Husband.', breakdown: [
+            'total' => 15,
+            'match_tier' => RecommendationResult::TIER_RELATED,
+        ]);
+
+        $this->get(DiscoveryUrl::finderResults($session->uuid))
+            ->assertOk()
+            ->assertSee('Related Only', false)
+            ->assertDontSee('they may like', false)
+            ->assertDontSee('Great Match', false);
+    }
+
     public function test_product_link_goes_to_gift_detail_not_outbound(): void
     {
         $session = RecommendationSession::query()->create([]);

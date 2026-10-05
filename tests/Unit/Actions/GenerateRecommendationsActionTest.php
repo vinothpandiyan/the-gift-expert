@@ -30,38 +30,395 @@ class GenerateRecommendationsActionTest extends TestCase
     public function test_occasion_is_scored_and_is_not_a_hard_eligibility_filter(): void
     {
         $occasion = $this->occasion('Birthday');
+        $relationship = $this->relationship('Husband');
 
-        $matching = $this->gift([
-            'name' => 'Birthday Gift',
-            'slug' => 'birthday-gift',
+        $both = $this->gift([
+            'name' => 'Birthday Husband Gift',
+            'slug' => 'birthday-husband-gift',
             'price_amount' => '400.00',
         ]);
+        $both->occasions()->attach($occasion);
+        $both->relationships()->attach($relationship);
+
+        $relationshipOnly = $this->gift([
+            'name' => 'Husband Only Gift',
+            'slug' => 'husband-only-gift',
+            'price_amount' => '400.00',
+        ]);
+        $relationshipOnly->relationships()->attach($relationship);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'occasion_id' => $occasion->id,
+            'relationship_id' => $relationship->id,
+        ]);
+
+        $this->assertSame(
+            [$both->id, $relationshipOnly->id],
+            $this->rankedProductIds($session),
+        );
+
+        $bothResult = $session->results->firstWhere('product_id', $both->id);
+        $relationshipOnlyResult = $session->results->firstWhere('product_id', $relationshipOnly->id);
+
+        $this->assertSame(
+            config('gift_recommendations.weights.occasion_match'),
+            $bothResult->score_breakdown['occasion_match'],
+        );
+        $this->assertArrayNotHasKey('occasion_match', $relationshipOnlyResult->score_breakdown);
+        $this->assertSame(RecommendationResult::TIER_BEST, $bothResult->matchTier());
+        $this->assertSame(RecommendationResult::TIER_RELATED, $relationshipOnlyResult->matchTier());
+    }
+
+    public function test_products_matching_no_answered_signal_are_not_returned(): void
+    {
+        $occasion = $this->occasion('Birthday');
+
+        $matching = $this->gift(['name' => 'Birthday Gift', 'slug' => 'birthday-gift']);
         $matching->occasions()->attach($occasion);
 
-        $unrelated = $this->gift([
-            'name' => 'Untagged Occasion Gift',
-            'slug' => 'untagged-occasion-gift',
-            'price_amount' => '400.00',
-        ]);
+        $irrelevant = $this->gift(['name' => 'Untagged Gift', 'slug' => 'untagged-gift']);
 
         $session = app(GenerateRecommendationsAction::class)->execute([
             'occasion_id' => $occasion->id,
         ]);
 
+        $this->assertSame([$matching->id], $session->results->pluck('product_id')->all());
+        $this->assertNotContains($irrelevant->id, $session->results->pluck('product_id')->all());
+    }
+
+    public function test_multiple_interests_are_or_signals_and_more_matches_rank_higher(): void
+    {
+        $travel = $this->interest('Travel');
+        $coffee = $this->interest('Coffee');
+        $tech = $this->interest('Tech');
+        $photography = $this->interest('Photography');
+        $fitness = $this->interest('Fitness');
+
+        $three = $this->gift(['name' => 'Three Interests', 'slug' => 'three-interests', 'price_amount' => '500.00']);
+        $three->interests()->attach([$travel->id, $coffee->id, $tech->id]);
+
+        $one = $this->gift(['name' => 'One Interest', 'slug' => 'one-interest', 'price_amount' => '500.00']);
+        $one->interests()->attach([$fitness->id]);
+
+        $none = $this->gift(['name' => 'No Interest Match', 'slug' => 'no-interest-match']);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'interest_ids' => [$travel->id, $coffee->id, $tech->id, $photography->id, $fitness->id],
+        ]);
+
+        $this->assertCount(5, $session->interests);
+        $this->assertSame([$three->id, $one->id], $this->rankedProductIds($session));
+        $this->assertNotContains($none->id, $session->results->pluck('product_id')->all());
+    }
+
+    public function test_fourth_and_fifth_interest_matches_add_only_a_small_bonus(): void
+    {
+        $interests = collect(['A', 'B', 'C', 'D', 'E'])->map(fn (string $name) => $this->interest($name));
+
+        $three = $this->gift(['name' => 'Three', 'slug' => 'three']);
+        $three->interests()->attach($interests->take(3)->pluck('id'));
+
+        $five = $this->gift(['name' => 'Five', 'slug' => 'five']);
+        $five->interests()->attach($interests->pluck('id'));
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'interest_ids' => $interests->pluck('id')->all(),
+        ]);
+
+        $weights = config('gift_recommendations.weights');
+        $threeResult = $session->results->firstWhere('product_id', $three->id);
+        $fiveResult = $session->results->firstWhere('product_id', $five->id);
+
+        $this->assertSame($weights['interest_match_max'], $threeResult->score_breakdown['interest_match']);
+        $this->assertSame(
+            $weights['interest_match_max'] + 2 * $weights['interest_match_extra'],
+            $fiveResult->score_breakdown['interest_match'],
+        );
+        $this->assertLessThan($weights['occasion_match'], $weights['interest_match_extra'] * 2);
+        $this->assertSame([$five->id, $three->id], $this->rankedProductIds($session));
+    }
+
+    public function test_five_interest_matches_score_the_configured_maximum(): void
+    {
+        $interests = collect(['A', 'B', 'C', 'D', 'E'])->map(fn (string $name) => $this->interest($name));
+        $weights = config('gift_recommendations.weights');
+        $fullWeightMatches = intdiv($weights['interest_match_max'], $weights['interest_match']);
+        $expected = $weights['interest_match_max'] + (5 - $fullWeightMatches) * $weights['interest_match_extra'];
+
+        $product = $this->gift(['name' => 'Five Interests', 'slug' => 'five-interests']);
+        $product->interests()->attach($interests->pluck('id'));
+
+        $result = app(GenerateRecommendationsAction::class)
+            ->execute(['interest_ids' => $interests->pluck('id')->all()])
+            ->results->first();
+
+        $this->assertSame($expected, $result->score_breakdown['interest_match']);
+        $this->assertSame((float) $expected, (float) $result->score);
+    }
+
+    public function test_relationship_plus_occasion_scores_the_sum_of_their_weights(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+        $weights = config('gift_recommendations.weights');
+
+        $product = $this->gift(['name' => 'Both', 'slug' => 'both']);
+        $product->relationships()->attach($relationship);
+        $product->occasions()->attach($occasion);
+
+        $result = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+        ])->results->first();
+
+        $this->assertSame((float) ($weights['relationship_match'] + $weights['occasion_match']), (float) $result->score);
+    }
+
+    public function test_relationship_and_occasion_outrank_interests_alone(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+        $interests = collect(['A', 'B', 'C', 'D', 'E'])->map(fn (string $name) => $this->interest($name));
+
+        $strong = $this->gift(['name' => 'Relationship And Occasion', 'slug' => 'relationship-and-occasion', 'price_amount' => '900.00']);
+        $strong->relationships()->attach($relationship);
+        $strong->occasions()->attach($occasion);
+
+        $interestOnly = $this->gift(['name' => 'Interests Only', 'slug' => 'interests-only', 'price_amount' => '100.00', 'is_featured' => true]);
+        $interestOnly->interests()->attach($interests->pluck('id'));
+
+        $input = [
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+            'interest_ids' => $interests->pluck('id')->all(),
+        ];
+
+        $session = app(GenerateRecommendationsAction::class)->execute($input);
+        $this->assertSame([$strong->id, $interestOnly->id], $this->rankedProductIds($session));
+
+        // With room for only one gift, the interest-only product is never surfaced.
+        Config::set('gift_recommendations.top_n', 1);
+        $limited = app(GenerateRecommendationsAction::class)->execute($input);
+        $this->assertSame([$strong->id], $this->rankedProductIds($limited));
+    }
+
+    public function test_match_tier_ordering_wins_over_raw_score(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+        $profession = $this->profession('Engineer');
+        $giftType = $this->giftType('Personalized');
+
+        $tierBest = $this->gift(['name' => 'Tier Best', 'slug' => 'tier-best', 'price_amount' => '900.00']);
+        $tierBest->relationships()->attach($relationship);
+        $tierBest->occasions()->attach($occasion);
+
+        $highScoreRelated = $this->gift(['name' => 'High Score Related', 'slug' => 'high-score-related', 'price_amount' => '100.00', 'is_featured' => true]);
+        $highScoreRelated->relationships()->attach($relationship);
+        $highScoreRelated->professions()->attach($profession);
+        $highScoreRelated->giftTypes()->attach($giftType);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+            'profession_id' => $profession->id,
+            'gift_type_id' => $giftType->id,
+        ]);
+
+        $best = $session->results->firstWhere('product_id', $tierBest->id);
+        $related = $session->results->firstWhere('product_id', $highScoreRelated->id);
+
+        $this->assertGreaterThan((float) $best->score, (float) $related->score);
+        $this->assertSame([$tierBest->id, $highScoreRelated->id], $this->rankedProductIds($session));
+    }
+
+    public function test_one_matching_interest_keeps_a_gift_eligible_when_five_are_selected(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+        $interests = collect(['A', 'B', 'C', 'D', 'E'])->map(fn (string $name) => $this->interest($name));
+
+        $product = $this->gift(['name' => 'One Of Five', 'slug' => 'one-of-five']);
+        $product->relationships()->attach($relationship);
+        $product->occasions()->attach($occasion);
+        $product->interests()->attach($interests->first());
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+            'interest_ids' => $interests->pluck('id')->all(),
+        ]);
+
+        $this->assertSame([$product->id], $this->rankedProductIds($session));
+        $this->assertSame(RecommendationResult::TIER_BEST, $session->results->first()->matchTier());
+    }
+
+    public function test_sparse_exact_matches_are_broadened_in_tier_order(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $other = $this->relationship('Wife');
+        $occasion = $this->occasion('Birthday');
+        $gaming = $this->interest('Gaming');
+
+        $best = $this->gift(['name' => 'Best', 'slug' => 'best', 'price_amount' => '900.00']);
+        $best->relationships()->attach($relationship);
+        $best->occasions()->attach($occasion);
+        $best->interests()->attach($gaming);
+
+        $good = $this->gift(['name' => 'Good', 'slug' => 'good', 'price_amount' => '100.00']);
+        $good->relationships()->attach($relationship);
+        $good->occasions()->attach($occasion);
+
+        $relatedRelationship = $this->gift(['name' => 'Related Relationship', 'slug' => 'related-relationship', 'price_amount' => '100.00']);
+        $relatedRelationship->relationships()->attach($relationship);
+
+        $relatedOccasion = $this->gift(['name' => 'Related Occasion', 'slug' => 'related-occasion', 'price_amount' => '100.00']);
+        $relatedOccasion->occasions()->attach($occasion);
+        $relatedOccasion->relationships()->attach($other);
+
+        $relatedInterest = $this->gift(['name' => 'Related Interest', 'slug' => 'related-interest', 'price_amount' => '100.00', 'is_featured' => true]);
+        $relatedInterest->interests()->attach($gaming);
+
+        $unrelated = $this->gift(['name' => 'Unrelated', 'slug' => 'unrelated']);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+            'interest_ids' => [$gaming->id],
+        ]);
+
+        $results = $session->results->sortBy('rank')->values();
+
+        $this->assertSame($best->id, $results[0]->product_id);
+        $this->assertSame($good->id, $results[1]->product_id);
+        $this->assertSame(
+            [RecommendationResult::TIER_BEST, RecommendationResult::TIER_GOOD],
+            [$results[0]->matchTier(), $results[1]->matchTier()],
+        );
+
+        $related = $results->slice(2);
         $this->assertEqualsCanonicalizing(
-            [$matching->id, $unrelated->id],
+            [$relatedRelationship->id, $relatedOccasion->id, $relatedInterest->id],
+            $related->pluck('product_id')->all(),
+        );
+        $this->assertTrue($related->every(fn ($r) => $r->matchTier() === RecommendationResult::TIER_RELATED));
+        $this->assertNotContains($unrelated->id, $results->pluck('product_id')->all());
+    }
+
+    public function test_broadening_stops_once_enough_strong_matches_exist(): void
+    {
+        Config::set('gift_recommendations.top_n', 2);
+
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+
+        foreach (range(1, 2) as $index) {
+            $strong = $this->gift(['name' => "Strong {$index}", 'slug' => "strong-{$index}", 'price_amount' => (string) (100 * $index)]);
+            $strong->relationships()->attach($relationship);
+            $strong->occasions()->attach($occasion);
+        }
+
+        $loose = $this->gift(['name' => 'Loose', 'slug' => 'loose', 'is_featured' => true, 'price_amount' => '1.00']);
+        $loose->relationships()->attach($relationship);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+        ]);
+
+        $this->assertNotContains($loose->id, $session->results->pluck('product_id')->all());
+        $this->assertCount(2, $session->results);
+    }
+
+    public function test_profession_and_gift_type_are_soft_signals_not_filters(): void
+    {
+        $relationship = $this->relationship('Husband');
+        $profession = $this->profession('Engineer');
+        $giftType = $this->giftType('Personalized');
+
+        $plain = $this->gift(['name' => 'Plain', 'slug' => 'plain']);
+        $plain->relationships()->attach($relationship);
+
+        $tagged = $this->gift(['name' => 'Tagged', 'slug' => 'tagged']);
+        $tagged->relationships()->attach($relationship);
+        $tagged->professions()->attach($profession);
+        $tagged->giftTypes()->attach($giftType);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'profession_id' => $profession->id,
+            'gift_type_id' => $giftType->id,
+        ]);
+
+        $this->assertSame([$tagged->id, $plain->id], $this->rankedProductIds($session));
+    }
+
+    public function test_null_budget_applies_no_price_constraint(): void
+    {
+        $relationship = $this->relationship('Husband');
+
+        $priced = $this->gift(['name' => 'Priced', 'slug' => 'priced', 'price_amount' => '99999.00']);
+        $priced->relationships()->attach($relationship);
+
+        $unpriced = $this->gift(['name' => 'Unpriced', 'slug' => 'unpriced', 'price_amount' => null]);
+        $unpriced->relationships()->attach($relationship);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'budget_range_id' => null,
+        ]);
+
+        $this->assertEqualsCanonicalizing(
+            [$priced->id, $unpriced->id],
             $session->results->pluck('product_id')->all(),
         );
+        $this->assertNull($session->budget_range_id);
+    }
 
-        $matchingResult = $session->results->firstWhere('product_id', $matching->id);
-        $unrelatedResult = $session->results->firstWhere('product_id', $unrelated->id);
+    public function test_chosen_budget_is_kept_while_broadening(): void
+    {
+        $budget = BudgetRange::query()->create([
+            'name' => 'Under 500',
+            'slug' => 'under-500',
+            'min_amount' => null,
+            'max_amount' => 500,
+            'currency' => 'INR',
+        ]);
+        $relationship = $this->relationship('Husband');
+        $occasion = $this->occasion('Birthday');
+
+        $cheap = $this->gift(['name' => 'Cheap', 'slug' => 'cheap', 'price_amount' => '300.00']);
+        $cheap->relationships()->attach($relationship);
+
+        $expensive = $this->gift(['name' => 'Expensive Match', 'slug' => 'expensive-match', 'price_amount' => '900.00']);
+        $expensive->relationships()->attach($relationship);
+        $expensive->occasions()->attach($occasion);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+            'budget_range_id' => $budget->id,
+        ]);
+
+        $this->assertSame([$cheap->id], $session->results->pluck('product_id')->all());
+    }
+
+    public function test_results_are_deterministic_for_the_same_answers(): void
+    {
+        $relationship = $this->relationship('Husband');
+
+        foreach (range(1, 5) as $index) {
+            $gift = $this->gift(['name' => "Gift {$index}", 'slug' => "gift-{$index}", 'price_amount' => '300.00']);
+            $gift->relationships()->attach($relationship);
+        }
+
+        $first = app(GenerateRecommendationsAction::class)->execute(['relationship_id' => $relationship->id]);
+        $second = app(GenerateRecommendationsAction::class)->execute(['relationship_id' => $relationship->id]);
 
         $this->assertSame(
-            config('gift_recommendations.weights.occasion_match'),
-            $matchingResult->score_breakdown['occasion_match'],
+            $first->results->sortBy('rank')->pluck('product_id')->all(),
+            $second->results->sortBy('rank')->pluck('product_id')->all(),
         );
-        $this->assertArrayNotHasKey('occasion_match', $unrelatedResult->score_breakdown);
-        $this->assertSame(0.0, (float) $unrelatedResult->score);
     }
 
     public function test_it_only_includes_published_products_with_active_affiliate_links(): void
@@ -116,31 +473,6 @@ class GenerateRecommendationsActionTest extends TestCase
         ]);
 
         $this->assertSame([$matching->id], $session->results->pluck('product_id')->all());
-    }
-
-    public function test_it_allows_untagged_products_when_strict_filtering_is_disabled(): void
-    {
-        Config::set('gift_recommendations.optional_dimensions_filter_strict', false);
-
-        $relationship = $this->relationship('Husband');
-
-        $matching = $this->gift(['name' => 'Husband Gift', 'slug' => 'husband-gift']);
-        $matching->relationships()->attach($relationship);
-
-        $untagged = $this->gift(['name' => 'Untagged Gift', 'slug' => 'untagged-gift', 'price_amount' => '100.00']);
-
-        $session = app(GenerateRecommendationsAction::class)->execute([
-            'relationship_id' => $relationship->id,
-        ]);
-
-        $this->assertEqualsCanonicalizing(
-            [$matching->id, $untagged->id],
-            $session->results->pluck('product_id')->all(),
-        );
-
-        $untaggedResult = $session->results->firstWhere('product_id', $untagged->id);
-        $this->assertSame(0.0, (float) $untaggedResult->score);
-        $this->assertArrayNotHasKey('relationship_match', $untaggedResult->score_breakdown);
     }
 
     public function test_it_hard_filters_by_budget_range(): void
@@ -446,6 +778,14 @@ class GenerateRecommendationsActionTest extends TestCase
         $this->assertSame($second->id, $results[1]->product_id);
         $this->assertNotEmpty($results[0]->explanation);
         $this->assertArrayHasKey('total', $results[0]->score_breakdown);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function rankedProductIds(RecommendationSession $session): array
+    {
+        return $session->results->sortBy('rank')->pluck('product_id')->values()->all();
     }
 
     private function gift(array $attributes = [], AffiliateLinkStatus $linkStatus = AffiliateLinkStatus::Active): Product

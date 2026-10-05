@@ -6,7 +6,7 @@
 ])
 
 <div>
-    <h1 class="font-serif text-[28px] leading-tight tracking-tight text-ink md:text-[38px]">{{ $title }}</h1>
+    <h1 tabindex="-1" data-finder-heading class="font-serif text-[28px] leading-tight tracking-tight text-ink focus:outline-none md:text-[38px]">{{ $title }}</h1>
     @if (filled($subtitle))
         <p class="mt-2 text-[15px] text-ink-muted">{{ $subtitle }}</p>
     @endif

@@ -87,35 +87,28 @@ class GenerateRecommendationsAction
 
     /**
      * @param  list<int>  $interestIds
-     * @return list<array{product: Product, score: float, breakdown: array<string, float|int>, explanation: string}>
+     * @return list<array{product: Product, score: float, tier: int, breakdown: array<string, float|int>, explanation: string}>
      */
     private function rankCandidates(RecommendationSession $session, array $interestIds): array
     {
         $weights = config('gift_recommendations.weights');
         $topN = (int) config('gift_recommendations.top_n');
 
-        $candidates = $this->eligibleProducts($session, $interestIds)
-            ->with([
-                'occasions:id,name',
-                'relationships:id,name',
-                'recipientTypes:id,name',
-                'interests:id,name',
-                'professions:id,name',
-                'giftTypes:id,name',
-            ])
-            ->get();
+        $scored = $this->collectCandidates($session, $interestIds, $topN)
+            ->map(function (Product $product) use ($session, $interestIds, $weights): array {
+                $breakdown = $this->scoreProduct($product, $session, $interestIds, $weights);
+                $tier = $this->matchTier($product, $session, $interestIds);
+                $breakdown['match_tier'] = $tier;
 
-        $scored = $candidates->map(function (Product $product) use ($session, $interestIds, $weights): array {
-            $breakdown = $this->scoreProduct($product, $session, $interestIds, $weights);
-            $score = (float) ($breakdown['total'] ?? 0);
-
-            return [
-                'product' => $product,
-                'score' => $score,
-                'breakdown' => $breakdown,
-                'explanation' => $this->buildExplanation($breakdown, $session, $product, $interestIds),
-            ];
-        });
+                return [
+                    'product' => $product,
+                    'score' => (float) $breakdown['total'],
+                    'tier' => $tier,
+                    'breakdown' => $breakdown,
+                    'explanation' => $this->buildExplanation($breakdown, $session, $product, $interestIds),
+                ];
+            })
+            ->values();
 
         return $this->sortCandidates($scored)
             ->take($topN)
@@ -124,29 +117,131 @@ class GenerateRecommendationsAction
     }
 
     /**
+     * Retrieves candidates in deterministic relaxation stages and stops once the
+     * pool holds at least $topN products. Every stage keeps the hard constraints
+     * (published, active affiliate link, chosen budget, chosen gender); only the
+     * relationship / occasion / interest signals are relaxed:
+     *
+     *   1. relationship ∧ occasion ∧ any chosen interest
+     *   2. relationship ∧ occasion
+     *   3. relationship ∪ occasion ∪ any chosen interest
+     *
+     * Profession, gift type and recipient type never narrow the pool; they only
+     * add score. Interests are OR (any match), never AND.
+     *
      * @param  list<int>  $interestIds
+     * @return Collection<int, Product>
      */
-    private function eligibleProducts(RecommendationSession $session, array $interestIds): Builder
+    private function collectCandidates(RecommendationSession $session, array $interestIds, int $topN): Collection
     {
-        $filters = [
-            'budget_range_id' => $session->budget_range_id,
-        ];
+        $pool = collect();
 
-        if (config('gift_recommendations.optional_dimensions_filter_strict')) {
-            $filters['relationship_id'] = $session->relationship_id;
-            $filters['recipient_type_id'] = $session->recipient_type_id;
-            $filters['recipient_gender_id'] = $session->recipient_gender_id;
-            $filters['profession_id'] = $session->profession_id;
-            $filters['gift_type_id'] = $session->gift_type_id;
-            $filters['interest_ids'] = $interestIds;
+        foreach ($this->retrievalStages($session, $interestIds) as $stage) {
+            foreach ($stage as $signalFilters) {
+                $this->baseQuery($session, $signalFilters)
+                    ->with([
+                        'occasions:id,name',
+                        'relationships:id,name',
+                        'recipientTypes:id,name',
+                        'interests:id,name',
+                        'professions:id,name',
+                        'giftTypes:id,name',
+                    ])
+                    ->get()
+                    ->each(function (Product $product) use ($pool): void {
+                        if (! $pool->has($product->id)) {
+                            $pool->put($product->id, $product);
+                        }
+                    });
+            }
+
+            if ($pool->count() >= $topN) {
+                break;
+            }
         }
 
+        return $pool;
+    }
+
+    /**
+     * Each stage is a list of filter sets; their results are merged (OR).
+     *
+     * @param  list<int>  $interestIds
+     * @return list<list<array<string, mixed>>>
+     */
+    private function retrievalStages(RecommendationSession $session, array $interestIds): array
+    {
+        $strong = array_filter([
+            'relationship_id' => $session->relationship_id,
+            'occasion_id' => $session->occasion_id,
+        ], fn ($id) => $id !== null);
+
+        $hasInterests = $interestIds !== [];
+
+        if ($strong === [] && ! $hasInterests) {
+            return [[[]]];
+        }
+
+        $stages = [];
+
+        if ($strong !== [] && $hasInterests) {
+            $stages[] = [$strong + ['interest_ids' => $interestIds]];
+        }
+
+        if ($strong !== []) {
+            $stages[] = [$strong];
+        }
+
+        $related = [];
+
+        foreach ($strong as $key => $id) {
+            $related[] = [$key => $id];
+        }
+
+        if ($hasInterests) {
+            $related[] = ['interest_ids' => $interestIds];
+        }
+
+        if (count($related) > 1 || $strong === []) {
+            $stages[] = $related;
+        }
+
+        return $stages;
+    }
+
+    /**
+     * @param  array<string, mixed>  $signalFilters
+     */
+    private function baseQuery(RecommendationSession $session, array $signalFilters): Builder
+    {
         return app(QueryPublishedProductsByFiltersAction::class)->execute(
-            $filters,
+            $signalFilters + [
+                'budget_range_id' => $session->budget_range_id,
+                'recipient_gender_id' => $session->recipient_gender_id,
+            ],
             requireActiveAffiliate: true,
             allowUnfiltered: true,
             matchAllInterests: false,
         );
+    }
+
+    /**
+     * @param  list<int>  $interestIds
+     */
+    private function matchTier(Product $product, RecommendationSession $session, array $interestIds): int
+    {
+        $strongMatched = ($session->relationship_id === null || $product->relationships->contains('id', $session->relationship_id))
+            && ($session->occasion_id === null || $product->occasions->contains('id', $session->occasion_id));
+
+        if (! $strongMatched) {
+            return RecommendationResult::TIER_RELATED;
+        }
+
+        if ($interestIds === [] || $product->interests->whereIn('id', $interestIds)->isNotEmpty()) {
+            return RecommendationResult::TIER_BEST;
+        }
+
+        return RecommendationResult::TIER_GOOD;
     }
 
     /**
@@ -174,11 +269,7 @@ class GenerateRecommendationsAction
             $overlap = $product->interests->whereIn('id', $interestIds)->count();
 
             if ($overlap > 0) {
-                $interestScore = min(
-                    $overlap * $weights['interest_match'],
-                    $weights['interest_match_max'],
-                );
-                $breakdown['interest_match'] = $interestScore;
+                $breakdown['interest_match'] = $this->interestScore($overlap, $weights);
             }
         }
 
@@ -200,14 +291,35 @@ class GenerateRecommendationsAction
     }
 
     /**
-     * @param  Collection<int, array{product: Product, score: float, breakdown: array<string, float|int>, explanation: string}>  $candidates
-     * @return Collection<int, array{product: Product, score: float, breakdown: array<string, float|int>, explanation: string}>
+     * Full weight per matched interest up to `interest_match_max`, then a small
+     * `interest_match_extra` per additional match (diminishing returns).
+     *
+     * @param  array<string, int>  $weights
+     */
+    private function interestScore(int $overlap, array $weights): int
+    {
+        $perInterest = (int) $weights['interest_match'];
+        $fullWeightMatches = $perInterest > 0 ? intdiv((int) $weights['interest_match_max'], $perInterest) : 0;
+
+        return min($overlap, $fullWeightMatches) * $perInterest
+            + max(0, $overlap - $fullWeightMatches) * (int) ($weights['interest_match_extra'] ?? 0);
+    }
+
+    /**
+     * Match tier always sorts first (best before broader), then the configured tie breakers.
+     *
+     * @param  Collection<int, array{product: Product, score: float, tier: int, breakdown: array<string, float|int>, explanation: string}>  $candidates
+     * @return Collection<int, array{product: Product, score: float, tier: int, breakdown: array<string, float|int>, explanation: string}>
      */
     private function sortCandidates(Collection $candidates): Collection
     {
         $tieBreakers = config('gift_recommendations.tie_breakers');
 
         return $candidates->sort(function (array $a, array $b) use ($tieBreakers): int {
+            if ($a['tier'] !== $b['tier']) {
+                return $a['tier'] <=> $b['tier'];
+            }
+
             foreach ($tieBreakers as $breaker) {
                 $comparison = match ($breaker) {
                     'score' => $b['score'] <=> $a['score'],

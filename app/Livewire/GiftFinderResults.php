@@ -26,9 +26,17 @@ class GiftFinderResults extends Component
         $session = $this->session();
         $results = $this->results();
 
+        $bestResults = $results->filter(fn (RecommendationResult $result) => $result->matchTier() === RecommendationResult::TIER_BEST)->values();
+        $broaderResults = $results->reject(fn (RecommendationResult $result) => $result->matchTier() === RecommendationResult::TIER_BEST)->values();
+
         return view('livewire.gift-finder-results', [
             'results' => $results,
             'resultCount' => $results->count(),
+            'bestResults' => $bestResults,
+            'broaderResults' => $broaderResults,
+            'hasBroaderResults' => $bestResults->isNotEmpty() && $broaderResults->isNotEmpty(),
+            'bestHeading' => $this->bestHeading($session, $bestResults->count()),
+            'broaderHeading' => $this->broaderHeading($session),
             'summaryItems' => $this->summaryItems($session),
             'heading' => $this->heading($results->count()),
             'finderUrl' => DiscoveryUrl::finder(),
@@ -103,7 +111,25 @@ class GiftFinderResults extends Component
     {
         $featuredBoost = (float) config('gift_recommendations.weights.featured_boost');
 
-        return $displayIndex <= 3 && (float) $result->score > $featuredBoost;
+        return $displayIndex <= 3
+            && $result->matchTier() === RecommendationResult::TIER_BEST
+            && (float) $result->score > $featuredBoost;
+    }
+
+    private function bestHeading(RecommendationSession $session, int $count): string
+    {
+        $noun = $count === 1 ? 'great match' : 'great matches';
+
+        return $session->relationship !== null
+            ? "{$count} {$noun} for {$session->relationship->name}"
+            : "{$count} {$noun} for you";
+    }
+
+    private function broaderHeading(RecommendationSession $session): string
+    {
+        return $session->occasion !== null
+            ? "More {$session->occasion->name} gifts they may like"
+            : 'More gifts they may like';
     }
 
     /**
@@ -128,9 +154,7 @@ class GiftFinderResults extends Component
             ];
         }
 
-        if ($session->budgetRange !== null) {
-            $items[] = ['label' => 'Budget', 'value' => $session->budgetRange->name];
-        }
+        $items[] = ['label' => 'Budget', 'value' => $session->budgetRange?->name ?? 'Any budget'];
 
         if ($session->recipientType !== null) {
             $items[] = ['label' => 'Recipient', 'value' => $session->recipientType->name];

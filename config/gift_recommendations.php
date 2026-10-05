@@ -4,27 +4,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Optional Dimension Filtering
-    |--------------------------------------------------------------------------
-    |
-    | When true, selecting an optional finder dimension (relationship, recipient
-    | type, recipient gender, interest, profession, gift type) excludes products
-    | not tagged with that dimension. When false, untagged products remain with
-    | zero score. Male/female gender filters expand to include unisex products.
-    |
-    */
-
-    'optional_dimensions_filter_strict' => true,
-
-    /*
-    |--------------------------------------------------------------------------
     | Result Limits
     |--------------------------------------------------------------------------
+    |
+    | The Gift Finder ranks gifts rather than filtering them away. Candidates
+    | are retrieved in relaxation stages (see GenerateRecommendationsAction)
+    | until at least `top_n` are available, then ranked and truncated.
+    |
     */
 
     'top_n' => 12,
 
-    'max_interests' => 3,
+    'max_interests' => 5,
 
     /*
     |--------------------------------------------------------------------------
@@ -34,6 +25,11 @@ return [
     | Deterministic, explainable weights for the MVP recommendation engine.
     | Budget and RecipientGender are hard eligibility filters only and are not scored.
     |
+    | Interests are a soft ranking signal. Each matched interest adds
+    | `interest_match` until `interest_match_max` is reached; matches beyond that
+    | add only `interest_match_extra` each, so a 4th/5th selected interest
+    | differentiates gifts slightly without outweighing occasion or relationship.
+    |
     */
 
     'weights' => [
@@ -42,6 +38,7 @@ return [
         'recipient_type_match' => 15,
         'interest_match' => 10,
         'interest_match_max' => 30,
+        'interest_match_extra' => 2,
         'profession_match' => 20,
         'gift_type_match' => 15,
         'featured_boost' => 5,
@@ -53,7 +50,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Applied in order when scores are equal: higher score first, then lower
-    | price, then newer published_at, then lower product id.
+    | price, then newer published_at, then lower product id. Match tier always
+    | sorts before score (see GenerateRecommendationsAction).
     |
     */
 

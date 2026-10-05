@@ -45,16 +45,46 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
-                @foreach ($results as $index => $result)
-                    <x-gift-card
-                        :product="$result->product"
-                        :match-reason="$result->explanation"
-                        :great-match="$this->isGreatMatch($result, $index + 1)"
-                        wire:key="result-{{ $result->id }}"
-                    />
-                @endforeach
-            </div>
+            @if ($hasBroaderResults)
+                <section aria-labelledby="finder-best-heading">
+                    <h3 id="finder-best-heading" class="mb-4 font-serif text-xl text-ink md:text-2xl">{{ $bestHeading }}</h3>
+                    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+                        @foreach ($bestResults as $index => $result)
+                            <x-gift-card
+                                :product="$result->product"
+                                :match-reason="$result->explanation"
+                                :great-match="$this->isGreatMatch($result, $index + 1)"
+                                wire:key="result-{{ $result->id }}"
+                            />
+                        @endforeach
+                    </div>
+                </section>
+
+                <section class="mt-10" aria-labelledby="finder-broader-heading">
+                    <h3 id="finder-broader-heading" class="mb-4 font-serif text-xl text-ink md:text-2xl">{{ $broaderHeading }}</h3>
+                    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+                        @foreach ($broaderResults as $result)
+                            <x-gift-card
+                                :product="$result->product"
+                                :match-reason="$result->explanation"
+                                :great-match="false"
+                                wire:key="result-{{ $result->id }}"
+                            />
+                        @endforeach
+                    </div>
+                </section>
+            @else
+                <div class="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+                    @foreach ($results as $index => $result)
+                        <x-gift-card
+                            :product="$result->product"
+                            :match-reason="$result->explanation"
+                            :great-match="$this->isGreatMatch($result, $index + 1)"
+                            wire:key="result-{{ $result->id }}"
+                        />
+                    @endforeach
+                </div>
+            @endif
 
             <div class="mt-10 flex flex-col items-center gap-3 rounded-xl border border-line bg-surface p-6 text-center">
                 <span class="inline-flex items-center rounded-md border border-plum/15 bg-plum-light px-2 py-1 text-[11px] font-semibold tracking-wide text-plum">
