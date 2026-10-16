@@ -5,6 +5,7 @@ namespace Tests\Feature\Finder;
 use App\Enums\AffiliateLinkStatus;
 use App\Livewire\GiftFinderResults;
 use App\Models\AffiliateLink;
+use App\Models\Interest;
 use App\Models\Merchant;
 use App\Models\Occasion;
 use App\Models\Product;
@@ -215,6 +216,61 @@ class GiftFinderResultsTest extends TestCase
         $this->assertLessThan(strpos($html, 'More Birthday gifts'), strpos($html, 'Best Gift'));
         $this->assertGreaterThan(strpos($html, 'More Birthday gifts'), strpos($html, 'Broader Gift'));
         $this->assertSame(1, substr_count($html, 'Great Match'));
+    }
+
+    public function test_interest_matches_with_relationship_or_occasion_are_great_matches_and_the_rest_are_broader(): void
+    {
+        $relationship = Relationship::query()->create(['name' => 'Husband', 'slug' => 'husband', 'is_active' => true]);
+        $occasion = Occasion::query()->create(['name' => 'Birthday', 'slug' => 'birthday', 'is_active' => true]);
+        $interest = Interest::query()->create(['name' => 'Gaming', 'slug' => 'gaming']);
+        $session = RecommendationSession::query()->create([
+            'relationship_id' => $relationship->id,
+            'occasion_id' => $occasion->id,
+        ]);
+        $session->interests()->attach($interest);
+
+        $groups = [
+            'Perfect Gift' => RecommendationResult::GROUP_BEST,
+            'Strong Interest Gift' => RecommendationResult::GROUP_STRONG_INTEREST,
+            'Interest Only Gift' => RecommendationResult::GROUP_INTEREST_ONLY,
+            'Generic Gift' => RecommendationResult::GROUP_RELATIONSHIP_OCCASION,
+        ];
+
+        $rank = 0;
+        foreach ($groups as $name => $group) {
+            $gift = GiftCatalogTestHelpers::publishedGift(['name' => $name, 'slug' => str($name)->slug()->toString()]);
+            $this->createResult($session, $gift, rank: ++$rank, score: 50 - $rank, explanation: 'Match.', breakdown: [
+                'total' => 50 - $rank,
+                'relevance_group' => $group,
+            ]);
+        }
+
+        $html = $this->get(DiscoveryUrl::finderResults($session->uuid))
+            ->assertOk()
+            ->assertSee('2 great matches for Husband', false)
+            ->assertSee('More gifts they may like', false)
+            ->assertDontSee('More Birthday gifts they may like', false)
+            ->assertDontSee('relevance_group', false)
+            ->getContent();
+
+        $divider = strpos($html, 'More gifts they may like');
+        $this->assertLessThan($divider, strpos($html, 'Strong Interest Gift'));
+        $this->assertGreaterThan($divider, strpos($html, 'Interest Only Gift'));
+        $this->assertGreaterThan($divider, strpos($html, 'Generic Gift'));
+    }
+
+    public function test_legacy_match_tiers_map_onto_relevance_groups(): void
+    {
+        $legacy = fn (?int $tier) => new RecommendationResult([
+            'score_breakdown' => $tier === null ? ['total' => 10] : ['total' => 10, 'match_tier' => $tier],
+        ]);
+
+        $this->assertSame(RecommendationResult::GROUP_BEST, $legacy(null)->relevanceGroup());
+        $this->assertSame(RecommendationResult::GROUP_BEST, $legacy(RecommendationResult::TIER_BEST)->relevanceGroup());
+        $this->assertSame(RecommendationResult::GROUP_RELATIONSHIP_OCCASION, $legacy(RecommendationResult::TIER_GOOD)->relevanceGroup());
+        $this->assertSame(RecommendationResult::GROUP_RELAXED, $legacy(RecommendationResult::TIER_RELATED)->relevanceGroup());
+        $this->assertTrue($legacy(RecommendationResult::TIER_BEST)->isGreatMatchGroup());
+        $this->assertFalse($legacy(RecommendationResult::TIER_RELATED)->isGreatMatchGroup());
     }
 
     public function test_results_without_tier_data_render_as_a_single_ungrouped_list(): void

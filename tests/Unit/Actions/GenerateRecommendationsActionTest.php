@@ -65,8 +65,8 @@ class GenerateRecommendationsActionTest extends TestCase
             $bothResult->score_breakdown['occasion_match'],
         );
         $this->assertArrayNotHasKey('occasion_match', $relationshipOnlyResult->score_breakdown);
-        $this->assertSame(RecommendationResult::TIER_BEST, $bothResult->matchTier());
-        $this->assertSame(RecommendationResult::TIER_RELATED, $relationshipOnlyResult->matchTier());
+        $this->assertSame(RecommendationResult::GROUP_BEST, $bothResult->relevanceGroup());
+        $this->assertSame(RecommendationResult::GROUP_RELAXED, $relationshipOnlyResult->relevanceGroup());
     }
 
     public function test_products_matching_no_answered_signal_are_not_returned(): void
@@ -174,7 +174,7 @@ class GenerateRecommendationsActionTest extends TestCase
         $this->assertSame((float) ($weights['relationship_match'] + $weights['occasion_match']), (float) $result->score);
     }
 
-    public function test_relationship_and_occasion_outrank_interests_alone(): void
+    public function test_selected_interests_outrank_generic_relationship_and_occasion_matches(): void
     {
         $relationship = $this->relationship('Husband');
         $occasion = $this->occasion('Birthday');
@@ -194,12 +194,15 @@ class GenerateRecommendationsActionTest extends TestCase
         ];
 
         $session = app(GenerateRecommendationsAction::class)->execute($input);
-        $this->assertSame([$strong->id, $interestOnly->id], $this->rankedProductIds($session));
+        $this->assertSame([$interestOnly->id, $strong->id], $this->rankedProductIds($session));
 
-        // With room for only one gift, the interest-only product is never surfaced.
+        $groups = $session->results->sortBy('rank')->map(fn ($r) => $r->relevanceGroup())->values()->all();
+        $this->assertSame([RecommendationResult::GROUP_INTEREST_ONLY, RecommendationResult::GROUP_RELATIONSHIP_OCCASION], $groups);
+
+        // With room for only one gift, the selected-interest product wins the slot.
         Config::set('gift_recommendations.top_n', 1);
         $limited = app(GenerateRecommendationsAction::class)->execute($input);
-        $this->assertSame([$strong->id], $this->rankedProductIds($limited));
+        $this->assertSame([$interestOnly->id], $this->rankedProductIds($limited));
     }
 
     public function test_match_tier_ordering_wins_over_raw_score(): void
@@ -250,10 +253,10 @@ class GenerateRecommendationsActionTest extends TestCase
         ]);
 
         $this->assertSame([$product->id], $this->rankedProductIds($session));
-        $this->assertSame(RecommendationResult::TIER_BEST, $session->results->first()->matchTier());
+        $this->assertSame(RecommendationResult::GROUP_BEST, $session->results->first()->relevanceGroup());
     }
 
-    public function test_sparse_exact_matches_are_broadened_in_tier_order(): void
+    public function test_sparse_exact_matches_are_broadened_in_relevance_group_order(): void
     {
         $relationship = $this->relationship('Husband');
         $other = $this->relationship('Wife');
@@ -290,18 +293,23 @@ class GenerateRecommendationsActionTest extends TestCase
         $results = $session->results->sortBy('rank')->values();
 
         $this->assertSame($best->id, $results[0]->product_id);
-        $this->assertSame($good->id, $results[1]->product_id);
+        $this->assertSame($relatedInterest->id, $results[1]->product_id);
+        $this->assertSame($good->id, $results[2]->product_id);
         $this->assertSame(
-            [RecommendationResult::TIER_BEST, RecommendationResult::TIER_GOOD],
-            [$results[0]->matchTier(), $results[1]->matchTier()],
+            [
+                RecommendationResult::GROUP_BEST,
+                RecommendationResult::GROUP_INTEREST_ONLY,
+                RecommendationResult::GROUP_RELATIONSHIP_OCCASION,
+            ],
+            [$results[0]->relevanceGroup(), $results[1]->relevanceGroup(), $results[2]->relevanceGroup()],
         );
 
-        $related = $results->slice(2);
+        $related = $results->slice(3);
         $this->assertEqualsCanonicalizing(
-            [$relatedRelationship->id, $relatedOccasion->id, $relatedInterest->id],
+            [$relatedRelationship->id, $relatedOccasion->id],
             $related->pluck('product_id')->all(),
         );
-        $this->assertTrue($related->every(fn ($r) => $r->matchTier() === RecommendationResult::TIER_RELATED));
+        $this->assertTrue($related->every(fn ($r) => $r->relevanceGroup() === RecommendationResult::GROUP_RELAXED));
         $this->assertNotContains($unrelated->id, $results->pluck('product_id')->all());
     }
 
@@ -778,6 +786,288 @@ class GenerateRecommendationsActionTest extends TestCase
         $this->assertSame($second->id, $results[1]->product_id);
         $this->assertNotEmpty($results[0]->explanation);
         $this->assertArrayHasKey('total', $results[0]->score_breakdown);
+    }
+
+    public function test_audit_case_a_self_care_products_outrank_generic_relationship_and_occasion_gifts(): void
+    {
+        $friends = $this->relationship('Friends');
+        $other = $this->relationship('Wife');
+        $justBecause = $this->occasion('Just Because');
+        $selfCare = $this->interest('Self-Care & Wellness');
+
+        // Generic: Relationship + Occasion, no Self-Care. Cheap and featured so price/featured cannot rescue it.
+        $generic = $this->gift(['name' => 'Generic Wallet Card', 'slug' => 'generic-wallet-card', 'price_amount' => '1.00', 'is_featured' => true]);
+        $generic->relationships()->attach($friends);
+        $generic->occasions()->attach($justBecause);
+
+        // Occasion + Self-Care (not Friends).
+        $occasionInterest = $this->gift(['name' => 'Diffuser', 'slug' => 'diffuser', 'price_amount' => '900.00']);
+        $occasionInterest->relationships()->attach($other);
+        $occasionInterest->occasions()->attach($justBecause);
+        $occasionInterest->interests()->attach($selfCare);
+
+        // Self-Care only.
+        $interestOnly = $this->gift(['name' => 'Serum', 'slug' => 'serum', 'price_amount' => '900.00']);
+        $interestOnly->interests()->attach($selfCare);
+
+        // Broader fallback: relationship only, nothing else.
+        $fallback = $this->gift(['name' => 'Fallback Gift', 'slug' => 'fallback-gift', 'price_amount' => '1.00', 'is_featured' => true]);
+        $fallback->relationships()->attach($friends);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $friends->id,
+            'occasion_id' => $justBecause->id,
+            'interest_ids' => [$selfCare->id],
+        ]);
+
+        $this->assertSame(
+            [$occasionInterest->id, $interestOnly->id, $generic->id, $fallback->id],
+            $this->rankedProductIds($session),
+        );
+        $this->assertSame(
+            [
+                RecommendationResult::GROUP_STRONG_INTEREST,
+                RecommendationResult::GROUP_INTEREST_ONLY,
+                RecommendationResult::GROUP_RELATIONSHIP_OCCASION,
+                RecommendationResult::GROUP_RELAXED,
+            ],
+            $session->results->sortBy('rank')->map(fn ($r) => $r->relevanceGroup())->values()->all(),
+        );
+    }
+
+    public function test_audit_case_b_interest_matches_are_retrieved_even_when_relationship_and_occasion_fill_top_n(): void
+    {
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+        $gaming = $this->interest('Gaming');
+        $topN = (int) config('gift_recommendations.top_n');
+
+        $generic = collect(range(1, $topN))->map(function (int $index) use ($husband, $birthday) {
+            $gift = $this->gift(['name' => "Generic {$index}", 'slug' => "generic-{$index}", 'price_amount' => '100.00', 'is_featured' => true]);
+            $gift->relationships()->attach($husband);
+            $gift->occasions()->attach($birthday);
+
+            return $gift;
+        });
+
+        $gamingOnly = collect(range(1, 3))->map(function (int $index) use ($gaming) {
+            $gift = $this->gift(['name' => "Gaming {$index}", 'slug' => "gaming-{$index}", 'price_amount' => '9000.00']);
+            $gift->interests()->attach($gaming);
+
+            return $gift;
+        });
+
+        $perfect = $this->gift(['name' => 'Husband Birthday Gaming', 'slug' => 'husband-birthday-gaming', 'price_amount' => '9000.00']);
+        $perfect->relationships()->attach($husband);
+        $perfect->occasions()->attach($birthday);
+        $perfect->interests()->attach($gaming);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $husband->id,
+            'occasion_id' => $birthday->id,
+            'interest_ids' => [$gaming->id],
+        ]);
+
+        $ranked = $this->rankedProductIds($session);
+
+        $this->assertCount($topN, $ranked);
+        $this->assertSame($perfect->id, $ranked[0]);
+        $this->assertEqualsCanonicalizing($gamingOnly->pluck('id')->all(), array_slice($ranked, 1, 3));
+
+        // Generic Husband + Birthday gifts only fill the remaining slots.
+        $this->assertCount($topN - 4, array_intersect($ranked, $generic->pluck('id')->all()));
+    }
+
+    public function test_interest_matches_are_retrieved_when_top_n_is_smaller_than_the_relationship_and_occasion_pool(): void
+    {
+        Config::set('gift_recommendations.top_n', 2);
+
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+        $gaming = $this->interest('Gaming');
+
+        foreach (range(1, 5) as $index) {
+            $generic = $this->gift(['name' => "Generic {$index}", 'slug' => "generic-{$index}"]);
+            $generic->relationships()->attach($husband);
+            $generic->occasions()->attach($birthday);
+        }
+
+        $first = $this->gift(['name' => 'Gaming One', 'slug' => 'gaming-one']);
+        $first->interests()->attach($gaming);
+        $second = $this->gift(['name' => 'Gaming Two', 'slug' => 'gaming-two']);
+        $second->interests()->attach($gaming);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $husband->id,
+            'occasion_id' => $birthday->id,
+            'interest_ids' => [$gaming->id],
+        ]);
+
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], $this->rankedProductIds($session));
+    }
+
+    public function test_more_matched_interests_rank_higher_within_the_same_relevance_group(): void
+    {
+        $travel = $this->interest('Travel');
+        $gaming = $this->interest('Gaming');
+        $tech = $this->interest('Tech');
+        $coffee = $this->interest('Coffee');
+
+        // The single-interest gift is cheaper, so price ordering cannot explain the result.
+        $one = $this->gift(['name' => 'One Interest', 'slug' => 'one-interest', 'price_amount' => '100.00']);
+        $one->interests()->attach($tech);
+
+        $two = $this->gift(['name' => 'Two Interests', 'slug' => 'two-interests', 'price_amount' => '900.00']);
+        $two->interests()->attach([$travel->id, $gaming->id]);
+
+        // Matches nothing selected: not retrieved at all (no other signals selected).
+        $none = $this->gift(['name' => 'No Match', 'slug' => 'no-match']);
+        $none->interests()->attach($coffee);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'interest_ids' => [$travel->id, $gaming->id, $tech->id],
+        ]);
+
+        $this->assertSame([$two->id, $one->id], $this->rankedProductIds($session));
+        $this->assertSame(
+            [RecommendationResult::GROUP_BEST, RecommendationResult::GROUP_BEST],
+            $session->results->sortBy('rank')->map(fn ($r) => $r->relevanceGroup())->values()->all(),
+        );
+    }
+
+    public function test_matching_one_selected_interest_is_enough_to_be_retrieved(): void
+    {
+        $husband = $this->relationship('Husband');
+        $travel = $this->interest('Travel');
+        $coffee = $this->interest('Coffee');
+        $tech = $this->interest('Tech');
+
+        $coffeeOnly = $this->gift(['name' => 'Coffee Only', 'slug' => 'coffee-only']);
+        $coffeeOnly->interests()->attach($coffee);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $husband->id,
+            'interest_ids' => [$travel->id, $coffee->id, $tech->id],
+        ]);
+
+        $this->assertSame([$coffeeOnly->id], $this->rankedProductIds($session));
+        $this->assertSame(RecommendationResult::GROUP_INTEREST_ONLY, $session->results->first()->relevanceGroup());
+    }
+
+    public function test_price_is_a_late_tie_break_after_interest_overlap_and_featured(): void
+    {
+        $fitness = $this->interest('Fitness');
+        $reading = $this->interest('Reading');
+
+        // Force score ties: featured_boost == interest_match, so 1 interest + featured == 2 interests.
+        Config::set('gift_recommendations.weights.featured_boost', 10);
+
+        $cheapFeatured = $this->gift(['name' => 'Cheap Featured', 'slug' => 'cheap-featured', 'price_amount' => '100.00', 'is_featured' => true]);
+        $cheapFeatured->interests()->attach($fitness);
+
+        $pricierTwoInterests = $this->gift(['name' => 'Pricier Two Interests', 'slug' => 'pricier-two-interests', 'price_amount' => '900.00']);
+        $pricierTwoInterests->interests()->attach([$fitness->id, $reading->id]);
+
+        $overlapSession = app(GenerateRecommendationsAction::class)->execute(['interest_ids' => [$fitness->id, $reading->id]]);
+
+        $this->assertEquals(
+            $overlapSession->results->firstWhere('product_id', $cheapFeatured->id)->score,
+            $overlapSession->results->firstWhere('product_id', $pricierTwoInterests->id)->score,
+        );
+        $this->assertSame([$pricierTwoInterests->id, $cheapFeatured->id], $this->rankedProductIds($overlapSession));
+
+        // Equal score and equal overlap: featured beats the cheaper price.
+        Config::set('gift_recommendations.weights.featured_boost', 20);
+        $engineer = $this->profession('Engineer');
+
+        $pricierFeatured = $this->gift(['name' => 'Pricier Featured', 'slug' => 'pricier-featured', 'price_amount' => '900.00', 'is_featured' => true]);
+        $pricierFeatured->interests()->attach($fitness);
+
+        $cheaperProfession = $this->gift(['name' => 'Cheaper Profession', 'slug' => 'cheaper-profession', 'price_amount' => '100.00']);
+        $cheaperProfession->interests()->attach($fitness);
+        $cheaperProfession->professions()->attach($engineer);
+
+        $featuredSession = app(GenerateRecommendationsAction::class)->execute([
+            'profession_id' => $engineer->id,
+            'interest_ids' => [$fitness->id],
+        ]);
+
+        $this->assertEquals(
+            $featuredSession->results->firstWhere('product_id', $pricierFeatured->id)->score,
+            $featuredSession->results->firstWhere('product_id', $cheaperProfession->id)->score,
+        );
+        $this->assertSame(
+            [$pricierFeatured->id, $cheaperProfession->id],
+            $featuredSession->results->sortBy('rank')->whereIn('product_id', [$pricierFeatured->id, $cheaperProfession->id])->pluck('product_id')->values()->all(),
+        );
+    }
+
+    public function test_without_interests_the_interest_first_model_is_not_applied(): void
+    {
+        $husband = $this->relationship('Husband');
+        $birthday = $this->occasion('Birthday');
+
+        $full = $this->gift(['name' => 'Full Match', 'slug' => 'full-match', 'price_amount' => '900.00']);
+        $full->relationships()->attach($husband);
+        $full->occasions()->attach($birthday);
+
+        $partial = $this->gift(['name' => 'Partial Match', 'slug' => 'partial-match', 'price_amount' => '100.00', 'is_featured' => true]);
+        $partial->relationships()->attach($husband);
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'relationship_id' => $husband->id,
+            'occasion_id' => $birthday->id,
+        ]);
+
+        $this->assertSame([$full->id, $partial->id], $this->rankedProductIds($session));
+        $this->assertSame(
+            [RecommendationResult::GROUP_BEST, RecommendationResult::GROUP_RELAXED],
+            $session->results->sortBy('rank')->map(fn ($r) => $r->relevanceGroup())->values()->all(),
+        );
+    }
+
+    public function test_selected_interest_retrieval_keeps_every_hard_constraint(): void
+    {
+        $this->seed(RecipientGenderSeeder::class);
+
+        $maleId = (int) RecipientGender::query()->where('slug', 'male')->value('id');
+        $femaleId = (int) RecipientGender::query()->where('slug', 'female')->value('id');
+        $budget = BudgetRange::query()->create([
+            'name' => 'Under 1000',
+            'slug' => 'under-1000',
+            'min_amount' => 0,
+            'max_amount' => 1000,
+            'currency' => 'INR',
+        ]);
+        $gaming = $this->interest('Gaming');
+
+        $eligible = $this->gift(['name' => 'Eligible', 'slug' => 'eligible', 'price_amount' => '500.00']);
+        $eligible->recipientGenders()->attach($maleId);
+
+        $excluded = [
+            'draft' => $this->gift(['name' => 'Draft', 'slug' => 'draft', 'status' => ProductStatus::Draft, 'published_at' => null]),
+            'archived' => $this->gift(['name' => 'Archived', 'slug' => 'archived', 'status' => ProductStatus::Archived]),
+            'inactive link' => $this->gift(['name' => 'Inactive Link', 'slug' => 'inactive-link'], linkStatus: AffiliateLinkStatus::Inactive),
+            'over budget' => $this->gift(['name' => 'Over Budget', 'slug' => 'over-budget', 'price_amount' => '5000.00']),
+            'wrong gender' => $this->gift(['name' => 'Female Only', 'slug' => 'female-only', 'price_amount' => '500.00']),
+        ];
+        $excluded['wrong gender']->recipientGenders()->attach($femaleId);
+
+        $noLink = Product::factory()->published()->create(['name' => 'No Link', 'slug' => 'no-link', 'price_amount' => '500.00']);
+        $excluded['no link'] = $noLink;
+
+        $eligible->interests()->attach($gaming);
+        foreach ($excluded as $product) {
+            $product->interests()->attach($gaming);
+        }
+
+        $session = app(GenerateRecommendationsAction::class)->execute([
+            'budget_range_id' => $budget->id,
+            'recipient_gender_id' => $maleId,
+            'interest_ids' => [$gaming->id],
+        ]);
+
+        $this->assertSame([$eligible->id], $this->rankedProductIds($session));
     }
 
     /**

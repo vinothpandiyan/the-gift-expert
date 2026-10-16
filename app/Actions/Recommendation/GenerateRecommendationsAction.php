@@ -87,7 +87,7 @@ class GenerateRecommendationsAction
 
     /**
      * @param  list<int>  $interestIds
-     * @return list<array{product: Product, score: float, tier: int, breakdown: array<string, float|int>, explanation: string}>
+     * @return list<array{product: Product, score: float, group: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>
      */
     private function rankCandidates(RecommendationSession $session, array $interestIds): array
     {
@@ -97,13 +97,14 @@ class GenerateRecommendationsAction
         $scored = $this->collectCandidates($session, $interestIds, $topN)
             ->map(function (Product $product) use ($session, $interestIds, $weights): array {
                 $breakdown = $this->scoreProduct($product, $session, $interestIds, $weights);
-                $tier = $this->matchTier($product, $session, $interestIds);
-                $breakdown['match_tier'] = $tier;
+                $group = $this->relevanceGroup($product, $session, $interestIds);
+                $breakdown['relevance_group'] = $group;
 
                 return [
                     'product' => $product,
                     'score' => (float) $breakdown['total'],
-                    'tier' => $tier,
+                    'group' => $group,
+                    'overlap' => $product->interests->whereIn('id', $interestIds)->count(),
                     'breakdown' => $breakdown,
                     'explanation' => $this->buildExplanation($breakdown, $session, $product, $interestIds),
                 ];
@@ -117,14 +118,24 @@ class GenerateRecommendationsAction
     }
 
     /**
-     * Retrieves candidates in deterministic relaxation stages and stops once the
-     * pool holds at least $topN products. Every stage keeps the hard constraints
-     * (published, active affiliate link, chosen budget, chosen gender); only the
-     * relationship / occasion / interest signals are relaxed:
+     * Retrieves candidates in deterministic stages and stops once the pool holds
+     * at least $topN products. Every stage keeps the hard constraints (published,
+     * active affiliate link, chosen budget, chosen gender); only the relationship /
+     * occasion / interest signals are relaxed.
      *
-     *   1. relationship ∧ occasion ∧ any chosen interest
+     * With selected interests the first stage is always "any chosen interest", and
+     * it is never skipped by $topN: every eligible interest match must be ranked.
+     * Because interest matches outrank everything else, later stages only fill
+     * what interest matches cannot:
+     *
+     *   1. any chosen interest (always)
      *   2. relationship ∧ occasion
-     *   3. relationship ∪ occasion ∪ any chosen interest
+     *   3. relationship ∪ occasion
+     *
+     * Without interests:
+     *
+     *   1. relationship ∧ occasion
+     *   2. relationship ∪ occasion
      *
      * Profession, gift type and recipient type never narrow the pool; they only
      * add score. Interests are OR (any match), never AND.
@@ -184,26 +195,19 @@ class GenerateRecommendationsAction
 
         $stages = [];
 
-        if ($strong !== [] && $hasInterests) {
-            $stages[] = [$strong + ['interest_ids' => $interestIds]];
+        if ($hasInterests) {
+            $stages[] = [['interest_ids' => $interestIds]];
         }
 
         if ($strong !== []) {
             $stages[] = [$strong];
         }
 
-        $related = [];
-
-        foreach ($strong as $key => $id) {
-            $related[] = [$key => $id];
-        }
-
-        if ($hasInterests) {
-            $related[] = ['interest_ids' => $interestIds];
-        }
-
-        if (count($related) > 1 || $strong === []) {
-            $stages[] = $related;
+        if (count($strong) > 1) {
+            $stages[] = collect($strong)
+                ->map(fn ($id, $key) => [$key => $id])
+                ->values()
+                ->all();
         }
 
         return $stages;
@@ -228,20 +232,33 @@ class GenerateRecommendationsAction
     /**
      * @param  list<int>  $interestIds
      */
-    private function matchTier(Product $product, RecommendationSession $session, array $interestIds): int
+    private function relevanceGroup(Product $product, RecommendationSession $session, array $interestIds): int
     {
-        $strongMatched = ($session->relationship_id === null || $product->relationships->contains('id', $session->relationship_id))
-            && ($session->occasion_id === null || $product->occasions->contains('id', $session->occasion_id));
+        $relationshipAnswered = $session->relationship_id !== null;
+        $occasionAnswered = $session->occasion_id !== null;
+        $relationshipMatched = $relationshipAnswered && $product->relationships->contains('id', $session->relationship_id);
+        $occasionMatched = $occasionAnswered && $product->occasions->contains('id', $session->occasion_id);
 
-        if (! $strongMatched) {
-            return RecommendationResult::TIER_RELATED;
+        $matchesEveryAnsweredStrongSignal = (! $relationshipAnswered || $relationshipMatched)
+            && (! $occasionAnswered || $occasionMatched);
+
+        if ($interestIds === []) {
+            return $matchesEveryAnsweredStrongSignal
+                ? RecommendationResult::GROUP_BEST
+                : RecommendationResult::GROUP_RELAXED;
         }
 
-        if ($interestIds === [] || $product->interests->whereIn('id', $interestIds)->isNotEmpty()) {
-            return RecommendationResult::TIER_BEST;
+        if ($product->interests->whereIn('id', $interestIds)->isNotEmpty()) {
+            return match (true) {
+                $matchesEveryAnsweredStrongSignal => RecommendationResult::GROUP_BEST,
+                $relationshipMatched || $occasionMatched => RecommendationResult::GROUP_STRONG_INTEREST,
+                default => RecommendationResult::GROUP_INTEREST_ONLY,
+            };
         }
 
-        return RecommendationResult::TIER_GOOD;
+        return ($relationshipAnswered || $occasionAnswered) && $matchesEveryAnsweredStrongSignal
+            ? RecommendationResult::GROUP_RELATIONSHIP_OCCASION
+            : RecommendationResult::GROUP_RELAXED;
     }
 
     /**
@@ -306,23 +323,25 @@ class GenerateRecommendationsAction
     }
 
     /**
-     * Match tier always sorts first (best before broader), then the configured tie breakers.
+     * Relevance group always sorts first (lower is better), then the configured tie breakers.
      *
-     * @param  Collection<int, array{product: Product, score: float, tier: int, breakdown: array<string, float|int>, explanation: string}>  $candidates
-     * @return Collection<int, array{product: Product, score: float, tier: int, breakdown: array<string, float|int>, explanation: string}>
+     * @param  Collection<int, array{product: Product, score: float, group: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>  $candidates
+     * @return Collection<int, array{product: Product, score: float, group: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>
      */
     private function sortCandidates(Collection $candidates): Collection
     {
         $tieBreakers = config('gift_recommendations.tie_breakers');
 
         return $candidates->sort(function (array $a, array $b) use ($tieBreakers): int {
-            if ($a['tier'] !== $b['tier']) {
-                return $a['tier'] <=> $b['tier'];
+            if ($a['group'] !== $b['group']) {
+                return $a['group'] <=> $b['group'];
             }
 
             foreach ($tieBreakers as $breaker) {
                 $comparison = match ($breaker) {
                     'score' => $b['score'] <=> $a['score'],
+                    'interest_overlap' => $b['overlap'] <=> $a['overlap'],
+                    'featured' => (int) $b['product']->is_featured <=> (int) $a['product']->is_featured,
                     'price_amount' => $this->compareNullableAscending(
                         $a['product']->price_amount,
                         $b['product']->price_amount,

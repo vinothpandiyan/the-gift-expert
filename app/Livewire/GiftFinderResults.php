@@ -26,8 +26,8 @@ class GiftFinderResults extends Component
         $session = $this->session();
         $results = $this->results();
 
-        $bestResults = $results->filter(fn (RecommendationResult $result) => $result->matchTier() === RecommendationResult::TIER_BEST)->values();
-        $broaderResults = $results->reject(fn (RecommendationResult $result) => $result->matchTier() === RecommendationResult::TIER_BEST)->values();
+        $bestResults = $results->filter(fn (RecommendationResult $result) => $result->isGreatMatchGroup())->values();
+        $broaderResults = $results->reject(fn (RecommendationResult $result) => $result->isGreatMatchGroup())->values();
 
         return view('livewire.gift-finder-results', [
             'results' => $results,
@@ -112,7 +112,7 @@ class GiftFinderResults extends Component
         $featuredBoost = (float) config('gift_recommendations.weights.featured_boost');
 
         return $displayIndex <= 3
-            && $result->matchTier() === RecommendationResult::TIER_BEST
+            && $result->isGreatMatchGroup()
             && (float) $result->score > $featuredBoost;
     }
 
@@ -127,7 +127,8 @@ class GiftFinderResults extends Component
 
     private function broaderHeading(RecommendationSession $session): string
     {
-        return $session->occasion !== null
+        // Interest-only matches are not occasion-specific, so the occasion is only named without interests.
+        return $session->occasion !== null && $session->interests->isEmpty()
             ? "More {$session->occasion->name} gifts they may like"
             : 'More gifts they may like';
     }

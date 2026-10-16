@@ -37,7 +37,7 @@ class GiftRecommendationConfigTest extends TestCase
     public function test_tie_breakers_are_configured(): void
     {
         $this->assertSame(
-            ['score', 'price_amount', 'published_at', 'id'],
+            ['score', 'interest_overlap', 'featured', 'price_amount', 'published_at', 'id'],
             config('gift_recommendations.tie_breakers'),
         );
     }

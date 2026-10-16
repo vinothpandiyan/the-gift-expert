@@ -8,8 +8,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | The Gift Finder ranks gifts rather than filtering them away. Candidates
-    | are retrieved in relaxation stages (see GenerateRecommendationsAction)
-    | until at least `top_n` are available, then ranked and truncated.
+    | are retrieved in stages (see GenerateRecommendationsAction) until at least
+    | `top_n` are available, then ranked and truncated. Selected interests are
+    | always retrieved, regardless of `top_n`.
     |
     */
 
@@ -25,10 +26,12 @@ return [
     | Deterministic, explainable weights for the MVP recommendation engine.
     | Budget and RecipientGender are hard eligibility filters only and are not scored.
     |
-    | Interests are a soft ranking signal. Each matched interest adds
+    | Scores order gifts *within* a relevance group. When interests are selected
+    | the group (not the score) decides whether an interest match outranks a
+    | generic relationship + occasion match. Each matched interest adds
     | `interest_match` until `interest_match_max` is reached; matches beyond that
     | add only `interest_match_extra` each, so a 4th/5th selected interest
-    | differentiates gifts slightly without outweighing occasion or relationship.
+    | differentiates gifts slightly.
     |
     */
 
@@ -49,14 +52,18 @@ return [
     | Tie Breakers
     |--------------------------------------------------------------------------
     |
-    | Applied in order when scores are equal: higher score first, then lower
-    | price, then newer published_at, then lower product id. Match tier always
-    | sorts before score (see GenerateRecommendationsAction).
+    | Applied in order within the same relevance group: higher score first, then
+    | more matched selected interests, then featured gifts, then lower price,
+    | then newer published_at, then lower product id. Price is deliberately a
+    | late tie-break. Relevance group always sorts before score (see
+    | GenerateRecommendationsAction and RecommendationResult::GROUP_*).
     |
     */
 
     'tie_breakers' => [
         'score',
+        'interest_overlap',
+        'featured',
         'price_amount',
         'published_at',
         'id',
