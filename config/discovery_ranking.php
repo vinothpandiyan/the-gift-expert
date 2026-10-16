@@ -10,6 +10,14 @@ return [
 
     'debug' => false,
 
+    /*
+    | Align public listings, counts, facet counts and the ranked pool with the
+    | Finder's "active affiliate link" requirement. Off by default so the change
+    | can be rolled out and regression-tested on its own. SEO publication,
+    | sitemap and landing-page checks do not read this flag.
+    */
+    'listing_require_active_affiliate' => (bool) env('DISCOVERY_LISTING_REQUIRE_ACTIVE_AFFILIATE', false),
+
     'weights' => [
         'relationship_match' => 20,
         'occasion_match' => 20,

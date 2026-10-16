@@ -2,6 +2,8 @@
 
 namespace App\DiscoveryRanking;
 
+use App\RecipientEligibility\RecipientEligibilityContext;
+
 final class DiscoveryRankingContext
 {
     /**
@@ -28,5 +30,6 @@ final class DiscoveryRankingContext
         public readonly array $filters,
         public readonly bool $matchAllInterests = true,
         public readonly bool $requireActiveAffiliate = false,
+        public readonly ?RecipientEligibilityContext $recipientEligibility = null,
     ) {}
 }

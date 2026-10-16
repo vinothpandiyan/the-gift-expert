@@ -1,0 +1,105 @@
+<?php
+
+namespace Tests\Feature\RecipientEligibility;
+
+use App\Actions\Discovery\QueryDiscoveryListingProductsAction;
+use App\DiscoveryListing\DiscoveryListingContext;
+use App\DiscoveryListing\DiscoveryListingQueryState;
+use App\Models\Relationship;
+use App\RecipientEligibility\RecipientEligibilityConfig;
+use Illuminate\Support\Facades\Log;
+use Tests\Support\SeedsRecipientEligibilityCatalog;
+use Tests\TestCase;
+
+class RecipientEligibilityConfigIntegrityTest extends TestCase
+{
+    use SeedsRecipientEligibilityCatalog;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seedEligibilityTaxonomy();
+    }
+
+    public function test_everything_ships_disabled(): void
+    {
+        $defaults = require config_path('recipient_eligibility.php');
+
+        $this->assertFalse($defaults['enabled']);
+        $this->assertFalse($defaults['shadow']);
+        $this->assertSame('off', $defaults['explicit_contradictions']);
+        $this->assertFalse($defaults['finder_audience']);
+        $this->assertFalse($defaults['pool_ordering']);
+        $this->assertTrue($defaults['review_gate']['required']);
+
+        foreach ($defaults['surfaces'] as $mode) {
+            $this->assertSame('off', $mode);
+        }
+
+        foreach ($defaults['relationships'] as $profile) {
+            $this->assertFalse($profile['infer']);
+        }
+    }
+
+    public function test_every_seeded_relationship_has_a_profile_and_only_wave_one_is_guarded(): void
+    {
+        foreach (Relationship::query()->pluck('slug') as $slug) {
+            $this->assertNotNull(RecipientEligibilityConfig::profile($slug), "{$slug} needs a profile");
+        }
+
+        $this->assertEqualsCanonicalizing(['husband', 'wife', 'boyfriend', 'girlfriend'], RecipientEligibilityConfig::waveOneSlugs());
+    }
+
+    public function test_deferred_relationships_can_never_infer_even_if_configured(): void
+    {
+        $this->enableRecipientEligibility([
+            'relationships.brother.infer' => true,
+            'relationships.sister.infer' => true,
+            'relationships.friends.infer' => true,
+        ]);
+
+        $this->assertNotContains('brother', RecipientEligibilityConfig::inferringSlugs());
+        $this->assertNotContains('sister', RecipientEligibilityConfig::inferringSlugs());
+        $this->assertNotContains('friends', RecipientEligibilityConfig::inferringSlugs());
+        $this->assertNull(RecipientEligibilityConfig::context('recipient_type'), 'recipient types stay off');
+    }
+
+    public function test_shadow_mode_logs_strict_and_eligible_totals_without_changing_results(): void
+    {
+        $this->eligibilityProduct('Hex Dumbbell Pair', ['occasions' => ['birthday'], 'genders' => ['unisex']]);
+        $this->eligibilityProduct('Husband Mug', ['relationships' => ['husband'], 'occasions' => ['birthday']]);
+
+        config(['recipient_eligibility.shadow' => true, 'recipient_eligibility.shadow_sample_rate' => 1.0, 'recipient_eligibility.relationships.husband.infer' => false]);
+
+        Log::spy();
+
+        $paginator = app(QueryDiscoveryListingProductsAction::class)->execute(
+            DiscoveryListingContext::forRelationship(Relationship::query()->where('slug', 'husband')->firstOrFail()),
+            new DiscoveryListingQueryState,
+        );
+
+        $this->assertSame(1, $paginator->total(), 'live results are unchanged');
+
+        Log::shouldHaveReceived('info')->withArgs(fn (string $message, array $context): bool => $message === 'recipient_eligibility.shadow'
+            && $context['strict_total'] === 1
+            && $context['eligible_total'] === 2
+            && $context['delta'] === 1)->once();
+    }
+
+    public function test_shadow_logging_is_silent_when_disabled_or_unsampled(): void
+    {
+        $this->eligibilityProduct('Husband Mug', ['relationships' => ['husband'], 'occasions' => ['birthday']]);
+        $context = DiscoveryListingContext::forRelationship(Relationship::query()->where('slug', 'husband')->firstOrFail());
+
+        Log::spy();
+
+        config(['recipient_eligibility.shadow' => false]);
+        app(QueryDiscoveryListingProductsAction::class)->execute($context, new DiscoveryListingQueryState);
+
+        config(['recipient_eligibility.shadow' => true, 'recipient_eligibility.shadow_sample_rate' => 0.0]);
+        app(QueryDiscoveryListingProductsAction::class)->execute($context, new DiscoveryListingQueryState);
+
+        Log::shouldNotHaveReceived('info');
+    }
+}

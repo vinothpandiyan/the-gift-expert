@@ -2,15 +2,21 @@
 
 namespace App\Actions\Product;
 
+use App\Actions\RecipientEligibility\ConstrainProductsByRecipientEligibilityAction;
 use App\Enums\AffiliateLinkStatus;
 use App\Models\BudgetRange;
 use App\Models\Product;
+use App\RecipientEligibility\RecipientEligibilityContext;
 use App\Support\RecipientGenderFilter;
 use Illuminate\Database\Eloquent\Builder;
 use InvalidArgumentException;
 
 class QueryPublishedProductsByFiltersAction
 {
+    public function __construct(
+        private ConstrainProductsByRecipientEligibilityAction $constrainEligibility,
+    ) {}
+
     /**
      * @param  array{
      *     occasion_id?: int|null,
@@ -31,12 +37,15 @@ class QueryPublishedProductsByFiltersAction
      *     interest_ids?: list<int>|null,
      *     any_interest_ids?: list<int>|null,
      * }  $filters
+     * @param  RecipientEligibilityContext|null  $recipientEligibility  opt-in eligibility-aware relationship
+     *                                                                  matching; null is always strict (SEO, publication, coverage)
      */
     public function execute(
         array $filters,
         bool $requireActiveAffiliate = false,
         bool $allowUnfiltered = false,
         bool $matchAllInterests = true,
+        ?RecipientEligibilityContext $recipientEligibility = null,
     ): Builder {
         $interestIds = $this->idList($filters['interest_ids'] ?? []);
         $anyInterestIds = $this->idList($filters['any_interest_ids'] ?? []);
@@ -75,8 +84,7 @@ class QueryPublishedProductsByFiltersAction
 
         $this->constrainById($query, 'occasions', 'occasions.id', $normalized['occasion_id']);
         $this->constrainByIds($query, 'occasions', 'occasions.id', $normalized['occasion_ids']);
-        $this->constrainById($query, 'relationships', 'relationships.id', $normalized['relationship_id']);
-        $this->constrainByIds($query, 'relationships', 'relationships.id', $normalized['relationship_ids']);
+        $this->constrainRelationships($query, $normalized['relationship_id'], $normalized['relationship_ids'], $recipientEligibility);
         $this->constrainById($query, 'recipientTypes', 'recipient_types.id', $normalized['recipient_type_id']);
         $this->constrainByIds($query, 'recipientTypes', 'recipient_types.id', $normalized['recipient_type_ids']);
         $this->constrainByIds(
@@ -166,6 +174,27 @@ class QueryPublishedProductsByFiltersAction
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  list<int>  $relationshipIds
+     */
+    private function constrainRelationships(Builder $query, ?int $relationshipId, array $relationshipIds, ?RecipientEligibilityContext $recipientEligibility): void
+    {
+        if ($recipientEligibility === null) {
+            $this->constrainById($query, 'relationships', 'relationships.id', $relationshipId);
+            $this->constrainByIds($query, 'relationships', 'relationships.id', $relationshipIds);
+
+            return;
+        }
+
+        if ($relationshipId !== null) {
+            $this->constrainEligibility->constrainRelationships($query, [$relationshipId], $recipientEligibility);
+        }
+
+        if ($relationshipIds !== []) {
+            $this->constrainEligibility->constrainRelationships($query, $relationshipIds, $recipientEligibility);
+        }
     }
 
     private function constrainById(Builder $query, string $relation, string $column, ?int $id): void

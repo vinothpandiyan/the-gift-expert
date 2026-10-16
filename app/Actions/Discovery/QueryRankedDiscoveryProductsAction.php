@@ -7,6 +7,7 @@ use App\Actions\Product\QueryPublishedProductsByFiltersAction;
 use App\Actions\Product\RankProductsForDiscoveryContextAction;
 use App\DiscoveryRanking\DiscoveryRankingContext;
 use App\DiscoveryRanking\RankedGift;
+use App\RecipientEligibility\RecipientEligibilityConfig;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +19,7 @@ class QueryRankedDiscoveryProductsAction
         private RankProductsForDiscoveryContextAction $rankProducts,
         private ApplyProductDiversityAction $applyDiversity,
         private PaginateRankedDiscoveryProductsAction $paginateRanked,
+        private ApplyRelevanceFirstPoolOrderingAction $orderPool,
     ) {}
 
     public function execute(DiscoveryRankingContext $context, int $page = 1, ?int $throughPage = null): LengthAwarePaginator
@@ -34,10 +36,11 @@ class QueryRankedDiscoveryProductsAction
             $context->requireActiveAffiliate,
             false,
             $context->matchAllInterests,
+            $context->recipientEligibility,
         );
 
         $totalEligible = (clone $query)->count();
-        $rankingQuery = $this->boundedRankingQuery($query, $totalEligible, $poolMax);
+        $rankingQuery = $this->boundedRankingQuery($query, $totalEligible, $poolMax, $context);
 
         $products = $rankingQuery
             ->with($this->scoringRelations())
@@ -56,7 +59,7 @@ class QueryRankedDiscoveryProductsAction
         $diversified = $this->applyDiversity->execute($ranked);
 
         if ($totalEligible > $poolMax) {
-            $diversified = $this->appendOverflowTail($query, $diversified, $poolMax);
+            $diversified = $this->appendOverflowTail($query, $diversified, $poolMax, $totalEligible, $context);
         }
 
         return $this->paginateRanked->execute($diversified, $page, $perPage, $totalEligible, $throughPage);
@@ -96,30 +99,43 @@ class QueryRankedDiscoveryProductsAction
         ];
     }
 
-    private function boundedRankingQuery(Builder $query, int $totalEligible, int $poolMax): Builder
+    private function boundedRankingQuery(Builder $query, int $totalEligible, int $poolMax, DiscoveryRankingContext $context): Builder
     {
         if ($totalEligible <= $poolMax) {
             return $query;
         }
 
+        // Clone: the caller reuses $query for the overflow tail, which must not inherit this limit.
+        return $this->orderPoolForOverflow(clone $query, $context)->limit($poolMax);
+    }
+
+    /**
+     * Pool truncation order. Recency by default; relevance-first (SQL pre-score,
+     * then recency) when the pool-ordering flag is on. The overflow tail must use
+     * the same order so pool and tail partition the eligible set consistently.
+     */
+    private function orderPoolForOverflow(Builder $query, DiscoveryRankingContext $context): Builder
+    {
+        if (RecipientEligibilityConfig::poolOrdering()) {
+            return $this->orderPool->execute($query, $context);
+        }
+
         return $query
             ->orderByDesc('published_at')
-            ->orderBy('id')
-            ->limit($poolMax);
+            ->orderBy('id');
     }
 
     /**
      * @param  list<RankedGift>  $ranked
      * @return list<RankedGift>
      */
-    private function appendOverflowTail(Builder $query, array $ranked, int $poolMax): array
+    private function appendOverflowTail(Builder $query, array $ranked, int $poolMax, int $totalEligible, DiscoveryRankingContext $context): array
     {
         $rankedIds = collect($ranked)->map(fn (RankedGift $gift) => $gift->product->id)->all();
 
-        $tailProducts = (clone $query)
-            ->orderByDesc('published_at')
-            ->orderBy('id')
+        $tailProducts = $this->orderPoolForOverflow(clone $query, $context)
             ->offset($poolMax)
+            ->limit(max(1, $totalEligible - $poolMax))
             ->with($this->presentationRelations())
             ->get();
 
@@ -148,6 +164,7 @@ class QueryRankedDiscoveryProductsAction
             $context->requireActiveAffiliate,
             false,
             $context->matchAllInterests,
+            $context->recipientEligibility,
         )
             ->with($this->presentationRelations())
             ->orderByDesc('published_at')

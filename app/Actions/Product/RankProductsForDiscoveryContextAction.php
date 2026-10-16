@@ -5,6 +5,7 @@ namespace App\Actions\Product;
 use App\DiscoveryRanking\DiscoveryRankingContext;
 use App\DiscoveryRanking\RankedGift;
 use App\Models\Product;
+use App\RecipientEligibility\RecipientEligibilityConfig;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
@@ -41,8 +42,14 @@ class RankProductsForDiscoveryContextAction
         $breakdown = [];
         $filters = $context->filters;
 
-        if ($this->matchesAnyId($product, 'relationships', $this->dimensionIds($filters, 'relationship_id', 'relationship_ids'))) {
+        $relationshipIds = $this->dimensionIds($filters, 'relationship_id', 'relationship_ids');
+
+        if ($this->matchesAnyId($product, 'relationships', $relationshipIds)) {
             $breakdown['relationship_match'] = $this->weight('relationship_match');
+        } elseif ($relationshipIds !== [] && $context->recipientEligibility?->infersAny() === true) {
+            // The product passed the relationship constraint without an explicit pivot,
+            // so it was admitted by inference. It ranks below explicit matches by design.
+            $breakdown['inferred_relationship_match'] = RecipientEligibilityConfig::inferredWeight();
         }
 
         if ($this->matchesAnyId($product, 'occasions', $this->dimensionIds($filters, 'occasion_id', 'occasion_ids'))) {

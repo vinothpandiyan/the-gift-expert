@@ -3,6 +3,8 @@
 namespace App\Actions\Recommendation;
 
 use App\Actions\Product\QueryPublishedProductsByFiltersAction;
+use App\Actions\RecipientEligibility\ConstrainProductsByRecipientEligibilityAction;
+use App\Actions\RecipientEligibility\ResolveRelationshipGuardsAction;
 use App\Models\GiftType;
 use App\Models\Occasion;
 use App\Models\Product;
@@ -11,6 +13,8 @@ use App\Models\RecipientType;
 use App\Models\RecommendationResult;
 use App\Models\RecommendationSession;
 use App\Models\Relationship;
+use App\RecipientEligibility\RecipientEligibilityConfig;
+use App\RecipientEligibility\RelationshipGuards;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -33,13 +37,7 @@ class GenerateRecommendationsAction
      */
     public function execute(array $input): RecommendationSession
     {
-        $maxInterests = (int) config('gift_recommendations.max_interests');
-        $interestIds = collect($input['interest_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values()
-            ->take($maxInterests)
-            ->all();
+        $interestIds = $this->normalizeInterestIds($input);
 
         $session = RecommendationSession::query()->create([
             'occasion_id' => $input['occasion_id'] ?? null,
@@ -86,24 +84,120 @@ class GenerateRecommendationsAction
     }
 
     /**
+     * Ranks candidates for the given answers without persisting a session or results.
+     * Used by baseline replays and shadow audits; the ranking path is identical to execute().
+     *
+     * @param  array{
+     *     occasion_id?: int|null,
+     *     budget_range_id?: int|null,
+     *     relationship_id?: int|null,
+     *     recipient_type_id?: int|null,
+     *     recipient_gender_id?: int|null,
+     *     profession_id?: int|null,
+     *     gift_type_id?: int|null,
+     *     interest_ids?: list<int>,
+     * }  $input
+     * @return list<array{product: Product, score: float, group: int, audience_rank: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>
+     */
+    public function preview(array $input): array
+    {
+        return $this->rankCandidates($this->unsavedSession($input), $this->normalizeInterestIds($input));
+    }
+
+    /**
+     * Product ids retrieved by the interest-first stage alone (empty without interests).
+     * Used to show that eligibility changes never alter the interest-first pool except
+     * for hard contradictions.
+     *
+     * @param  array<string, mixed>  $input
+     * @return list<int>
+     */
+    public function interestStageProductIds(array $input): array
+    {
+        $interestIds = $this->normalizeInterestIds($input);
+
+        if ($interestIds === []) {
+            return [];
+        }
+
+        return $this->baseQuery($this->unsavedSession($input), ['interest_ids' => $interestIds])
+            ->orderBy('products.id')
+            ->pluck('products.id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function unsavedSession(array $input): RecommendationSession
+    {
+        $session = new RecommendationSession([
+            'occasion_id' => $input['occasion_id'] ?? null,
+            'budget_range_id' => $input['budget_range_id'] ?? null,
+            'relationship_id' => $input['relationship_id'] ?? null,
+            'recipient_type_id' => $input['recipient_type_id'] ?? null,
+            'recipient_gender_id' => $input['recipient_gender_id'] ?? null,
+            'profession_id' => $input['profession_id'] ?? null,
+            'gift_type_id' => $input['gift_type_id'] ?? null,
+        ]);
+
+        $session->load([
+            'occasion',
+            'budgetRange',
+            'relationship',
+            'recipientType',
+            'recipientGender',
+            'profession',
+            'giftType',
+        ]);
+
+        return $session;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @return list<int>
+     */
+    private function normalizeInterestIds(array $input): array
+    {
+        $maxInterests = (int) config('gift_recommendations.max_interests');
+
+        return collect($input['interest_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->take($maxInterests)
+            ->all();
+    }
+
+    /**
      * @param  list<int>  $interestIds
-     * @return list<array{product: Product, score: float, group: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>
+     * @return list<array{product: Product, score: float, group: int, audience_rank: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>
      */
     private function rankCandidates(RecommendationSession $session, array $interestIds): array
     {
         $weights = config('gift_recommendations.weights');
         $topN = (int) config('gift_recommendations.top_n');
 
+        $audienceGuards = $this->audienceGuards($session);
+
         $scored = $this->collectCandidates($session, $interestIds, $topN)
-            ->map(function (Product $product) use ($session, $interestIds, $weights): array {
+            ->map(function (Product $product) use ($session, $interestIds, $weights, $audienceGuards): array {
                 $breakdown = $this->scoreProduct($product, $session, $interestIds, $weights);
                 $group = $this->relevanceGroup($product, $session, $interestIds);
                 $breakdown['relevance_group'] = $group;
+                $demoted = $audienceGuards !== null && $this->isAudienceDemoted($product, $audienceGuards);
+
+                if ($demoted) {
+                    $breakdown['audience_demoted'] = 1;
+                }
 
                 return [
                     'product' => $product,
                     'score' => (float) $breakdown['total'],
                     'group' => $group,
+                    'audience_rank' => $demoted ? 1 : 0,
                     'overlap' => $product->interests->whereIn('id', $interestIds)->count(),
                     'breakdown' => $breakdown,
                     'explanation' => $this->buildExplanation($breakdown, $session, $product, $interestIds),
@@ -152,7 +246,7 @@ class GenerateRecommendationsAction
                 $this->baseQuery($session, $signalFilters)
                     ->with([
                         'occasions:id,name',
-                        'relationships:id,name',
+                        'relationships:id,name,slug',
                         'recipientTypes:id,name',
                         'interests:id,name',
                         'professions:id,name',
@@ -214,11 +308,18 @@ class GenerateRecommendationsAction
     }
 
     /**
+     * The interest-first stage never infers relationships (it has no relationship
+     * filter and must keep every interest match). Relationship stages may infer when
+     * the finder surface is on. With the audience flag, known contradictions are
+     * dropped at every stage, interest stage included.
+     *
      * @param  array<string, mixed>  $signalFilters
      */
     private function baseQuery(RecommendationSession $session, array $signalFilters): Builder
     {
-        return app(QueryPublishedProductsByFiltersAction::class)->execute(
+        $interestStage = array_key_exists('interest_ids', $signalFilters);
+
+        $query = app(QueryPublishedProductsByFiltersAction::class)->execute(
             $signalFilters + [
                 'budget_range_id' => $session->budget_range_id,
                 'recipient_gender_id' => $session->recipient_gender_id,
@@ -226,7 +327,60 @@ class GenerateRecommendationsAction
             requireActiveAffiliate: true,
             allowUnfiltered: true,
             matchAllInterests: false,
+            recipientEligibility: $interestStage ? null : RecipientEligibilityConfig::finderContext(),
         );
+
+        if (RecipientEligibilityConfig::finderAudience() && $session->relationship_id !== null) {
+            app(ConstrainProductsByRecipientEligibilityAction::class)->excludeContradictions(
+                $query,
+                (int) $session->relationship_id,
+                RecipientEligibilityConfig::enforcesExplicitContradictions(),
+            );
+        }
+
+        return $query;
+    }
+
+    /**
+     * Guards used for within-group demotion, or null when demotion does not apply
+     * (flag off, no relationship, unguarded or child-oriented relationship, or the
+     * visitor chose a child recipient type).
+     */
+    private function audienceGuards(RecommendationSession $session): ?RelationshipGuards
+    {
+        if (! RecipientEligibilityConfig::finderAudience() || $session->relationship_id === null) {
+            return null;
+        }
+
+        $guards = app(ResolveRelationshipGuardsAction::class)->for((int) $session->relationship_id);
+
+        if ($guards === null
+            || ! RecipientEligibilityConfig::isGuarded($guards->slug)
+            || $guards->childOrientedRelationship
+            || $guards->childTypeIds === []
+            || ($session->recipient_type_id !== null && in_array((int) $session->recipient_type_id, $guards->childTypeIds, true))) {
+            return null;
+        }
+
+        return $guards;
+    }
+
+    /**
+     * Confirmed exclusively child-oriented: it has recipient types, all of them child
+     * audiences, and no explicit adult relationship. Family-friendly products (any
+     * non-child audience) are never demoted. Demotion only reorders within a group.
+     */
+    private function isAudienceDemoted(Product $product, RelationshipGuards $guards): bool
+    {
+        $typeIds = $product->recipientTypes->pluck('id')->map(fn ($id): int => (int) $id);
+
+        if ($typeIds->isEmpty() || $typeIds->contains(fn (int $id): bool => ! in_array($id, $guards->childTypeIds, true))) {
+            return false;
+        }
+
+        $childOriented = (array) config('recipient_eligibility.child_oriented_relationships', []);
+
+        return $product->relationships->every(fn ($relationship): bool => in_array($relationship->slug, $childOriented, true));
     }
 
     /**
@@ -325,8 +479,8 @@ class GenerateRecommendationsAction
     /**
      * Relevance group always sorts first (lower is better), then the configured tie breakers.
      *
-     * @param  Collection<int, array{product: Product, score: float, group: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>  $candidates
-     * @return Collection<int, array{product: Product, score: float, group: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>
+     * @param  Collection<int, array{product: Product, score: float, group: int, audience_rank: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>  $candidates
+     * @return Collection<int, array{product: Product, score: float, group: int, audience_rank: int, overlap: int, breakdown: array<string, float|int>, explanation: string}>
      */
     private function sortCandidates(Collection $candidates): Collection
     {
@@ -335,6 +489,10 @@ class GenerateRecommendationsAction
         return $candidates->sort(function (array $a, array $b) use ($tieBreakers): int {
             if ($a['group'] !== $b['group']) {
                 return $a['group'] <=> $b['group'];
+            }
+
+            if (($a['audience_rank'] ?? 0) !== ($b['audience_rank'] ?? 0)) {
+                return ($a['audience_rank'] ?? 0) <=> ($b['audience_rank'] ?? 0);
             }
 
             foreach ($tieBreakers as $breaker) {

@@ -6,8 +6,11 @@ use App\Actions\Product\QueryPublishedProductsByFiltersAction;
 use App\DiscoveryListing\DiscoveryListingContext;
 use App\DiscoveryListing\DiscoveryListingQueryState;
 use App\DiscoveryRanking\DiscoveryRankingContext;
+use App\RecipientEligibility\RecipientEligibilityConfig;
+use App\RecipientEligibility\RecipientEligibilityContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
 
 class QueryDiscoveryListingProductsAction
 {
@@ -23,6 +26,7 @@ class QueryDiscoveryListingProductsAction
         ?int $throughPage = null,
     ): LengthAwarePaginator {
         $filters = $state->toProductFilters($context);
+        $eligibility = RecipientEligibilityConfig::context($context->surface);
         $perPage = max(1, (int) config('discovery_ranking.per_page', 12));
         $page = max(1, $page);
         $throughPage = max($page, $throughPage ?? $page);
@@ -40,15 +44,19 @@ class QueryDiscoveryListingProductsAction
                     surface: $context->surface,
                     filters: $filters,
                     matchAllInterests: true,
+                    requireActiveAffiliate: $this->requireActiveAffiliate(),
+                    recipientEligibility: $eligibility,
                 ),
                 $page,
                 $throughPage,
             );
 
+            $this->logShadow($context, $filters, $eligibility, $ranked->total());
+
             return $this->withListingQuery($ranked, $state);
         }
 
-        $query = $this->queryProducts->execute($filters, false, false, true)
+        $query = $this->queryProducts->execute($filters, $this->requireActiveAffiliate(), false, true, $eligibility)
             ->with($this->presentationRelations());
 
         $this->applySort($query, $state->sort);
@@ -57,6 +65,7 @@ class QueryDiscoveryListingProductsAction
         $limit = $perPage * ($throughPage - $page + 1);
         $total = (clone $query)->count();
         $items = $query->offset($offset)->limit($limit)->get()->unique('id')->values();
+        $this->logShadow($context, $filters, $eligibility, $total);
 
         $paginator = new LengthAwarePaginator(
             items: $items,
@@ -81,8 +90,50 @@ class QueryDiscoveryListingProductsAction
         }
 
         return $this->queryProducts
-            ->execute($filters, false, false, true)
+            ->execute($filters, $this->requireActiveAffiliate(), false, true, RecipientEligibilityConfig::context($context->surface))
             ->count();
+    }
+
+    /**
+     * Sampled runtime shadow: logs strict vs would-be-eligible totals for relationship
+     * listings while eligibility is not live. Never alters results and never throws.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function logShadow(DiscoveryListingContext $context, array $filters, ?RecipientEligibilityContext $live, int $liveTotal): void
+    {
+        if ($live !== null || ! RecipientEligibilityConfig::shadowEnabled()) {
+            return;
+        }
+
+        if (! isset($filters['relationship_id']) && empty($filters['relationship_ids'])) {
+            return;
+        }
+
+        if (mt_rand() / mt_getrandmax() > RecipientEligibilityConfig::shadowSampleRate()) {
+            return;
+        }
+
+        try {
+            $eligibleTotal = $this->queryProducts
+                ->execute($filters, $this->requireActiveAffiliate(), false, true, RecipientEligibilityConfig::shadowContext($context->surface))
+                ->count();
+
+            Log::info('recipient_eligibility.shadow', [
+                'surface' => $context->surface,
+                'browse_context' => $context->browseContext,
+                'strict_total' => $liveTotal,
+                'eligible_total' => $eligibleTotal,
+                'delta' => $eligibleTotal - $liveTotal,
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('recipient_eligibility.shadow_failed', ['message' => $exception->getMessage()]);
+        }
+    }
+
+    private function requireActiveAffiliate(): bool
+    {
+        return config('discovery_ranking.listing_require_active_affiliate') === true;
     }
 
     /**

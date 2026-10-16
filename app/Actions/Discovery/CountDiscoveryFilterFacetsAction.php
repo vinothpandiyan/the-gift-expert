@@ -3,10 +3,14 @@
 namespace App\Actions\Discovery;
 
 use App\Actions\Product\QueryPublishedProductsByFiltersAction;
+use App\Actions\RecipientEligibility\ConstrainProductsByRecipientEligibilityAction;
+use App\Actions\RecipientEligibility\ResolveRelationshipGuardsAction;
 use App\DiscoveryListing\DiscoveryListingContext;
 use App\DiscoveryListing\DiscoveryListingQueryState;
 use App\Enums\TaxonomyDimension;
 use App\Models\BudgetRange;
+use App\RecipientEligibility\RecipientEligibilityConfig;
+use App\RecipientEligibility\RecipientEligibilityContext;
 use App\Support\RecipientGenderFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +20,8 @@ class CountDiscoveryFilterFacetsAction
 {
     public function __construct(
         private QueryPublishedProductsByFiltersAction $queryProducts,
+        private ConstrainProductsByRecipientEligibilityAction $constrainEligibility,
+        private ResolveRelationshipGuardsAction $resolveGuards,
     ) {}
 
     /**
@@ -41,11 +47,13 @@ class CountDiscoveryFilterFacetsAction
         }
 
         $filters = $state->withoutUserDimension($dimension)->toProductFilters($listing);
+        $eligibility = RecipientEligibilityConfig::context($listing->surface);
         $eligible = $this->queryProducts->execute(
             $filters,
-            false,
+            config('discovery_ranking.listing_require_active_affiliate') === true,
             ! $this->hasProductFilters($filters),
             true,
+            $eligibility,
         );
 
         if ($dimension === 'budget') {
@@ -62,7 +70,43 @@ class CountDiscoveryFilterFacetsAction
             return $this->countRecipientGender($eligible, $candidateIds);
         }
 
+        if ($taxonomy === TaxonomyDimension::Relationship && $eligibility !== null) {
+            return $this->countRelationship($eligible, $candidateIds, $eligibility);
+        }
+
         return $this->countTaxonomy($eligible, $taxonomy, $candidateIds);
+    }
+
+    /**
+     * Relationship chip counts. Explicit pivot counts, replaced for relationships whose
+     * eligibility differs from the strict pivot (inference or enforced contradictions)
+     * by the exact predicate the listing applies, so a chip count equals the listing total
+     * once that relationship is selected.
+     *
+     * @param  list<int>  $candidateIds
+     * @return array<int, int>
+     */
+    private function countRelationship(Builder $eligible, array $candidateIds, RecipientEligibilityContext $eligibility): array
+    {
+        $counts = $this->countTaxonomy($eligible, TaxonomyDimension::Relationship, $candidateIds);
+
+        foreach ($this->resolveGuards->execute($candidateIds) as $relationshipId => $guards) {
+            if (! RecipientEligibilityConfig::isGuarded($guards->slug)) {
+                continue;
+            }
+
+            if (! $eligibility->infers($guards->slug) && ! $eligibility->enforceExplicitContradictions) {
+                continue;
+            }
+
+            $counts[$relationshipId] = (clone $eligible)
+                ->where(function (Builder $query) use ($relationshipId, $guards, $eligibility): void {
+                    $this->constrainEligibility->wherePredicate($query, $relationshipId, $guards, $eligibility);
+                })
+                ->count();
+        }
+
+        return $counts;
     }
 
     /**
