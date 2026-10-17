@@ -180,6 +180,46 @@ class ResolveDiscoveryFilterOptionsActionTest extends TestCase
 
     public function test_pipeline_query_count_does_not_grow_with_option_count(): void
     {
+        $this->useStrictRecipientEligibility();
+
+        $context = $this->pipelineQueryCountContext();
+        $action = app(ResolveDiscoveryFilterOptionsAction::class);
+
+        $first = $this->countQueries(fn () => $action->execute($context, new DiscoveryListingQueryState));
+
+        $this->addLargeOccasionSet();
+
+        $second = $this->countQueries(fn () => $action->execute($context, new DiscoveryListingQueryState));
+
+        $this->assertSame($first, $second);
+    }
+
+    public function test_pipeline_query_count_does_not_grow_with_option_count_when_inference_is_enabled(): void
+    {
+        $this->enableRecipientEligibility();
+
+        $context = $this->pipelineQueryCountContext();
+
+        // Cold: a fresh action resolves relationship guards once per instance. That
+        // cost is constant, so it must be identical before and after adding options.
+        $coldSmall = $this->countQueries(fn () => app(ResolveDiscoveryFilterOptionsAction::class)->execute($context, new DiscoveryListingQueryState));
+
+        $warmAction = app(ResolveDiscoveryFilterOptionsAction::class);
+        $warmAction->execute($context, new DiscoveryListingQueryState);
+        $warmSmall = $this->countQueries(fn () => $warmAction->execute($context, new DiscoveryListingQueryState));
+
+        $this->addLargeOccasionSet();
+
+        $coldLarge = $this->countQueries(fn () => app(ResolveDiscoveryFilterOptionsAction::class)->execute($context, new DiscoveryListingQueryState));
+        $warmLarge = $this->countQueries(fn () => $warmAction->execute($context, new DiscoveryListingQueryState));
+
+        $this->assertSame($coldSmall, $coldLarge);
+        $this->assertSame($warmSmall, $warmLarge);
+        $this->assertGreaterThan($warmSmall, $coldSmall, 'inference adds one-time guard resolution on top of the strict pipeline');
+    }
+
+    private function pipelineQueryCountContext(): DiscoveryListingContext
+    {
         $husband = $this->relationship('Husband');
         $this->exclude(
             $husband,
@@ -192,18 +232,14 @@ class ResolveDiscoveryFilterOptionsActionTest extends TestCase
             $this->gift("small-{$index}", [$husband], [$this->occasion("Small {$index}")]);
         }
 
-        $context = DiscoveryListingContext::forRelationship($husband);
-        $action = app(ResolveDiscoveryFilterOptionsAction::class);
+        return DiscoveryListingContext::forRelationship($husband);
+    }
 
-        $first = $this->countQueries(fn () => $action->execute($context, new DiscoveryListingQueryState));
-
+    private function addLargeOccasionSet(): void
+    {
         foreach (range(3, 22) as $index) {
             $this->occasion("Large {$index}");
         }
-
-        $second = $this->countQueries(fn () => $action->execute($context, new DiscoveryListingQueryState));
-
-        $this->assertSame($first, $second);
     }
 
     /**

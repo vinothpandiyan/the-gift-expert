@@ -188,9 +188,11 @@ class GiftListing extends Component
 
     private function syncNormalizedFilters(?string $preferredDimension = null): void
     {
-        $before = $this->queryState()->toPaginatorQuery();
+        // Normalization validates the selected relationship itself, so it starts from
+        // the state scoped without the relationship-contextual Gender rule.
+        $before = $this->queryState(contextual: false)->toPaginatorQuery();
         $normalized = app(NormalizeDiscoveryFilterStateAction::class)
-            ->execute($this->listingContext(), $this->queryState(), $preferredDimension);
+            ->execute($this->listingContext(), $this->queryState(contextual: false), $preferredDimension);
 
         $this->occasion = DiscoveryListingQueryState::encodeList($normalized->occasionSlugs);
         $this->relationship = DiscoveryListingQueryState::encodeList($normalized->relationshipSlugs);
@@ -220,7 +222,7 @@ class GiftListing extends Component
         $this->redirect(DiscoveryUrl::giftIdeas());
     }
 
-    private function queryState(): DiscoveryListingQueryState
+    private function queryState(bool $contextual = true): DiscoveryListingQueryState
     {
         $sort = $this->sort === ''
             ? DiscoveryListingQueryState::SORT_RECOMMENDED
@@ -242,7 +244,7 @@ class GiftListing extends Component
             budgetSlug: $this->budget !== '' ? $this->budget : null,
             sort: $sort,
             page: max(1, $this->page),
-        ))->scopedTo($this->listingContext());
+        ))->scopedTo($this->listingContext(), $contextual);
     }
 
     /**

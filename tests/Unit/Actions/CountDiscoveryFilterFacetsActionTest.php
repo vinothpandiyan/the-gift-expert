@@ -316,6 +316,51 @@ class CountDiscoveryFilterFacetsActionTest extends TestCase
 
     public function test_facet_query_count_does_not_grow_with_option_count(): void
     {
+        $this->useStrictRecipientEligibility();
+
+        [$context, $small, $large] = $this->facetQueryCountFixture();
+        $state = new DiscoveryListingQueryState;
+        $action = app(CountDiscoveryFilterFacetsAction::class);
+
+        $first = $this->countQueries(fn () => $action->execute($context, $state, 'occasion', $small));
+        $second = $this->countQueries(fn () => $action->execute($context, $state, 'occasion', $large));
+
+        $this->assertSame($first, $second);
+        $this->assertLessThanOrEqual(3, $first);
+    }
+
+    public function test_facet_query_count_does_not_grow_with_option_count_when_inference_is_enabled(): void
+    {
+        $this->enableRecipientEligibility();
+
+        [$context, $small, $large] = $this->facetQueryCountFixture();
+        $state = new DiscoveryListingQueryState;
+
+        // Cold: a fresh action resolves relationship guards once (constant cost per
+        // relationship, memoized per action instance). It must not depend on how many
+        // options are counted.
+        $coldSmall = $this->countQueries(fn () => app(CountDiscoveryFilterFacetsAction::class)->execute($context, $state, 'occasion', $small));
+        $coldLarge = $this->countQueries(fn () => app(CountDiscoveryFilterFacetsAction::class)->execute($context, $state, 'occasion', $large));
+
+        $this->assertSame($coldSmall, $coldLarge);
+
+        // Warm: with guards memoized the steady-state cost is the strict-mode cost.
+        $action = app(CountDiscoveryFilterFacetsAction::class);
+        $action->execute($context, $state, 'occasion', $small);
+
+        $warmSmall = $this->countQueries(fn () => $action->execute($context, $state, 'occasion', $small));
+        $warmLarge = $this->countQueries(fn () => $action->execute($context, $state, 'occasion', $large));
+
+        $this->assertSame($warmSmall, $warmLarge);
+        $this->assertLessThanOrEqual(3, $warmSmall);
+        $this->assertGreaterThan($warmSmall, $coldSmall, 'inference adds one-time guard resolution on top of the strict query');
+    }
+
+    /**
+     * @return array{0: DiscoveryListingContext, 1: list<int>, 2: list<int>}
+     */
+    private function facetQueryCountFixture(): array
+    {
         $husband = $this->relationship('Husband');
         $small = [];
         $large = [];
@@ -330,15 +375,7 @@ class CountDiscoveryFilterFacetsActionTest extends TestCase
             }
         }
 
-        $context = DiscoveryListingContext::forRelationship($husband);
-        $state = new DiscoveryListingQueryState;
-        $action = app(CountDiscoveryFilterFacetsAction::class);
-
-        $first = $this->countQueries(fn () => $action->execute($context, $state, 'occasion', $small));
-        $second = $this->countQueries(fn () => $action->execute($context, $state, 'occasion', $large));
-
-        $this->assertSame($first, $second);
-        $this->assertLessThanOrEqual(3, $first);
+        return [DiscoveryListingContext::forRelationship($husband), $small, $large];
     }
 
     /**

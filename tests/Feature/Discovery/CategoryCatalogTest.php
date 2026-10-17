@@ -73,6 +73,9 @@ class CategoryCatalogTest extends TestCase
             $gift = GiftCatalogTestHelpers::publishedGift([
                 'name' => "Unique Electronics {$index} Title",
                 'slug' => $slug,
+                // Identical timestamps keep the sort (published_at DESC, id) stable;
+                // now() would drift across a second boundary while the fixture is built.
+                'published_at' => '2026-01-01 00:00:00',
             ]);
             $category->products()->attach($gift->id);
             $slugs[] = $slug;

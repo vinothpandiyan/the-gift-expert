@@ -6,6 +6,7 @@ use App\DiscoveryListing\DiscoveryListingContext;
 use App\Enums\TaxonomyDimension;
 use App\Models\BudgetRange;
 use App\Models\Interest;
+use App\Models\Occasion;
 use App\Models\Relationship;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -79,7 +80,7 @@ class DiscoveryListingContextTest extends TestCase
         );
     }
 
-    public function test_relationship_filter_order_puts_occasion_and_category_before_budget(): void
+    public function test_gender_specific_relationship_omits_recipient_gender_and_orders_primary_filters(): void
     {
         $husband = Relationship::query()->create([
             'name' => 'Husband',
@@ -88,33 +89,69 @@ class DiscoveryListingContextTest extends TestCase
         ]);
 
         $this->assertSame(
-            [
-                'occasion',
-                'category',
-                'interest',
-                'gift_type',
-                'gender',
-                'budget',
-            ],
+            ['budget', 'occasion', 'interest', 'gift_type', 'category'],
             DiscoveryListingContext::forRelationship($husband)->availableDimensions,
         );
     }
 
-    public function test_gift_ideas_keeps_recipient_and_occasion_ahead_of_budget(): void
+    public function test_gender_neutral_relationship_keeps_recipient_gender_after_primary_filters(): void
+    {
+        $friends = Relationship::query()->create([
+            'name' => 'Friends',
+            'slug' => 'friends',
+            'is_active' => true,
+        ]);
+
+        $this->assertSame(
+            ['budget', 'occasion', 'interest', 'gift_type', 'category', 'gender'],
+            DiscoveryListingContext::forRelationship($friends)->availableDimensions,
+        );
+    }
+
+    public function test_relationship_gender_follows_config_profile_not_slug_lists(): void
+    {
+        $custom = Relationship::query()->create([
+            'name' => 'Pen Pal',
+            'slug' => 'pen-pal',
+            'is_active' => true,
+        ]);
+
+        $this->assertContains('gender', DiscoveryListingContext::forRelationship($custom)->availableDimensions);
+
+        config(['recipient_eligibility.relationships.pen-pal' => ['wave' => null, 'gender' => 'female', 'infer' => false]]);
+
+        $this->assertNotContains('gender', DiscoveryListingContext::forRelationship($custom)->availableDimensions);
+    }
+
+    public function test_gift_ideas_orders_primary_filters_before_additional_filters(): void
     {
         $this->assertSame(
             [
-                'relationship',
+                'budget',
                 'occasion',
-                'category',
                 'interest',
                 'gift_type',
+                'category',
+                'relationship',
                 'profession',
                 'recipient',
                 'gender',
-                'budget',
             ],
             DiscoveryListingContext::forGiftIdeas()->availableDimensions,
+        );
+    }
+
+    public function test_occasion_listing_keeps_additional_filters_after_primary_filters(): void
+    {
+        $birthday = Occasion::query()->create([
+            'name' => 'Birthday',
+            'slug' => 'birthday',
+            'is_active' => true,
+        ]);
+
+        $this->assertSame(
+            ['budget', 'interest', 'gift_type', 'category', 'relationship', 'recipient', 'gender'],
+            DiscoveryListingContext::forOccasion($birthday)->availableDimensions,
         );
     }
 }

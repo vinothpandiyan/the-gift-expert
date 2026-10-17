@@ -51,7 +51,7 @@ class NormalizeDiscoveryFilterStateAction
         DiscoveryListingQueryState $state,
         ?string $preferredDimension = null,
     ): DiscoveryListingQueryState {
-        $state = $state->scopedTo($listing);
+        $state = $state->scopedTo($listing, contextual: false);
         $working = $state->withoutUserTaxonomy()->withSlugsFor(
             'budget',
             $this->activeBudgetSlug($state),
@@ -97,7 +97,8 @@ class NormalizeDiscoveryFilterStateAction
             $working = $working->withSlugsFor($dimension, $keptSlugs);
         }
 
-        return $working;
+        // Only a validated, kept relationship can make Gender redundant.
+        return $working->scopedTo($listing);
     }
 
     /**

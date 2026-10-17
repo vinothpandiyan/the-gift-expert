@@ -11,6 +11,7 @@ use App\Models\Profession;
 use App\Models\RecipientType;
 use App\Models\Relationship;
 use App\Models\SeoLandingPage;
+use App\RecipientEligibility\RecipientEligibilityConfig;
 use App\Support\PageMeta;
 use App\Support\SeoLandingPageEditorial;
 use InvalidArgumentException;
@@ -18,21 +19,22 @@ use InvalidArgumentException;
 final class DiscoveryListingContext
 {
     /**
-     * Preferred public filter order. Page-specific contexts omit dimensions
-     * they already fix; remaining dimensions keep this relative order.
+     * Preferred public filter order: Budget, Occasion, Interest, Gift Type,
+     * Category, then any other applicable filters. Page-specific contexts omit
+     * dimensions they already fix; remaining dimensions keep this relative order.
      *
      * @var list<string>
      */
     private const DIMENSION_ORDER = [
-        'relationship',
+        'budget',
         'occasion',
-        'category',
         'interest',
         'gift_type',
+        'category',
+        'relationship',
         'profession',
         'recipient',
         'gender',
-        'budget',
     ];
 
     /** @var list<string> */
@@ -99,10 +101,16 @@ final class DiscoveryListingContext
 
     public static function forRelationship(Relationship $relationship): self
     {
+        $dimensions = ['occasion', 'budget', 'interest', 'gift_type', 'category'];
+
+        if (! self::relationshipImpliesGender((string) $relationship->slug)) {
+            $dimensions[] = 'gender';
+        }
+
         return new self(
             surface: 'relationship',
             fixedFilters: ['relationship_id' => $relationship->id],
-            availableDimensions: ['occasion', 'budget', 'interest', 'gift_type', 'category', 'gender'],
+            availableDimensions: $dimensions,
             browseContext: 'relationship:'.$relationship->slug,
         );
     }
@@ -202,7 +210,10 @@ final class DiscoveryListingContext
         if ($filters['recipient_type_id'] === null) {
             $available[] = 'recipient';
         }
-        if ($filters['recipient_gender_id'] === null) {
+        if (
+            $filters['recipient_gender_id'] === null
+            && ! ($filters['relationship_id'] !== null && self::relationshipImpliesGender((string) $page->relationship?->slug))
+        ) {
             $available[] = 'gender';
         }
         if ($filters['profession_id'] === null) {
@@ -257,6 +268,41 @@ final class DiscoveryListingContext
     public function allows(string $dimension): bool
     {
         return in_array($dimension, $this->availableDimensions, true);
+    }
+
+    /**
+     * The listing as the visitor effectively sees it: when exactly one
+     * gender-specific relationship is selected, Recipient gender is redundant and
+     * dropped from the available dimensions. Several selected relationships stay
+     * ambiguous, so Gender remains. Presentation only: eligibility guards resolve
+     * from the relationship filter itself, never from the gender filter.
+     */
+    public function contextualizedFor(DiscoveryListingQueryState $state): self
+    {
+        if (! $this->allows('gender') || ! $this->allows('relationship')) {
+            return $this;
+        }
+
+        if (count($state->relationshipSlugs) !== 1 || ! self::relationshipImpliesGender($state->relationshipSlugs[0])) {
+            return $this;
+        }
+
+        return new self(
+            surface: $this->surface,
+            fixedFilters: $this->fixedFilters,
+            availableDimensions: array_values(array_diff($this->availableDimensions, ['gender'])),
+            browseContext: $this->browseContext,
+            hiddenInterestIds: $this->hiddenInterestIds,
+        );
+    }
+
+    /**
+     * A relationship with an unambiguous gender in the recipient_eligibility
+     * profile metadata (the single source for relationship gender).
+     */
+    private static function relationshipImpliesGender(string $relationshipSlug): bool
+    {
+        return RecipientEligibilityConfig::impliedGenderSlug($relationshipSlug) !== null;
     }
 
     public static function dimensionLabel(string $dimension): string

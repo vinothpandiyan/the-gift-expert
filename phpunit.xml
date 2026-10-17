@@ -36,5 +36,30 @@
         <env name="TAVILY_API_KEY" value=""/>
         <env name="OPENAI_API_KEY" value=""/>
         <env name="OPENAI_MODEL" value=""/>
+        <!--
+            Recipient eligibility is pinned to the shipped defaults (strict mode) so a
+            developer's .env or shell never changes test results. Tests that need
+            inference enable it explicitly (Tests\Support\ConfiguresRecipientEligibility).
+        -->
+        <env name="RECIPIENT_ELIGIBILITY_ENABLED" value="false" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SHADOW" value="false" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SHADOW_SAMPLE_RATE" value="0.1" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SURFACE_RELATIONSHIP" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SURFACE_OCCASION" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SURFACE_CATEGORY" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SURFACE_INTEREST" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SURFACE_GIFT_TYPE" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SURFACE_PROFESSION" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_SURFACE_GIFT_IDEAS" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_FINDER" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_EXPLICIT_CONTRADICTIONS" value="off" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_FINDER_AUDIENCE" value="false" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_POOL_ORDERING" value="false" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_INFERRED_WEIGHT" value="6" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_INFER_HUSBAND" value="false" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_INFER_BOYFRIEND" value="false" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_INFER_WIFE" value="false" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_INFER_GIRLFRIEND" value="false" force="true"/>
+        <env name="RECIPIENT_ELIGIBILITY_REQUIRE_REVIEW_GATE" value="true" force="true"/>
     </php>
 </phpunit>

@@ -168,9 +168,19 @@ final class DiscoveryListingQueryState
 
     /**
      * Restrict user-applied dimensions to those the listing context allows.
+     *
+     * By default the context is first narrowed by the selected relationship
+     * (see DiscoveryListingContext::contextualizedFor), so a Gender selection that
+     * a single gender-specific relationship makes redundant is dropped.
+     * Normalization passes `$contextual = false` so it can validate the
+     * relationship before deciding whether Gender is redundant.
      */
-    public function scopedTo(DiscoveryListingContext $context): self
+    public function scopedTo(DiscoveryListingContext $context, bool $contextual = true): self
     {
+        if ($contextual) {
+            $context = $context->contextualizedFor($this);
+        }
+
         return new self(
             occasionSlugs: $context->allows('occasion') ? $this->occasionSlugs : [],
             relationshipSlugs: $context->allows('relationship') ? $this->relationshipSlugs : [],

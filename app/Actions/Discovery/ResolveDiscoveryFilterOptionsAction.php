@@ -45,6 +45,7 @@ class ResolveDiscoveryFilterOptionsAction
         DiscoveryListingContext $listing,
         DiscoveryListingQueryState $state,
     ): array {
+        $listing = $listing->contextualizedFor($state);
         $state = $state->scopedTo($listing);
         $options = [];
 

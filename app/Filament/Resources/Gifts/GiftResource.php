@@ -227,6 +227,9 @@ class GiftResource extends Resource
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('price_amount')
+                    ->money(fn (Product $record): string => $record->price_currency ?? 'INR')
+                    ->sortable(),
                 TextColumn::make('external_product_id')
                     ->label('External ID')
                     ->getStateUsing(fn (Product $record): ?string => ($record->affiliateLinks->firstWhere('is_primary', true) ?? $record->affiliateLinks->first())?->external_product_id)
@@ -326,9 +329,6 @@ class GiftResource extends Resource
                     ->boolean()
                     ->getStateUsing(fn (Product $record): bool => $record->latestPromotedSourcingItem !== null)
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('price_amount')
-                    ->money(fn (Product $record): string => $record->price_currency ?? 'INR')
-                    ->sortable(),
                 IconColumn::make('is_featured')
                     ->boolean(),
                 TextColumn::make('published_at')

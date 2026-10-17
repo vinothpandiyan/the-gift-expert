@@ -46,33 +46,6 @@ trait SeedsRecipientEligibilityCatalog
     }
 
     /**
-     * Master switch on, listing surfaces on, wave-1 inference on. Pass overrides
-     * (dot keys under recipient_eligibility.*) to vary a case.
-     *
-     * @param  array<string, mixed>  $overrides
-     */
-    protected function enableRecipientEligibility(array $overrides = []): void
-    {
-        $settings = [
-            'enabled' => true,
-            'review_gate.required' => false,
-            'surfaces.relationship' => 'inferred',
-            'surfaces.occasion' => 'inferred',
-            'surfaces.category' => 'inferred',
-            'surfaces.interest' => 'inferred',
-            'surfaces.gift_ideas' => 'inferred',
-            'relationships.husband.infer' => true,
-            'relationships.wife.infer' => true,
-            'relationships.boyfriend.infer' => true,
-            'relationships.girlfriend.infer' => true,
-        ];
-
-        foreach ($overrides + $settings as $key => $value) {
-            config(['recipient_eligibility.'.$key => $value]);
-        }
-    }
-
-    /**
      * @param  array{
      *     relationships?: list<string>,
      *     occasions?: list<string>,

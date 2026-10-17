@@ -24,7 +24,7 @@ class RecipientEligibilityConfigIntegrityTest extends TestCase
 
     public function test_everything_ships_disabled(): void
     {
-        $defaults = require config_path('recipient_eligibility.php');
+        $defaults = $this->shippedDefaults();
 
         $this->assertFalse($defaults['enabled']);
         $this->assertFalse($defaults['shadow']);
@@ -39,6 +39,22 @@ class RecipientEligibilityConfigIntegrityTest extends TestCase
 
         foreach ($defaults['relationships'] as $profile) {
             $this->assertFalse($profile['infer']);
+        }
+    }
+
+    public function test_phpunit_pins_every_recipient_eligibility_env_variable_to_strict_defaults(): void
+    {
+        preg_match_all("/env\\('(RECIPIENT_ELIGIBILITY_[A-Z_]+)'/", (string) file_get_contents(config_path('recipient_eligibility.php')), $matches);
+        $phpunit = (string) file_get_contents(base_path('phpunit.xml'));
+
+        $this->assertNotEmpty($matches[1]);
+
+        foreach (array_unique($matches[1]) as $variable) {
+            $this->assertMatchesRegularExpression(
+                '/<env name="'.$variable.'" value="[^"]*" force="true"\\/>/',
+                $phpunit,
+                "{$variable} must be pinned in phpunit.xml so a local .env cannot change test results",
+            );
         }
     }
 
@@ -101,5 +117,45 @@ class RecipientEligibilityConfigIntegrityTest extends TestCase
         app(QueryDiscoveryListingProductsAction::class)->execute($context, new DiscoveryListingQueryState);
 
         Log::shouldNotHaveReceived('info');
+    }
+
+    /**
+     * Evaluates the config file as shipped: every RECIPIENT_ELIGIBILITY_* variable
+     * is removed from the process environment for the duration of the read, so
+     * neither .env, the shell nor phpunit.xml can influence the result.
+     *
+     * @return array<string, mixed>
+     */
+    private function shippedDefaults(): array
+    {
+        preg_match_all("/env\\('(RECIPIENT_ELIGIBILITY_[A-Z_]+)'/", (string) file_get_contents(config_path('recipient_eligibility.php')), $matches);
+
+        $saved = [];
+
+        foreach (array_unique($matches[1]) as $variable) {
+            $saved[$variable] = [
+                'env' => $_ENV[$variable] ?? null,
+                'server' => $_SERVER[$variable] ?? null,
+                'process' => getenv($variable),
+            ];
+            unset($_ENV[$variable], $_SERVER[$variable]);
+            putenv($variable);
+        }
+
+        try {
+            return require config_path('recipient_eligibility.php');
+        } finally {
+            foreach ($saved as $variable => $values) {
+                if ($values['env'] !== null) {
+                    $_ENV[$variable] = $values['env'];
+                }
+                if ($values['server'] !== null) {
+                    $_SERVER[$variable] = $values['server'];
+                }
+                if ($values['process'] !== false) {
+                    putenv($variable.'='.$values['process']);
+                }
+            }
+        }
     }
 }

@@ -184,6 +184,29 @@ class GiftResourceTest extends TestCase
             ->assertSee('Needs review');
     }
 
+    public function test_price_column_follows_product_name_and_keeps_sorting(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $cheap = Product::factory()->create(['name' => 'Cheap Gift', 'slug' => 'cheap-gift', 'price_amount' => '100.00']);
+        $pricey = Product::factory()->create(['name' => 'Pricey Gift', 'slug' => 'pricey-gift', 'price_amount' => '900.00']);
+
+        $component = Livewire::test(ListGifts::class);
+        $columns = array_keys($component->instance()->getTable()->getColumns());
+        $nameIndex = array_search('name', $columns, true);
+
+        $this->assertNotFalse($nameIndex);
+        $this->assertSame('price_amount', $columns[$nameIndex + 1]);
+        $this->assertSame(1, count(array_keys($columns, 'price_amount', true)));
+        $this->assertTrue($component->instance()->getTable()->getColumn('price_amount')->isSortable());
+
+        $component
+            ->sortTable('price_amount')
+            ->assertCanSeeTableRecords([$cheap, $pricey], inOrder: true)
+            ->sortTable('price_amount', 'desc')
+            ->assertCanSeeTableRecords([$pricey, $cheap], inOrder: true);
+    }
+
     private function readyPromotedDraft(
         Merchant $merchant,
         Category $category,
